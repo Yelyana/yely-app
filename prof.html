@@ -100,8 +100,10 @@
 <!-- AUTH -->
 <div class="auth-screen" id="auth-screen">
   <div class="auth-card">
-    <div class="auth-logo">Yely in the Air</div>
-    <div class="auth-sub">Espace professeur</div>
+    <div style="text-align:center;margin-bottom:20px">
+      <img src="https://yelyana.github.io/Yelyintheair/yely-images/logo.svg" alt="Yely in the Air" style="height:90px;width:auto;filter:brightness(0) invert(1);opacity:0.9">
+    </div>
+    <div class="auth-sub" style="text-align:center">Espace professeur</div>
     <div id="auth-form">
       <div class="form-group"><label>Email</label><input type="email" id="p-email" placeholder="ton@email.com"></div>
       <div class="form-group"><label>Mot de passe</label><input type="password" id="p-password"></div>
@@ -308,36 +310,50 @@ async function loadPlanning() {
     byDate[ci.date].push(ci);
   });
 
+  // Prochain cours
+  const allFuture = (instances||[]).filter(ci => ci.date >= fmt(today)).sort((a,b) => a.date.localeCompare(b.date) || a.courses?.start_time?.localeCompare(b.courses?.start_time));
+  const next = allFuture[0];
+
   document.getElementById('main-content').innerHTML = `
     <div class="page-title">Mon Planning</div>
+
+    ${next ? `<div style="background:linear-gradient(135deg,var(--accent)22,var(--accent)11);border:1px solid var(--accent)44;border-radius:16px;padding:16px;margin-bottom:20px">
+      <div style="font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Prochain cours</div>
+      <div style="font-size:16px;font-weight:600">${next.courses?.custom_name || 'Cours'}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">${new Date(next.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} · ${next.courses?.start_time?.slice(0,5)}</div>
+      <button onclick="openSeance('${next.id}')" style="margin-top:10px;padding:6px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:12px;font-weight:500">Voir les présences →</button>
+    </div>` : ''}
+
     <div class="week-nav">
       <button onclick="profWeekOffset--;loadPlanning()">‹</button>
       <span style="font-size:14px;font-weight:500;flex:1;text-align:center">${weekLabel}</span>
       <button onclick="profWeekOffset++;loadPlanning()">›</button>
       ${profWeekOffset !== 0 ? `<button onclick="profWeekOffset=0;loadPlanning()" style="font-size:12px;color:var(--accent)">Aujourd'hui</button>` : ''}
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
+
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:8px">
+      ${days.map(d => {
+        const isToday = fmt(d) === fmt(today);
+        return `<div style="text-align:center;font-size:11px;font-weight:600;color:${isToday?'var(--accent)':'var(--text3)'};padding:4px 0">
+          ${JOURS[d.getDay()===0?6:d.getDay()-1]}<br>
+          <span style="font-size:16px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':'var(--text)'}">${d.getDate()}</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
       ${days.map(d => {
         const key = fmt(d);
         const isToday = key === fmt(today);
         const dayCours = byDate[key] || [];
-        return `<div style="background:${isToday?'var(--accent)11':'var(--bg2)'};border:1px solid ${isToday?'var(--accent)44':'var(--border)'};border-radius:14px;padding:14px">
-          <div style="font-size:12px;font-weight:600;color:${isToday?'var(--accent)':'var(--text3)'};margin-bottom:${dayCours.length?'10px':'0'}">
-            ${JOURS_FULL[d.getDay()===0?6:d.getDay()-1]} ${d.getDate()}
-          </div>
+        return `<div style="background:${isToday?'var(--accent)0a':'var(--bg2)'};border:1px solid ${isToday?'var(--accent)33':'var(--border)'};border-radius:12px;padding:8px;min-height:80px">
           ${dayCours.map(ci => {
             const color = ci.courses?.disciplines?.color || '#a78bfa';
             const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
-            return `<div class="cours-pill" style="border-left-color:${color}" onclick="openSeance('${ci.id}')">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <div>
-                  <div style="font-size:13px;font-weight:500">${ci.courses?.start_time?.slice(0,5)} — ${name}</div>
-                  <div style="font-size:11px;color:var(--text3);margin-top:2px">${ci.courses?.duration_minutes} min · ${ci.courses?.max_students} places max</div>
-                </div>
-                <span style="font-size:11px;color:var(--accent)">Présences →</span>
-              </div>
+            return `<div onclick="openSeance('${ci.id}')" style="background:${color}22;border-left:3px solid ${color};border-radius:6px;padding:5px 6px;margin-bottom:4px;cursor:pointer">
+              <div style="font-size:10px;font-weight:600;color:${color}">${ci.courses?.start_time?.slice(0,5)}</div>
+              <div style="font-size:10px;color:var(--text);line-height:1.3">${name}</div>
             </div>`;
-          }).join('') || `<div style="font-size:12px;color:var(--text3)">Pas de cours</div>`}
+          }).join('') || ''}
         </div>`;
       }).join('')}
     </div>
@@ -401,9 +417,20 @@ async function openSeance(instanceId) {
         </div>
       </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:16px 0">Aucune élève inscrite</div>'}
 
+    <div class="section-title" style="margin-top:16px">Note sur cette séance</div>
+    <textarea id="seance-note" rows="3" placeholder="Ambiance, points à améliorer, élèves à surveiller…" style="width:100%;margin-bottom:8px">${ci?.note || ''}</textarea>
+    <button class="btn btn-ghost btn-sm" onclick="saveSeanceNote('${instanceId}')">Sauvegarder la note</button>
+
     <button class="btn btn-ghost" style="margin-top:16px;width:100%" onclick="closeModal()">Fermer</button>
   `;
   openModal();
+}
+
+async function saveSeanceNote(instanceId) {
+  const note = document.getElementById('seance-note').value;
+  const { error } = await db.from('course_instances').update({ note }).eq('id', instanceId);
+  if (error) return showToast(error.message, true);
+  showToast('Note sauvegardée !');
 }
 
 async function profMarkAttendance(bookingId, attended, instanceId) {
@@ -447,20 +474,78 @@ async function loadEleves() {
       ${(profiles||[]).map(p => {
         const stats = studentMap[p.id] || {};
         const total = stats.courses?.length || 0;
-        const rate = total > 0 ? Math.round(stats.attended / total * 100) : 0;
-        return `<div class="card" style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <div style="font-size:14px;font-weight:500">${p.full_name}</div>
-            <div style="font-size:11px;color:var(--text3)">${p.email}</div>
+        const attended = stats.attended || 0;
+        const rate = total > 0 ? Math.round(attended / total * 100) : 0;
+        const lastCours = stats.courses?.map(b => b.course_instance_id).pop();
+        const rateColor = rate >= 80 ? 'var(--green)' : rate >= 50 ? '#fb923c' : 'var(--red)';
+        return `<div class="card" style="padding:14px 16px;cursor:pointer" onclick="openEleveDetail('${p.id}','${p.full_name.replace(/'/g,"\\'")}')">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:14px;font-weight:500">${p.full_name}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.phone || p.email || ''}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:13px;font-weight:600;color:${rateColor}">${rate}%</div>
+              <div style="font-size:11px;color:var(--text3)">${total} cours · ${attended} présences</div>
+            </div>
           </div>
-          <div style="text-align:right">
-            <div style="font-size:13px;font-weight:500">${total} cours</div>
-            <div style="font-size:11px;color:var(--text3)">${rate}% présence</div>
+          <div style="margin-top:10px;height:4px;background:var(--border);border-radius:2px">
+            <div style="height:4px;background:${rateColor};border-radius:2px;width:${rate}%;transition:width .5s"></div>
           </div>
         </div>`;
       }).join('')}
     </div>
   `;
+}
+
+// ── FICHE ÉLÈVE ───────────────────────────────────────────
+async function openEleveDetail(studentId, name) {
+  const { data: profile } = await db.from('profiles').select('*').eq('id', studentId).single();
+  const myInstanceIds = (await db.from('course_instances').select('id,date,courses(custom_name)').eq('teacher_id', currentUser.id).order('date',{ascending:false})).data || [];
+  const ids = myInstanceIds.map(ci => ci.id);
+  const { data: bookings } = ids.length ? await db.from('bookings').select('*').eq('student_id', studentId).in('course_instance_id', ids) : { data: [] };
+
+  const total = bookings?.length || 0;
+  const attended = bookings?.filter(b => b.attended).length || 0;
+  const rate = total > 0 ? Math.round(attended/total*100) : 0;
+  const rateColor = rate >= 80 ? 'var(--green)' : rate >= 50 ? '#fb923c' : 'var(--red)';
+
+  const history = myInstanceIds.filter(ci => bookings?.find(b => b.course_instance_id === ci.id));
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">${name}</div>
+    ${profile?.phone ? `<div style="font-size:13px;color:var(--text3);margin-bottom:4px">📞 ${profile.phone}</div>` : ''}
+    ${profile?.email ? `<div style="font-size:13px;color:var(--text3);margin-bottom:16px">✉️ ${profile.email}</div>` : ''}
+
+    <div style="display:flex;gap:10px;margin-bottom:20px">
+      <div style="flex:1;text-align:center;background:var(--bg);border-radius:10px;padding:10px">
+        <div style="font-size:20px;font-weight:600;color:${rateColor}">${rate}%</div>
+        <div style="font-size:10px;color:var(--text3)">PRÉSENCE</div>
+      </div>
+      <div style="flex:1;text-align:center;background:var(--bg);border-radius:10px;padding:10px">
+        <div style="font-size:20px;font-weight:600">${total}</div>
+        <div style="font-size:10px;color:var(--text3)">COURS</div>
+      </div>
+      <div style="flex:1;text-align:center;background:var(--bg);border-radius:10px;padding:10px">
+        <div style="font-size:20px;font-weight:600;color:var(--green)">${attended}</div>
+        <div style="font-size:10px;color:var(--text3)">PRÉSENTES</div>
+      </div>
+    </div>
+
+    <div class="section-title">Historique dans mes cours</div>
+    ${history.slice(0,8).map(ci => {
+      const b = bookings?.find(bk => bk.course_instance_id === ci.id);
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:13px">${new Date(ci.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} — ${ci.courses?.custom_name || 'Cours'}</div>
+        <span style="font-size:12px;font-weight:600;color:${b?.attended===true?'var(--green)':b?.attended===false?'var(--red)':'var(--text3)'}">
+          ${b?.attended===true?'✓ Présente':b?.attended===false?'✗ Absente':'—'}
+        </span>
+      </div>`;
+    }).join('') || '<div style="color:var(--text3);font-size:13px">Aucun historique</div>'}
+
+    <button class="btn btn-ghost" style="margin-top:16px" onclick="closeModal()">Fermer</button>
+  `;
+  openModal();
 }
 
 // ── MES STATS ─────────────────────────────────────────────
