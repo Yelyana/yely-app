@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yely Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #0f0d16; --bg2: #17141f; --card: #1e1a2e; --border: #2a2540;
+  --violet: #9b7ddb; --violet-light: #c4a8f5; --violet-dark: #3d2f62;
+  --ivoire: #f0ecfa; --text: #f0ecfa; --text2: #b8b0cc; --text3: #8a829a;
+  --green: #7dbf9b; --red: #e87a7a; --orange: #f5c4a8;
+  --sidebar: 220px; --radius: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+.serif { font-family: 'Cormorant Garamond', serif; }
+
+/* ── LAYOUT ── */
+.layout { display: flex; min-height: 100vh; }
+.sidebar { width: var(--sidebar); background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; }
+.main { margin-left: var(--sidebar); flex: 1; padding: 32px; min-height: 100vh; }
+@media (max-width: 768px) {
+  .sidebar { width: 100%; height: auto; position: relative; flex-direction: row; flex-wrap: wrap; padding: 12px; gap: 4px; border-right: none; border-bottom: 1px solid var(--border); }
+  .main { margin-left: 0; padding: 16px; }
+  .sidebar-logo { display: none; }
+  .nav-link { padding: 8px 12px; font-size: 12px; }
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── SIDEBAR ── */
+.sidebar-logo { padding: 24px 20px 16px; }
+.sidebar-logo .serif { font-size: 20px; font-weight: 300; color: var(--ivoire); }
+.sidebar-logo .sub { font-size: 10px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+.nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: var(--text3); cursor: pointer; border: none; background: none; width: 100%; text-align: left; font-size: 13px; font-family: 'DM Sans', sans-serif; border-radius: 8px; transition: all 0.2s; }
+.nav-link:hover { color: var(--text2); background: rgba(255,255,255,0.04); }
+.nav-link.active { color: var(--violet-light); background: rgba(155,125,219,0.1); }
+.nav-link svg { width: 16px; height: 16px; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); }
+
+/* ── CARDS ── */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.stat-val { font-size: 36px; font-family: 'Cormorant Garamond', serif; color: var(--violet-light); }
+.stat-lbl { font-size: 12px; color: var(--text3); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-delta { font-size: 12px; margin-top: 8px; }
+.stat-delta.up { color: var(--green); }
+.stat-delta.down { color: var(--red); }
+
+/* ── SECTION ── */
+.section-title { font-size: 18px; font-family: 'Cormorant Garamond', serif; font-weight: 300; color: var(--ivoire); margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+.page-header { margin-bottom: 28px; }
+.page-title { font-size: 28px; font-family: 'Cormorant Garamond', serif; font-weight: 300; color: var(--ivoire); }
+.page-sub { font-size: 13px; color: var(--text3); margin-top: 4px; }
+
+/* ── TABLE ── */
+table { width: 100%; border-collapse: collapse; }
+th { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+td { padding: 12px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* ── BUTTONS ── */
+.btn { padding: 10px 18px; border-radius: 10px; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.btn-primary { background: var(--violet); color: #fff; }
+.btn-primary:hover { background: var(--violet-dark); }
+.btn-ghost { background: none; border: 1px solid var(--border); color: var(--text2); }
+.btn-ghost:hover { background: var(--border); }
+.btn-danger { background: rgba(232,122,122,0.15); color: var(--red); border: 1px solid rgba(232,122,122,0.3); }
+.btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 7px; }
+
+/* ── BADGE ── */
+.badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+.badge-green { background: rgba(125,191,155,0.15); color: var(--green); }
+.badge-violet { background: rgba(155,125,219,0.15); color: var(--violet-light); }
+.badge-red { background: rgba(232,122,122,0.15); color: var(--red); }
+.badge-gray { background: rgba(138,130,154,0.15); color: var(--text3); }
+.badge-orange { background: rgba(245,196,168,0.15); color: var(--orange); }
+
+/* ── FORM ── */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.form-group { margin-bottom: 16px; }
+label { display: block; font-size: 11px; color: var(--text3); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
+input, select, textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; transition: border-color 0.2s; }
+input:focus, select:focus { border-color: var(--violet); }
+select option { background: var(--bg); }
+
+/* ── MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 28px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; }
+.modal-title { font-size: 22px; font-family: 'Cormorant Garamond', serif; font-weight: 300; margin-bottom: 20px; }
+
+/* ── PLANNING GRID ── */
+.planning-grid { display: grid; grid-template-columns: 80px repeat(7, 1fr); gap: 1px; background: var(--border); border-radius: 12px; overflow: hidden; }
+.planning-cell { background: var(--card); padding: 8px; min-height: 48px; }
+.planning-header { background: var(--bg); padding: 10px 8px; font-size: 11px; color: var(--text3); text-align: center; text-transform: uppercase; letter-spacing: 0.5px; }
+.planning-time { background: var(--bg); padding: 10px 8px; font-size: 11px; color: var(--text3); text-align: right; }
+.cours-pill { border-radius: 6px; padding: 4px 6px; margin-bottom: 2px; font-size: 11px; cursor: pointer; transition: opacity 0.2s; }
+.cours-pill:hover { opacity: 0.8; }
+
+/* ── LOADING ── */
+.loading { display: flex; align-items: center; justify-content: center; padding: 60px; color: var(--text3); }
+.spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--violet); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 10px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── AUTH ── */
+#auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.auth-box { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 40px; width: 100%; max-width: 380px; }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--card); border: 1px solid var(--violet); border-radius: 10px; padding: 12px 18px; font-size: 13px; z-index: 1000; display: none; animation: fadeIn 0.3s; }
+.toast.error { border-color: var(--red); }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.pill-color { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="serif" style="font-size:28px;font-weight:300;margin-bottom:4px">Yely Admin</div>
+    <p style="color:var(--text3);font-size:13px;margin-bottom:28px">Espace administration</p>
+    <div class="form-group"><label>Email</label><input type="email" id="a-email" placeholder="admin@yelyintheair.com"></div>
+    <div class="form-group"><label>Mot de passe</label><input type="password" id="a-password"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="adminLogin()">Connexion</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen" style="display:none">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <img src="https://yelyana.github.io/Yelyintheair/yely-images/logo.svg" alt="Yely in the Air" style="height:80px;width:auto;filter:brightness(0) invert(1);opacity:0.9;display:block;margin-bottom:6px">
+        <div class="sub">Administration</div>
+      </div>
+      <nav style="padding: 8px 12px; flex: 1; display: flex; flex-direction: column; gap: 2px;">
+        <button class="nav-link active" onclick="showPage('dashboard')" id="nav-dashboard">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+          Tableau de bord
+        </button>
+        <button class="nav-link" onclick="showPage('planning')" id="nav-planning">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+          Planning
+        </button>
+        <button class="nav-link" onclick="showPage('eleves')" id="nav-eleves">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+          Élèves
+        </button>
+        <button class="nav-link" onclick="showPage('profs')" id="nav-profs">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5"/></svg>
+          Professeurs
+        </button>
+        <button class="nav-link" onclick="showPage('revenus')" id="nav-revenus">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/></svg>
+          Revenus
+        </button>
+        <button class="nav-link" onclick="showPage('forfaits')" id="nav-forfaits">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185z"/></svg>
+          Forfaits
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <div style="font-size:12px;color:var(--text3)" id="admin-name">Admin</div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%" onclick="logout()">Déconnexion</button>
+      </div>
+    </aside>
+
+    <main class="main" id="main-content">
+      <div class="loading"><div class="spinner"></div>Chargement…</div>
+    </main>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" id="modal-inner">
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://xayixasuyuranscustyw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhheWl4YXN1eXVyYW5zY3VzdHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MjIwMTIsImV4cCI6MjA5ODE5ODAxMn0.Kp_cJd5YMtbFZnUvUhd-4wMf0enjcBWsGzjwQSnAPP4';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: 'yely-admin-auth'
+  }
+});
+
+let currentUser = null, currentProfile = null, currentPage = 'dashboard';
+const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
+// ── AUTH ──────────────────────────────────────────────────
+async function adminLogin() {
+  const email = document.getElementById('a-email').value.trim();
+  const password = document.getElementById('a-password').value;
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  if (error) return showToast(error.message, true);
+}
+
+async function logout() { await db.auth.signOut(); location.reload(); }
+
+async function loadAdminUser(user) {
+  currentUser = user;
+  const { data } = await db.from('profiles').select('*').eq('id', user.id).single();
+  currentProfile = data;
+  if (!['admin', 'teacher'].includes(currentProfile?.role)) {
+    await db.auth.signOut();
+    return showToast("Accès réservé à l'équipe Yely", true);
+  }
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('admin-name').textContent = currentProfile.full_name;
+  showPage('dashboard');
+}
+
+(async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if (session?.user) await loadAdminUser(session.user);
+})();
+
+db.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session?.user) {
+    await loadAdminUser(session.user);
+  } else if (event === 'SIGNED_OUT') {
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('app-screen').style.display = 'none';
+    currentUser = null; currentProfile = null;
+  } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+    currentUser = session.user;
+  }
+});
+
+// ── NAV ───────────────────────────────────────────────────
+function showPage(page) {
+  currentPage = page;
+  document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+  const nav = document.getElementById('nav-' + page);
+  if (nav) nav.classList.add('active');
+  const pages = { dashboard: loadDashboard, planning: loadPlanning, eleves: loadEleves, profs: loadProfs, revenus: loadRevenus, forfaits: loadForfaits };
+  if (pages[page]) pages[page]();
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────
+async function loadDashboard() {
+  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+  const today = new Date().toISOString().split('T')[0];
+  const monthStart = today.slice(0, 7) + '-01';
+  const lastMonthStart = new Date(new Date().setMonth(new Date().getMonth()-1)).toISOString().slice(0,7) + '-01';
+  const lastMonthEnd = today.slice(0, 7) + '-01';
+  const threeWeeksAgo = new Date(Date.now() - 21*24*60*60*1000).toISOString().split('T')[0];
+  const in7days = new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0];
+
+  const [
+    { count: totalStudents },
+    { count: bookingsMonth },
+    { count: bookingsLastMonth },
+    { data: recentBookings },
+    { data: todayCours },
+    { data: topCours },
+    { data: allStudents },
+    { data: topCredits },
+  ] = await Promise.all([
+    db.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
+    db.from('bookings').select('*', { count: 'exact', head: true }).gte('booked_at', monthStart).eq('status', 'confirmed'),
+    db.from('bookings').select('*', { count: 'exact', head: true }).gte('booked_at', lastMonthStart).lt('booked_at', lastMonthEnd).eq('status', 'confirmed'),
+    db.from('bookings').select('*, profiles(full_name), course_instances(date, courses(custom_name, disciplines(name,color)))').eq('status', 'confirmed').order('booked_at', { ascending: false }).limit(6),
+    db.from('course_instances').select('*, courses(custom_name, start_time, max_students, disciplines(name,color))').eq('date', today).neq('status','cancelled').order('courses(start_time)'),
+    db.from('bookings').select('course_instance_id, course_instances(courses(custom_name, disciplines(name,color), max_students))').eq('status','confirmed').gte('booked_at', monthStart),
+    db.from('profiles').select('id, full_name, birthday, created_at').eq('role', 'student'),
+    db.from('student_credits').select('products(name), sessions_total').gte('purchased_at', monthStart),
+  ]);
+
+  const bookingsTrend = bookingsLastMonth > 0 ? Math.round((bookingsMonth - bookingsLastMonth) / bookingsLastMonth * 100) : null;
+
+  // Anniversaires dans les 7 prochains jours
+  const todayMD = today.slice(5);
+  const in7MD = in7days.slice(5);
+  const birthdays = (allStudents || []).filter(s => {
+    if (!s.birthday) return false;
+    const md = s.birthday.slice(5);
+    return todayMD <= in7MD ? (md >= todayMD && md <= in7MD) : (md >= todayMD || md <= in7MD);
+  });
+
+  // Élèves à relancer (pas de résa depuis 3 semaines)
+  const recentIds = new Set((recentBookings||[]).map(b => b.profiles?.id));
+
+  // Top cours ce mois
+  const courseCount = {};
+  (topCours || []).forEach(b => {
+    const ci = b.course_instances;
+    if (!ci) return;
+    const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || '?';
+    const color = ci.courses?.disciplines?.color || '#a78bfa';
+    const max = ci.courses?.max_students || 10;
+    if (!courseCount[name]) courseCount[name] = { count: 0, color, max };
+    courseCount[name].count++;
+  });
+  const topCoursArr = Object.entries(courseCount).sort((a,b) => b[1].count - a[1].count).slice(0,5);
+
+  // Top produits
+  const prodCount = {};
+  (topCredits||[]).forEach(c => {
+    const n = c.products?.name || '?';
+    prodCount[n] = (prodCount[n]||0) + 1;
+  });
+  const topProdsArr = Object.entries(prodCount).sort((a,b) => b[1]-a[1]).slice(0,4);
+  const maxProd = topProdsArr[0]?.[1] || 1;
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Tableau de bord 🦇</div>
+      <div class="page-sub">${new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</div>
+    </div>
+
+    ${birthdays.length ? `<div style="background:#f472b611;border:1px solid #f472b644;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">🎂</span>
+      <div style="font-size:13px">Anniversaire${birthdays.length>1?'s':''} cette semaine : <strong>${birthdays.map(s=>s.full_name).join(', ')}</strong></div>
+    </div>` : ''}
+
+    <div class="grid-3" style="margin-bottom:20px">
+      <div class="stat-card" style="cursor:pointer" onclick="showPage('eleves')">
+        <div class="stat-val">${totalStudents || 0}</div>
+        <div class="stat-lbl">Élèves inscrites</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">${bookingsMonth || 0}
+          ${bookingsTrend !== null ? `<span style="font-size:12px;color:${bookingsTrend>=0?'#7dbf9b':'#e87a7a'};margin-left:6px">${bookingsTrend>=0?'↑':'↓'} ${Math.abs(bookingsTrend)}%</span>` : ''}
+        </div>
+        <div class="stat-lbl">Réservations ce mois</div>
+      </div>
+      <div class="stat-card" style="cursor:pointer" onclick="showPage('eleves')">
+        <div class="stat-val" style="color:#f472b6">${(allStudents||[]).filter(s => {
+          const joined = s.created_at?.slice(0,10);
+          return joined >= threeWeeksAgo;
+        }).length}</div>
+        <div class="stat-lbl">Nouvelles ce mois</div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:20px">
+      <div>
+        <div class="section-title">Cours d'aujourd'hui</div>
+        <div class="card">
+          ${todayCours?.length ? todayCours.map(ci => {
+            const color = ci.courses?.disciplines?.color || '#a78bfa';
+            const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
+            const max = ci.courses?.max_students || 10;
+            return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)" onclick="viewInstance('${ci.id}')" style="cursor:pointer">
+              <div style="width:3px;height:36px;background:${color};border-radius:2px;flex-shrink:0"></div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:500">${name}</div>
+                <div style="font-size:11px;color:var(--text3)">${ci.courses?.start_time?.slice(0,5)} · ${max} places</div>
+              </div>
+            </div>`;
+          }).join('') : '<div style="color:var(--text3);padding:20px;text-align:center">Pas de cours aujourd\'hui</div>'}
+        </div>
+      </div>
+      <div>
+        <div class="section-title">Dernières réservations</div>
+        <div class="card">
+          ${recentBookings?.length ? recentBookings.map(b => {
+            const color = b.course_instances?.courses?.disciplines?.color || '#a78bfa';
+            const name = b.course_instances?.courses?.custom_name || b.course_instances?.courses?.disciplines?.name || '';
+            const date = b.course_instances?.date ? new Date(b.course_instances.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '';
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0"></div>
+                <div><div style="font-size:13px">${b.profiles?.full_name||'—'}</div>
+                <div style="font-size:11px;color:var(--text3)">${name} · ${date}</div></div>
+              </div><span class="badge badge-green">✓</span>
+            </div>`;
+          }).join('') : '<div style="color:var(--text3);padding:20px;text-align:center">Aucune réservation</div>'}
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div class="section-title">🏆 Cours les plus réservés ce mois</div>
+        <div class="card">
+          ${topCoursArr.length ? topCoursArr.map(([name, d], i) => {
+            const pct = Math.round(d.count / (topCoursArr[0][1].count||1) * 100);
+            return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:13px">${i===0?'🥇':i===1?'🥈':i===2?'🥉':''} ${name}</span>
+                <span style="font-size:12px;color:var(--text3)">${d.count} résa</span>
+              </div>
+              <div style="height:4px;background:var(--border);border-radius:2px">
+                <div style="height:4px;background:${d.color};border-radius:2px;width:${pct}%"></div>
+              </div>
+            </div>`;
+          }).join('') : '<div style="color:var(--text3);padding:20px;text-align:center">Pas encore de données</div>'}
+        </div>
+      </div>
+      <div>
+        <div class="section-title">💳 Formules les plus achetées</div>
+        <div class="card">
+          ${topProdsArr.length ? topProdsArr.map(([name, count]) => {
+            const pct = Math.round(count / maxProd * 100);
+            return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:13px">${name}</span>
+                <span style="font-size:12px;color:var(--text3)">${count} achat${count>1?'s':''}</span>
+              </div>
+              <div style="height:4px;background:var(--border);border-radius:2px">
+                <div style="height:4px;background:var(--accent);border-radius:2px;width:${pct}%"></div>
+              </div>
+            </div>`;
+          }).join('') : '<div style="color:var(--text3);padding:20px;text-align:center">Pas encore de données</div>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+
+async function generateInstances() {
+  showToast('Génération des cours en cours…');
+  const { data, error } = await db.rpc('generate_course_instances', { weeks_ahead: 8 });
+  if (error) return showToast('Erreur : ' + error.message, true);
+  showToast(`${data} instance(s) de cours créées !`);
+  loadDashboard();
+}
+
+// ── PLANNING ──────────────────────────────────────────────
+let planningView = 'week';
+let planningOffset = 0;
+
+async function loadPlanning() {
+  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+  const [{ data: disciplines }, { data: teachers }] = await Promise.all([
+    db.from('disciplines').select('*').order('sort_order'),
+    db.from('profiles').select('id, full_name').eq('role', 'teacher'),
+  ]);
+  window._planningDisciplines = disciplines || [];
+  window._planningTeachers = teachers || [];
+  await renderPlanning();
+}
+
+async function renderPlanning() {
+  const disciplines = window._planningDisciplines || [];
+  const teachers = window._planningTeachers || [];
+
+  const today = new Date();
+  let rangeStart, rangeEnd, title;
+
+  if (planningView === 'week') {
+    const dow = today.getDay() === 0 ? 6 : today.getDay() - 1;
+    rangeStart = new Date(today); rangeStart.setDate(today.getDate() - dow + planningOffset * 7);
+    rangeEnd = new Date(rangeStart); rangeEnd.setDate(rangeStart.getDate() + 6);
+    const fmt = d => d.toLocaleDateString('fr-FR', { day:'numeric', month:'short' });
+    title = `${fmt(rangeStart)} – ${fmt(rangeEnd)}`;
+  } else {
+    rangeStart = new Date(today.getFullYear(), today.getMonth() + planningOffset, 1);
+    rangeEnd = new Date(today.getFullYear(), today.getMonth() + planningOffset + 1, 0);
+    title = rangeStart.toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
+  }
+
+  const fmt = d => d.toISOString().slice(0,10);
+  const { data: instances } = await db.from('course_instances')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, discipline_id, disciplines(name,color), profiles(full_name))')
+    .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
+    .neq('status', 'cancelled').order('date').order('courses(start_time)');
+
+  const byDate = {};
+  (instances || []).forEach(ci => {
+    if (!byDate[ci.date]) byDate[ci.date] = [];
+    byDate[ci.date].push(ci);
+  });
+
+  const pillHtml = (ci) => {
+    const c = ci.courses || {};
+    const color = c.disciplines?.color || '#a78bfa';
+    const name = c.custom_name || c.disciplines?.name || 'Cours';
+    const time = c.start_time?.slice(0,5) || '';
+    const prof = c.profiles?.full_name?.split(' ')[0] || '';
+    const tag = c.is_recurring ? '' : '<span style="font-size:9px;background:#f472b622;color:#f472b6;border-radius:4px;padding:1px 4px;margin-left:4px">⭐</span>';
+    return `<div class="cours-pill" style="background:${color}22;border-left:3px solid ${color};cursor:pointer" onclick="viewInstance('${ci.id}')">
+      <div style="font-weight:500;font-size:12px">${time} ${tag}</div>
+      <div style="font-size:11px;color:var(--text2)">${name}</div>
+      ${prof ? `<div style="font-size:10px;color:var(--text3)">${prof} · ${c.max_students || ''}p</div>` : ''}
+    </div>`;
+  };
+
+  let gridHtml = '';
+  if (planningView === 'week') {
+    const days = Array.from({length:7}, (_,i) => { const d = new Date(rangeStart); d.setDate(rangeStart.getDate()+i); return d; });
+    gridHtml = `<div style="overflow-x:auto"><table><thead><tr>
+      ${days.map(d => `<th style="${fmt(d)===fmt(today)?'color:var(--accent)':''}">${JOURS[d.getDay()===0?6:d.getDay()-1]}<br><span style="font-size:11px;font-weight:400">${d.getDate()}</span></th>`).join('')}
+    </tr></thead><tbody><tr style="vertical-align:top">
+      ${days.map(d => `<td>${(byDate[fmt(d)]||[]).map(pillHtml).join('')}</td>`).join('')}
+    </tr></tbody></table></div>`;
+  } else {
+    const firstDow = (rangeStart.getDay() + 6) % 7;
+    const daysInMonth = rangeEnd.getDate();
+    let cells = Array(firstDow).fill('<td style="background:transparent"></td>');
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), day);
+      const key = fmt(d);
+      const isToday = key === fmt(today);
+      cells.push(`<td style="vertical-align:top;min-width:120px;padding:6px;border-radius:8px;background:${isToday?'var(--accent)11':'transparent'}">
+        <div style="font-size:11px;font-weight:600;color:${isToday?'var(--accent)':'var(--text3)'};margin-bottom:4px">${day}</div>
+        ${(byDate[key]||[]).map(pillHtml).join('')}
+      </td>`);
+    }
+    while (cells.length % 7 !== 0) cells.push('<td style="background:transparent"></td>');
+    const rows = [];
+    for (let i = 0; i < cells.length; i += 7) rows.push(`<tr>${cells.slice(i,i+7).join('')}</tr>`);
+    gridHtml = `<div style="overflow-x:auto"><table><thead><tr>${JOURS.map(j=>`<th>${j}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+  }
+
+  const disciplinesJson = JSON.stringify(disciplines).replace(/"/g,'&quot;');
+  const teachersJson = JSON.stringify(teachers).replace(/"/g,'&quot;');
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div class="page-title">Planning</div>
+      <button class="btn btn-primary" onclick="openCourseModal(null, ${disciplinesJson}, ${teachersJson})">+ Nouveau cours</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <div style="display:flex;background:var(--bg2);border-radius:10px;padding:3px;gap:2px">
+        <button onclick="planningView='week';planningOffset=0;renderPlanning()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:${planningView==='week'?'var(--accent)':'transparent'};color:${planningView==='week'?'#fff':'var(--text2)'}">Semaine</button>
+        <button onclick="planningView='month';planningOffset=0;renderPlanning()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:${planningView==='month'?'var(--accent)':'transparent'};color:${planningView==='month'?'#fff':'var(--text2)'}">Mois</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="planningOffset--;renderPlanning()" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer">‹</button>
+        <span style="font-size:14px;font-weight:500;min-width:160px;text-align:center">${title}</span>
+        <button onclick="planningOffset++;renderPlanning()" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer">›</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3)"><span style="font-size:14px">⭐</span> Événement unique</div>
+    </div>
+    ${gridHtml}
+  `;
+}
+
+async function viewInstance(id) {
+  const { data: ci } = await db.from('course_instances')
+    .select('*, courses(custom_name, start_time, duration_minutes, max_students, disciplines(name,color), profiles(full_name))')
+    .eq('id', id).single();
+  const { data: bookings } = await db.from('bookings')
+    .select('*, profiles(full_name, email)')
+    .eq('course_instance_id', id).eq('status', 'confirmed');
+  const { data: waitlist } = await db.from('waitlist')
+    .select('*, profiles(full_name)')
+    .eq('course_instance_id', id).order('position');
+
+  const c = ci?.courses || {};
+  const name = c.custom_name || c.disciplines?.name || 'Cours';
+  const color = c.disciplines?.color || '#a78bfa';
+  const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
+  const isCancelled = ci?.status === 'cancelled';
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">${name}</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">${date} · ${c.start_time?.slice(0,5) || ''}</div>
+    ${isCancelled ? `<div style="background:#e87a7a22;border:1px solid #e87a7a44;border-radius:10px;padding:12px;margin-bottom:16px;color:#e87a7a;font-size:13px">⚠️ Séance annulée${ci.cancellation_reason ? ' : ' + ci.cancellation_reason : ''}</div>` : ''}
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inscrits (${bookings?.length || 0}/${c.max_students || '?'})</div>
+      ${bookings?.length ? bookings.map(b => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px">${b.profiles?.full_name}</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            ${!isCancelled ? `
+              <button onclick="markAttendance('${b.id}',true,'${ci.id}')" style="padding:3px 8px;border-radius:6px;border:none;cursor:pointer;font-size:11px;background:${b.attended===true?'#7dbf9b':'var(--bg)'};color:${b.attended===true?'#fff':'var(--text3)'}">✓ Présente</button>
+              <button onclick="markAttendance('${b.id}',false,'${ci.id}')" style="padding:3px 8px;border-radius:6px;border:none;cursor:pointer;font-size:11px;background:${b.attended===false?'#e87a7a':'var(--bg)'};color:${b.attended===false?'#fff':'var(--text3)'}">✗ Absente</button>
+              <button onclick="cancelBookingAdmin('${b.id}','${ci.id}')" style="font-size:11px;color:#e87a7a;background:transparent;border:none;cursor:pointer">Annuler</button>
+            ` : ''}
+          </div>
+        </div>`).join('') : '<div style="color:var(--text3);font-size:13px">Aucun inscrit</div>'}
+    </div>
+    ${waitlist?.length ? `
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Liste d'attente (${waitlist.length})</div>
+      ${waitlist.map((w,i) => `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${i+1}. ${w.profiles?.full_name}</div>`).join('')}
+    </div>` : ''}
+    <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
+      ${!isCancelled ? `<button class="btn btn-primary btn-sm" onclick="closeModal();openCourseModal(${JSON.stringify(c).replace(/"/g,'&quot;')}, ${JSON.stringify(window._planningDisciplines||[]).replace(/"/g,'&quot;')}, ${JSON.stringify(window._planningTeachers||[]).replace(/"/g,'&quot;')})">✏️ Modifier le cours</button>` : ''}
+      ${!isCancelled ? `<button class="btn btn-danger btn-sm" onclick="cancelInstance('${ci.id}')">Annuler la séance</button>` : ''}
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Fermer</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function markAttendance(bookingId, attended, instanceId) {
+  const { error } = await db.from('bookings').update({ attended }).eq('id', bookingId);
+  if (error) return showToast(error.message, true);
+  viewInstance(instanceId);
+}
+
+async function cancelBookingAdmin(bookingId, instanceId) {
+  if (!confirm('Annuler cette réservation et recréditer l\'élève ?')) return;
+  const { error } = await db.from('bookings').update({ status: 'cancelled_by_studio' }).eq('id', bookingId);
+  if (error) return showToast(error.message, true);
+  showToast('Réservation annulée, crédit restitué');
+  viewInstance(instanceId);
+}
+
+async function cancelInstance(instanceId) {
+  const reason = prompt('Motif d\'annulation (optionnel) :') ?? null;
+  if (reason === null) return;
+  const { error } = await db.rpc('cancel_course_instance', { instance_id: parseInt(instanceId), reason: reason || '' });
+  if (error) return showToast(error.message, true);
+  showToast('Séance annulée — élèves notifiés et crédits restitués');
+  closeModal();
+  renderPlanning();
+}
+
+function openCourseModal(course, disciplines, teachers) {
+  const isNew = !course;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">${isNew ? 'Nouveau cours' : 'Modifier le cours'}</div>
+    <div class="form-group">
+      <label>Type de cours</label>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button type="button" id="btn-recurrent" onclick="setCourseType('recurrent')" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:500">🔁 Cours récurrent</button>
+        <button type="button" id="btn-unique" onclick="setCourseType('unique')" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:13px;font-weight:500">⭐ Événement unique</button>
+      </div>
+      <input type="hidden" id="m-type" value="${course?.is_recurring === false ? 'unique' : 'recurrent'}">
+    </div>
+    <div class="form-group">
+      <label>Nom du cours</label>
+      <input type="text" id="m-name" value="${course?.custom_name || ''}" placeholder="Ex: Workshop Tissu Aérien avec Marina">
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Laisse vide pour utiliser le nom de la discipline</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Professeur</label>
+        <select id="m-teacher">
+          <option value="">— Choisir —</option>
+          ${(teachers || []).map(t => `<option value="${t.id}" ${course?.teacher_id === t.id ? 'selected' : ''}>${t.full_name}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" id="field-day" ${course?.is_recurring === false ? 'style="display:none"' : ''}>
+        <label>Jour</label>
+        <select id="m-day">
+          ${JOURS.map((j,i) => `<option value="${i+1}" ${course?.day_of_week === i+1 ? 'selected' : ''}>${j}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" id="field-date" ${course?.is_recurring !== false ? 'style="display:none"' : ''}>
+        <label>Date</label>
+        <input type="date" id="m-date" value="${course?.event_date || ''}">
+      </div>
+      <div class="form-group">
+        <label>Heure de début</label>
+        <input type="time" id="m-time" value="${course?.start_time?.slice(0,5) || '10:00'}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Durée (minutes)</label>
+        <input type="number" id="m-duration" value="${course?.duration_minutes || 60}" min="30" step="15">
+      </div>
+      <div class="form-group">
+        <label>Places maximum</label>
+        <input type="number" id="m-max" value="${course?.max_students || 8}" min="1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Salle</label>
+      <select id="m-salle">
+        <option value="air" ${course?.salle === 'air' || !course?.salle ? 'selected' : ''}>🌬️ Salle Air (Pole Dance, Cerceau Aérien)</option>
+        <option value="terre" ${course?.salle === 'terre' ? 'selected' : ''}>🌿 Salle Terre (Souplesse, Yoga, Pilates)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Niveau</label>
+      <select id="m-level">
+        ${['Tous niveaux','Débutant','Intermédiaire','Avancé'].map(l => `<option ${course?.level === l ? 'selected' : ''}>${l}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Description (optionnel)</label>
+      <textarea id="m-desc" rows="2">${course?.description || ''}</textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" onclick="saveCourse(${course?.id || 'null'})" style="flex:1">${isNew ? 'Créer le cours' : 'Enregistrer'}</button>
+      ${!isNew ? `<button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : ''}
+      <button class="btn btn-ghost" onclick="closeModal()" style="width:auto">Annuler</button>
+    </div>
+  `;
+  openModal();
+}
+
+function setCourseType(type) {
+  document.getElementById('m-type').value = type;
+  const isUnique = type === 'unique';
+  document.getElementById('btn-recurrent').style.cssText = isUnique
+    ? 'flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:13px;font-weight:500'
+    : 'flex:1;padding:10px;border-radius:10px;border:2px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:500';
+  document.getElementById('btn-unique').style.cssText = isUnique
+    ? 'flex:1;padding:10px;border-radius:10px;border:2px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:500'
+    : 'flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:13px;font-weight:500';
+  document.getElementById('field-day').style.display = isUnique ? 'none' : '';
+  document.getElementById('field-date').style.display = isUnique ? '' : 'none';
+}
+
+async function saveCourse(id) {
+  const isUnique = document.getElementById('m-type').value === 'unique';
+  const data = {
+    discipline_id: isUnique ? null : parseInt(document.getElementById('m-discipline').value),
+    teacher_id: document.getElementById('m-teacher').value || null,
+    start_time: document.getElementById('m-time').value,
+    duration_minutes: parseInt(document.getElementById('m-duration').value),
+    max_students: parseInt(document.getElementById('m-max').value),
+    level: document.getElementById('m-level').value,
+    salle: document.getElementById('m-salle').value,
+    description: document.getElementById('m-desc').value || null,
+    custom_name: document.getElementById('m-name').value || null,
+    is_recurring: !isUnique,
+    day_of_week: isUnique ? null : parseInt(document.getElementById('m-day').value),
+    event_date: isUnique ? document.getElementById('m-date').value || null : null,
+  };
+  let error;
+  if (id) { ({ error } = await db.from('courses').update(data).eq('id', id)); }
+  else { ({ error } = await db.from('courses').insert(data)); }
+  if (error) return showToast(error.message, true);
+  closeModal(); showToast(id ? 'Cours mis à jour' : 'Cours créé !'); loadPlanning();
+}
+
+async function deleteCourse(id) {
+  if (!confirm('Supprimer ce cours et toutes ses instances futures ?')) return;
+  await db.from('course_instances').delete().eq('course_id', id).gte('date', new Date().toISOString().split('T')[0]);
+  await db.from('courses').update({ is_active: false }).eq('id', id);
+  closeModal(); showToast('Cours supprimé'); loadPlanning();
+}
+
+// ── ÉLÈVES ────────────────────────────────────────────────
+let _allStudentsData = [];
+let _elevesFilter = 'all';
+let _elevesSort = 'name';
+
+async function loadEleves() {
+  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+  const threeWeeksAgo = new Date(Date.now() - 21*24*60*60*1000).toISOString().split('T')[0];
+
+  const { data: students } = await db.from('profiles').select('*').eq('role', 'student').order('full_name');
+  const { data: bookingStats } = await db.from('bookings')
+    .select('student_id, booked_at, status')
+    .eq('status', 'confirmed')
+    .in('student_id', (students||[]).map(s=>s.id));
+  const { data: activeSubs } = await db.from('subscriptions').select('student_id').eq('status','active');
+  const { data: activeCredits } = await db.from('student_credits').select('student_id').gt('sessions_remaining',0);
+
+  const activeSubIds = new Set((activeSubs||[]).map(s=>s.student_id));
+  const activeCreditIds = new Set((activeCredits||[]).map(c=>c.student_id));
+
+  const statsMap = {};
+  (bookingStats||[]).forEach(b => {
+    if (!statsMap[b.student_id]) statsMap[b.student_id] = { total: 0, lastDate: null };
+    statsMap[b.student_id].total++;
+    if (!statsMap[b.student_id].lastDate || b.booked_at > statsMap[b.student_id].lastDate)
+      statsMap[b.student_id].lastDate = b.booked_at?.slice(0,10);
+  });
+
+  _allStudentsData = (students||[]).map(s => ({
+    ...s,
+    totalCours: statsMap[s.id]?.total || 0,
+    lastCours: statsMap[s.id]?.lastDate || null,
+    hasActive: activeSubIds.has(s.id) || activeCreditIds.has(s.id),
+  }));
+
+  renderEleves();
+}
+
+function getLoyaltyBadge(s) {
+  const threeWeeksAgo = new Date(Date.now() - 21*24*60*60*1000).toISOString().split('T')[0];
+  const threeMonthsAgo = new Date(Date.now() - 90*24*60*60*1000).toISOString().split('T')[0];
+  if (!s.lastCours) return { label: '🌱 Nouvelle', color: '#34d399' };
+  if (s.lastCours < threeWeeksAgo) return { label: '⚠️ À relancer', color: '#f472b6' };
+  if (s.totalCours >= 8 && s.created_at?.slice(0,10) <= threeMonthsAgo) return { label: '💜 Fidèle', color: '#a78bfa' };
+  if (s.totalCours >= 4) return { label: '🌟 Régulière', color: '#fbbf24' };
+  return { label: '🌱 Active', color: '#34d399' };
+}
+
+function renderEleves() {
+  let data = [..._allStudentsData];
+  if (_elevesFilter === 'relancer') data = data.filter(s => {
+    const threeWeeksAgo = new Date(Date.now()-21*24*60*60*1000).toISOString().split('T')[0];
+    return s.lastCours && s.lastCours < threeWeeksAgo;
+  });
+  else if (_elevesFilter === 'fideles') data = data.filter(s => s.totalCours >= 8);
+  else if (_elevesFilter === 'actives') data = data.filter(s => s.hasActive);
+  else if (_elevesFilter === 'nouvelles') data = data.filter(s => {
+    const oneMonthAgo = new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0];
+    return s.created_at?.slice(0,10) >= oneMonthAgo;
+  });
+
+  if (_elevesSort === 'name') data.sort((a,b) => a.full_name.localeCompare(b.full_name));
+  else if (_elevesSort === 'cours') data.sort((a,b) => b.totalCours - a.totalCours);
+  else if (_elevesSort === 'recent') data.sort((a,b) => (b.lastCours||'').localeCompare(a.lastCours||''));
+
+  const relancerCount = _allStudentsData.filter(s => {
+    const t = new Date(Date.now()-21*24*60*60*1000).toISOString().split('T')[0];
+    return s.lastCours && s.lastCours < t;
+  }).length;
+
+  const filterBtn = (key, label) => `<button onclick="_elevesFilter='${key}';renderEleves()"
+    style="padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;
+    background:${_elevesFilter===key?'var(--accent)':'var(--bg2)'};
+    color:${_elevesFilter===key?'#fff':'var(--text2)'};">${label}</button>`;
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div><div class="page-title">Élèves</div><div class="page-sub">${_allStudentsData.length} inscrite${_allStudentsData.length>1?'s':''}</div></div>
+      <button class="btn btn-primary btn-sm" onclick="openGroupMessage()">📣 Message groupé</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      ${filterBtn('all','Toutes')}
+      ${filterBtn('actives','✅ Actives')}
+      ${filterBtn('fideles','💜 Fidèles')}
+      ${filterBtn('nouvelles','🌱 Nouvelles')}
+      ${filterBtn('relancer',`⚠️ À relancer${relancerCount?' ('+relancerCount+')':''}`)}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <span style="font-size:12px;color:var(--text3)">Trier par :</span>
+      <select onchange="_elevesSort=this.value;renderEleves()" style="font-size:12px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+        <option value="name" ${_elevesSort==='name'?'selected':''}>Nom</option>
+        <option value="cours" ${_elevesSort==='cours'?'selected':''}>Nb de cours</option>
+        <option value="recent" ${_elevesSort==='recent'?'selected':''}>Dernière venue</option>
+      </select>
+      <span style="font-size:12px;color:var(--text3);margin-left:8px">${data.length} résultat${data.length>1?'s':''}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${data.map(s => {
+        const badge = getLoyaltyBadge(s);
+        return `<div class="card" style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px" onclick="openStudentDetail('${s.id}','${s.full_name.replace(/'/g,"\\'")}')">
+          <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0">${s.full_name[0]}</div>
+            <div style="min-width:0">
+              <div style="font-size:14px;font-weight:500">${s.full_name}</div>
+              <div style="font-size:11px;color:var(--text3)">${s.email}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
+            <div style="text-align:right">
+              <div style="font-size:12px;font-weight:600">${s.totalCours} cours</div>
+              <div style="font-size:10px;color:var(--text3)">${s.lastCours ? 'Dernière : ' + new Date(s.lastCours).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : 'Jamais venue'}</div>
+            </div>
+            <span style="font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:20px;background:${badge.color}22;color:${badge.color}">${badge.label}</span>
+          </div>
+        </div>`;
+      }).join('') || '<div style="text-align:center;padding:40px;color:var(--text3)">Aucune élève dans cette catégorie</div>'}
+    </div>
+  `;
+}
+
+async function openStudentDetail(studentId, name) {
+  const student = _allStudentsData.find(s => s.id === studentId) || {};
+  const [{ data: credits }, { data: subs }, { data: bookings }] = await Promise.all([
+    db.from('student_credits').select('*, products(name)').eq('student_id', studentId).order('purchased_at', { ascending: false }),
+    db.from('subscriptions').select('*, products(name)').eq('student_id', studentId).order('created_at', { ascending: false }),
+    db.from('bookings').select('*, course_instances(date, courses(custom_name, disciplines(name,color)))').eq('student_id', studentId).in('status',['confirmed','cancelled_by_student']).order('booked_at', { ascending: false }).limit(20),
+  ]);
+
+  const attended = (bookings||[]).filter(b => b.attended === true).length;
+  const confirmed = (bookings||[]).filter(b => b.status === 'confirmed').length;
+  const attendRate = confirmed > 0 ? Math.round(attended / confirmed * 100) : null;
+  const badge = getLoyaltyBadge(student);
+  const nameEsc = name.replace(/'/g,"\\'");
+
+  document.getElementById('modal-body').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div style="width:50px;height:50px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;flex-shrink:0">${name[0]}</div>
+      <div>
+        <div class="modal-title" style="margin-bottom:2px">${name}</div>
+        <span style="font-size:11px;padding:3px 8px;border-radius:20px;background:${badge.color}22;color:${badge.color}">${badge.label}</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+      <div style="flex:1;min-width:80px;text-align:center;background:var(--bg);border-radius:10px;padding:10px">
+        <div style="font-size:20px;font-weight:600">${student.totalCours||0}</div>
+        <div style="font-size:10px;color:var(--text3)">COURS TOTAL</div>
+      </div>
+      ${attendRate !== null ? `<div style="flex:1;min-width:80px;text-align:center;background:var(--bg);border-radius:10px;padding:10px">
+        <div style="font-size:20px;font-weight:600">${attendRate}%</div>
+        <div style="font-size:10px;color:var(--text3)">PRÉSENCE</div>
+      </div>` : ''}
+      <div style="flex:1;min-width:80px;text-align:center;background:var(--bg);border-radius:10px;padding:10px">
+        <div style="font-size:20px;font-weight:600">${student.lastCours ? new Date(student.lastCours).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '—'}</div>
+        <div style="font-size:10px;color:var(--text3)">DERNIÈRE VENUE</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Infos</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">📧 ${student.email||'—'}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">📱 ${student.phone||'—'}</div>
+      ${student.birthday ? `<div style="font-size:13px;color:var(--text2)">🎂 ${new Date(student.birthday).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</div>` : ''}
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Notes privées</div>
+      <textarea id="student-notes" rows="3" placeholder="Notes visibles uniquement par toi..." style="width:100%;resize:vertical">${student.notes||''}</textarea>
+      <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="saveStudentNotes('${studentId}')">Enregistrer la note</button>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Crédits & abonnements actifs</div>
+      ${credits?.filter(c=>c.sessions_remaining>0).map(c=>`
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span>${c.products?.name}</span><span class="badge badge-violet">${c.sessions_remaining} séances</span>
+        </div>`).join('')||''}
+      ${subs?.filter(s=>s.status==='active').map(s=>`
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span>${s.products?.name}</span><span class="badge badge-green">Actif</span>
+        </div>`).join('')||''}
+      ${!credits?.some(c=>c.sessions_remaining>0) && !subs?.some(s=>s.status==='active') ? '<div style="color:var(--text3);font-size:13px">Aucun crédit actif</div>' : ''}
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addCreditsModal('${studentId}','${nameEsc}')">+ Ajouter des crédits</button>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Historique des cours</div>
+      ${bookings?.length ? bookings.map(b => {
+        const isCancelled = b.status !== 'confirmed';
+        const color = b.course_instances?.courses?.disciplines?.color || '#a78bfa';
+        const coursName = b.course_instances?.courses?.custom_name || b.course_instances?.courses?.disciplines?.name || 'Cours';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:4px;height:4px;border-radius:50%;background:${isCancelled?'var(--text3)':color}"></div>
+            <span style="font-size:13px;color:${isCancelled?'var(--text3)':'var(--text)'}">${coursName}</span>
+            ${isCancelled?'<span style="font-size:10px;color:var(--text3)">annulé</span>':''}
+          </div>
+          <span style="font-size:11px;color:var(--text3)">${formatDate(b.course_instances?.date)}</span>
+        </div>`;
+      }).join('') : '<div style="color:var(--text3);font-size:13px">Pas encore de cours</div>'}
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-primary btn-sm" onclick="sendDirectMessage('${studentId}','${nameEsc}')">💬 Message</button>
+      <button class="btn btn-ghost" onclick="closeModal()" style="flex:1">Fermer</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function saveStudentNotes(studentId) {
+  const notes = document.getElementById('student-notes').value;
+  const { error } = await db.from('profiles').update({ notes }).eq('id', studentId);
+  if (error) return showToast(error.message, true);
+  const s = _allStudentsData.find(s => s.id === studentId);
+  if (s) s.notes = notes;
+  showToast('Note enregistrée !');
+}
+
+async function sendDirectMessage(studentId, name) {
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">Message à ${name}</div>
+    <div class="form-group"><label>Titre</label><input id="msg-title" placeholder="Ex: Rappel de cours"></div>
+    <div class="form-group"><label>Message</label><textarea id="msg-body" rows="4" placeholder="Ton message..."></textarea></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="doSendMessage(['${studentId}'])" style="flex:1">Envoyer</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+    </div>
+  `;
+}
+
+function openGroupMessage() {
+  const data = _elevesFilter === 'all' ? _allStudentsData : _allStudentsData.filter(s => {
+    if (_elevesFilter === 'relancer') { const t=new Date(Date.now()-21*24*60*60*1000).toISOString().split('T')[0]; return s.lastCours && s.lastCours < t; }
+    if (_elevesFilter === 'fideles') return s.totalCours >= 8;
+    if (_elevesFilter === 'actives') return s.hasActive;
+    if (_elevesFilter === 'nouvelles') { const t=new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0]; return s.created_at?.slice(0,10) >= t; }
+    return true;
+  });
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">Message groupé</div>
+    <div style="background:var(--bg);border-radius:10px;padding:10px;margin-bottom:16px;font-size:13px;color:var(--text2)">
+      📣 Envoi à <strong>${data.length} élève${data.length>1?'s':''}</strong>${_elevesFilter!=='all'?' (filtre actif : '+_elevesFilter+')':''}
+    </div>
+    <div class="form-group"><label>Titre</label><input id="msg-title" placeholder="Ex: Cours annulé ce lundi"></div>
+    <div class="form-group"><label>Message</label><textarea id="msg-body" rows="4" placeholder="Ton message..."></textarea></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="doSendMessage(${JSON.stringify(data.map(s=>s.id))})" style="flex:1">Envoyer à toutes</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function doSendMessage(studentIds) {
+  const title = document.getElementById('msg-title').value.trim();
+  const message = document.getElementById('msg-body').value.trim();
+  if (!title || !message) return showToast('Titre et message requis', true);
+  const rows = studentIds.map(id => ({ student_id: id, title, message, type: 'info' }));
+  const { error } = await db.from('notifications').insert(rows);
+  if (error) return showToast(error.message, true);
+  showToast(`Message envoyé à ${studentIds.length} élève${studentIds.length>1?'s':''} !`);
+  closeModal();
+}
+
+async function addCreditsModal(studentId, name) {
+  const { data: products } = await db.from('products').select('*').eq('is_active', true).in('type', ['carte']).order('sort_order');
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">Ajouter des crédits — ${name}</div>
+    <div class="form-group"><label>Forfait</label>
+      <select id="ac-product">${products?.map(p => `<option value="${p.id}" data-sessions="${p.sessions_count}" data-valid="${p.valid_for}" data-days="${p.validity_days || 120}">${p.name} (${p.sessions_count} séances)</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label>Raison</label><input id="ac-reason" placeholder="Achat espèces, offert, correction..."></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveManualCredits('${studentId}')" style="flex:1">Ajouter</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+    </div>
+  `;
+}
+
+async function saveManualCredits(studentId) {
+  const sel = document.getElementById('ac-product');
+  const opt = sel.options[sel.selectedIndex];
+  const productId = parseInt(sel.value);
+  const sessions = parseInt(opt.dataset.sessions);
+  const validFor = opt.dataset.valid;
+  const days = parseInt(opt.dataset.days);
+  const expires = new Date(Date.now() + days * 86400000).toISOString();
+  const { error } = await db.from('student_credits').insert({ student_id: studentId, product_id: productId, sessions_remaining: sessions, sessions_total: sessions, valid_for: validFor, expires_at: expires });
+  if (error) return showToast(error.message, true);
+  closeModal(); showToast('Crédits ajoutés !');
+}
+
+// ── PROFESSEURS ───────────────────────────────────────────
+async function loadProfs() {
+  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+  const { data: teachers } = await db.from('profiles').select('*, teachers(*)').eq('role', 'teacher');
+  const isAdmin = currentProfile?.role === 'admin';
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><div class="page-title">Professeurs</div></div>
+      ${isAdmin ? `<button class="btn btn-primary" onclick="openCreateTeacher()">+ Créer un compte prof</button>` : ''}
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Nom</th><th>Email</th><th>Disciplines</th><th>Statut</th>${isAdmin ? '<th>Actions</th>' : ''}</tr></thead>
+        <tbody>
+          ${teachers?.map(t => `<tr>
+            <td><strong>${t.full_name}</strong></td>
+            <td style="color:var(--text3)">${t.email}</td>
+            <td>${(t.teachers?.disciplines || []).join(', ') || '—'}</td>
+            <td><span class="badge badge-green">Actif</span></td>
+            ${isAdmin ? `<td>
+              <button class="btn btn-ghost btn-sm" onclick="openTeacherModal(${JSON.stringify(t).replace(/"/g,'&quot;')})">Modifier</button>
+            </td>` : ''}
+          </tr>`).join('') || `<tr><td colspan="${isAdmin ? 5 : 4}" style="text-align:center;color:var(--text3);padding:32px">Aucun professeur</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+
+    ${currentProfile?.role === 'teacher' ? `
+    <div style="margin-top:24px">
+      <div class="section-title">Mes prochains cours</div>
+      <div id="teacher-courses"><div class="loading"><div class="spinner"></div></div></div>
+    </div>` : ''}
+  `;
+
+  if (currentProfile?.role === 'teacher') {
+    const nextMonday = new Date();
+    nextMonday.setDate(nextMonday.getDate() + 14);
+    const { data: myCourses } = await db.from('course_instances_with_availability').select('*').eq('teacher_id', currentUser.id).gte('date', new Date().toISOString().split('T')[0]).lte('date', nextMonday.toISOString().split('T')[0]).order('date').order('start_time');
+    document.getElementById('teacher-courses').innerHTML = myCourses?.length ? `
+      <div class="card">
+        <table>
+          <thead><tr><th>Date</th><th>Cours</th><th>Heure</th><th>Inscrits</th></tr></thead>
+          <tbody>
+            ${myCourses.map(ci => `<tr>
+              <td>${formatDate(ci.date)}</td>
+              <td>${ci.discipline_name}</td>
+              <td>${ci.start_time?.slice(0,5)}</td>
+              <td><span class="badge badge-violet">${ci.booked_count} / ${ci.max_students}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    ` : '<div style="color:var(--text3)">Pas de cours prévus sur les 2 prochaines semaines</div>';
+  }
+}
+
+function openCreateTeacher() {
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">Créer un compte prof</div>
+    <div class="form-group"><label>Prénom et nom</label><input id="ct-name" placeholder="Ex: Coline Martin"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="ct-email" placeholder="coline@email.com"></div>
+    <div class="form-group"><label>Mot de passe temporaire</label>
+      <input type="text" id="ct-password" value="${Math.random().toString(36).slice(2,10)}">
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Tu l'enverras à la prof — elle pourra le changer ensuite</div>
+    </div>
+    <div class="form-group"><label>Disciplines (séparées par des virgules)</label>
+      <input id="ct-disciplines" placeholder="Ex: Pole Dance, Cerceau Aérien">
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="doCreateTeacher()" style="flex:1">Créer le compte</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function doCreateTeacher() {
+  const name = document.getElementById('ct-name').value.trim();
+  const email = document.getElementById('ct-email').value.trim();
+  const password = document.getElementById('ct-password').value.trim();
+  const disciplines = document.getElementById('ct-disciplines').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if (!name || !email || !password) return showToast('Tous les champs sont requis', true);
+
+  // Client temporaire sans persistance pour ne pas déconnecter Ana
+  const tempClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  const { data: signUpData, error: signUpError } = await tempClient.auth.signUp({ email, password });
+  if (signUpError) return showToast(signUpError.message, true);
+
+  const userId = signUpData.user?.id;
+  if (!userId) return showToast('Erreur création compte', true);
+
+  // Créer le profil avec rôle teacher
+  await db.from('profiles').upsert({ id: userId, email, full_name: name, role: 'teacher' });
+  if (disciplines.length) await db.from('teachers').upsert({ id: userId, disciplines });
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">✅ Compte créé !</div>
+    <div style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Envoie ces infos à <strong>${name}</strong> :</div>
+      <div style="font-size:13px;margin-bottom:6px">🔗 <strong>Lien :</strong> app.yelyintheair.com/prof</div>
+      <div style="font-size:13px;margin-bottom:6px">📧 <strong>Email :</strong> ${email}</div>
+      <div style="font-size:13px">🔑 <strong>Mot de passe :</strong> ${password}</div>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Elle pourra changer son mot de passe depuis son espace prof.</div>
+    <button class="btn btn-primary" style="width:100%" onclick="closeModal();loadProfs()">Fermer</button>
+  `;
+}
+
+function openTeacherModal(teacher) {
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">Modifier le profil prof</div>
+    <div class="form-group"><label>Disciplines (séparées par des virgules)</label>
+      <input id="t-disciplines" value="${(teacher.teachers?.disciplines || []).join(', ')}">
+    </div>
+    <div class="form-group"><label>Bio</label><textarea id="t-bio" rows="3">${teacher.teachers?.bio || ''}</textarea></div>
+    <div class="form-group"><label>Instagram</label><input id="t-instagram" value="${teacher.teachers?.instagram || ''}" placeholder="@handle"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveTeacher('${teacher.id}')" style="flex:1">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function saveTeacher(teacherId) {
+  const disciplines = document.getElementById('t-disciplines').value.split(',').map(s => s.trim()).filter(Boolean);
+  const bio = document.getElementById('t-bio').value;
+  const instagram = document.getElementById('t-instagram').value;
+  const { error } = await db.from('teachers').upsert({ id: teacherId, disciplines, bio, instagram });
+  if (error) return showToast(error.message, true);
+  closeModal(); showToast('Profil mis à jour'); loadProfs();
+}
+
+async function inviteTeacher() {
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">Inviter un professeur</div>
+    <p style="color:var(--text3);font-size:13px;margin-bottom:20px">Le professeur recevra un email pour créer son compte.</p>
+    <div class="form-group"><label>Email</label><input type="email" id="inv-email" placeholder="prof@email.com"></div>
+    <div class="form-group"><label>Prénom et nom</label><input id="inv-name" placeholder="Coline Martin"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="sendInvite()" style="flex:1">Envoyer l'invitation</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function sendInvite() {
+  const email = document.getElementById('inv-email').value.trim();
+  const name = document.getElementById('inv-name').value.trim();
+  const { data, error } = await db.auth.admin.inviteUserByEmail(email, { data: { full_name: name, role: 'teacher' } });
+  if (error) return showToast('Invitation envoyée par email (à configurer dans Supabase Auth)', false);
+  closeModal(); showToast('Invitation envoyée !');
+}
+
+// ── REVENUS ───────────────────────────────────────────────
+async function loadRevenus() {
+  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const [{ data: revenue }, { data: orders }, { data: byTeacher }] = await Promise.all([
+    db.from('teacher_revenue').select('*').eq('month', thisMonth + '-01'),
+    db.from('orders').select('*, products(name), profiles(full_name)').eq('status', 'paid').gte('created_at', thisMonth + '-01').order('created_at', { ascending: false }),
+    db.from('teacher_revenue').select('*').order('month', { ascending: false }).limit(30),
+  ]);
+
+  const totalCA = (orders || []).reduce((s, o) => s + o.amount_cents, 0);
+  const totalCours = (revenue || []).reduce((s, r) => s + r.classes_given, 0);
+  const totalEleves = (revenue || []).reduce((s, r) => s + r.students_taught, 0);
+
+  // Grouper par prof pour ce mois
+  const byProfMap = {};
+  (revenue || []).forEach(r => {
+    if (!byProfMap[r.teacher_name]) byProfMap[r.teacher_name] = { classes: 0, students: 0 };
+    byProfMap[r.teacher_name].classes += r.classes_given;
+    byProfMap[r.teacher_name].students += r.students_taught;
+  });
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Revenus</div>
+      <div class="page-sub">${new Date().toLocaleString('fr', { month: 'long', year: 'numeric' })}</div>
+    </div>
+    <div class="grid-3">
+      <div class="stat-card"><div class="stat-val">${formatPrice(totalCA)}</div><div class="stat-lbl">CA ce mois</div></div>
+      <div class="stat-card"><div class="stat-val">${totalCours}</div><div class="stat-lbl">Cours donnés</div></div>
+      <div class="stat-card"><div class="stat-val">${totalEleves}</div><div class="stat-lbl">Passages élèves</div></div>
+    </div>
+
+    <div class="section-title">Par professeur — ce mois</div>
+    <div class="card" style="margin-bottom:24px">
+      <table>
+        <thead><tr><th>Professeur</th><th>Cours donnés</th><th>Élèves</th></tr></thead>
+        <tbody>
+          ${Object.entries(byProfMap).map(([name, d]) => `<tr>
+            <td><strong>${name}</strong></td>
+            <td>${d.classes}</td>
+            <td>${d.students}</td>
+          </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:24px">Pas de données ce mois</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">Dernières commandes</div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Élève</th><th>Forfait</th><th>Montant</th><th>Date</th></tr></thead>
+        <tbody>
+          ${orders?.map(o => `<tr>
+            <td>${o.profiles?.full_name || '—'}</td>
+            <td>${o.products?.name || '—'}</td>
+            <td style="color:var(--violet-light)">${formatPrice(o.amount_cents)}</td>
+            <td style="color:var(--text3)">${formatDate(o.created_at)}</td>
+          </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:24px">Aucune commande ce mois</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ── FORFAITS ──────────────────────────────────────────────
+async function loadForfaits() {
+  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+  const { data: products } = await db.from('products').select('*').order('sort_order');
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><div class="page-title">Forfaits</div><div class="page-sub">Gérer les offres et tarifs</div></div>
+      <button class="btn btn-primary" onclick="openProductModal(null)">+ Nouveau forfait</button>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Nom</th><th>Type</th><th>Prix</th><th>Séances</th><th>Valable pour</th><th>Statut</th><th></th></tr></thead>
+        <tbody>
+          ${products?.map(p => `<tr>
+            <td><strong>${p.name}</strong><br><span style="font-size:11px;color:var(--text3)">${p.description || ''}</span></td>
+            <td><span class="badge badge-gray">${p.type}</span></td>
+            <td style="color:var(--violet-light);font-size:15px">${formatPrice(p.price_cents)}</td>
+            <td>${p.sessions_count || p.sessions_per_month ? (p.sessions_count || p.sessions_per_month + '/mois') : '∞'}</td>
+            <td style="color:var(--text3);font-size:12px">${p.valid_for === 'all' ? 'Tout' : p.valid_for === 'reformer' ? 'Reformer' : 'Hors Reformer'}</td>
+            <td><span class="badge ${p.is_active ? 'badge-green' : 'badge-red'}">${p.is_active ? 'Actif' : 'Inactif'}</span></td>
+            <td><button class="btn btn-ghost btn-sm" onclick="openProductModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">Modifier</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function openProductModal(p) {
+  const isNew = !p;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">${isNew ? 'Nouveau forfait' : 'Modifier le forfait'}</div>
+    <div class="form-group"><label>Nom</label><input id="p-name" value="${p?.name || ''}"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Type</label>
+        <select id="p-type">
+          <option value="unite" ${p?.type==='unite'?'selected':''}>Cours à l'unité</option>
+          <option value="carte" ${p?.type==='carte'?'selected':''}>Carte multi-séances</option>
+          <option value="abo_illimite" ${p?.type==='abo_illimite'?'selected':''}>Abonnement illimité</option>
+          <option value="abo_mensuel" ${p?.type==='abo_mensuel'?'selected':''}>Abonnement mensuel</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Prix (€)</label>
+        <input type="number" id="p-price" value="${p ? p.price_cents/100 : ''}" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nombre de séances (cartes)</label>
+        <input type="number" id="p-sessions" value="${p?.sessions_count || ''}" placeholder="Ex: 5 ou 10">
+      </div>
+      <div class="form-group">
+        <label>Validité (jours)</label>
+        <input type="number" id="p-validity" value="${p?.validity_days || ''}" placeholder="Ex: 120">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Valable pour</label>
+      <select id="p-validfor">
+        <option value="all" ${p?.valid_for==='all'?'selected':''}>Tous les cours</option>
+        <option value="non_reformer" ${p?.valid_for==='non_reformer'?'selected':''}>Hors Pilates Reformer</option>
+        <option value="reformer" ${p?.valid_for==='reformer'?'selected':''}>Pilates Reformer uniquement</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Description</label><textarea id="p-desc" rows="2">${p?.description || ''}</textarea></div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="p-active" ${p?.is_active !== false ? 'checked' : ''} style="width:auto">
+      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">Actif (visible aux élèves)</label>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveProduct(${p?.id || 'null'})" style="flex:1">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function saveProduct(id) {
+  const data = {
+    name: document.getElementById('p-name').value.trim(),
+    type: document.getElementById('p-type').value,
+    price_cents: Math.round(parseFloat(document.getElementById('p-price').value) * 100),
+    sessions_count: parseInt(document.getElementById('p-sessions').value) || null,
+    validity_days: parseInt(document.getElementById('p-validity').value) || null,
+    valid_for: document.getElementById('p-validfor').value,
+    description: document.getElementById('p-desc').value || null,
+    is_active: document.getElementById('p-active').checked,
+  };
+  let error;
+  if (id) { ({ error } = await db.from('products').update(data).eq('id', id)); }
+  else { ({ error } = await db.from('products').insert(data)); }
+  if (error) return showToast(error.message, true);
+  closeModal(); showToast('Forfait enregistré !'); loadForfaits();
+}
+
+// ── MODAL ─────────────────────────────────────────────────
+function openModal() { document.getElementById('modal').classList.add('open'); }
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal')) return;
+  document.getElementById('modal').classList.remove('open');
+}
+
+// ── UTILS ─────────────────────────────────────────────────
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function formatPrice(cents) {
+  return (cents / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' €';
+}
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast' + (isError ? ' error' : '');
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+</script>
+</body>
+</html>

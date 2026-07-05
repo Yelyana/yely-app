@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yely — Espace Prof</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0f0d14; --bg2: #1a1625; --bg3: #231e30;
+    --accent: #9b7ddb; --accent2: #7c5cbf;
+    --text: #f0eaf8; --text2: #b8afd4; --text3: #7a7090;
+    --border: #2e2840; --green: #7dbf9b; --pink: #f5a4a8; --red: #e87a7a;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+  /* AUTH */
+  .auth-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
+  .auth-card { background:var(--bg2); border:1px solid var(--border); border-radius:20px; padding:32px; width:100%; max-width:380px; }
+  .auth-logo { font-family:'Cormorant Garamond',serif; font-size:28px; font-weight:300; margin-bottom:6px; }
+  .auth-sub { font-size:12px; color:var(--text3); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:28px; }
+
+  /* APP */
+  .app { display:none; }
+  .sidebar { position:fixed; left:0; top:0; bottom:0; width:220px; background:var(--bg2); border-right:1px solid var(--border); padding:24px 16px; display:flex; flex-direction:column; gap:4px; z-index:10; }
+  .sidebar-logo { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:300; padding:0 8px; margin-bottom:20px; }
+  .sidebar-logo .sub { font-size:9px; color:var(--text3); letter-spacing:1.5px; text-transform:uppercase; margin-top:2px; }
+  .nav-link { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; border:none; background:transparent; color:var(--text2); cursor:pointer; font-size:13px; width:100%; text-align:left; transition:all .15s; }
+  .nav-link:hover { background:var(--bg3); color:var(--text); }
+  .nav-link.active { background:var(--accent)22; color:var(--accent); }
+  .main { margin-left:220px; padding:32px; min-height:100vh; }
+
+  /* MOBILE */
+  .mobile-bar { display:none; position:fixed; bottom:0; left:0; right:0; background:var(--bg2); border-top:1px solid var(--border); padding:8px 0; z-index:10; }
+  .mobile-tabs { display:flex; }
+  .mobile-tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px; border:none; background:transparent; color:var(--text3); cursor:pointer; font-size:10px; }
+  .mobile-tab.active { color:var(--accent); }
+  .mobile-tab .icon { font-size:20px; }
+
+  @media(max-width:768px) {
+    .sidebar { display:none; }
+    .mobile-bar { display:block; }
+    .main { margin-left:0; padding:16px; padding-bottom:80px; }
+  }
+
+  /* COMPONENTS */
+  .page-title { font-family:'Cormorant Garamond',serif; font-size:32px; font-weight:300; margin-bottom:4px; }
+  .page-sub { font-size:13px; color:var(--text3); margin-bottom:24px; }
+  .card { background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:20px; margin-bottom:16px; }
+  .section-title { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; margin-bottom:12px; }
+  .stat-card { background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:20px; }
+  .stat-val { font-family:'Cormorant Garamond',serif; font-size:36px; font-weight:300; }
+  .stat-lbl { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; margin-top:4px; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+  @media(max-width:600px) { .grid-3,.grid-2 { grid-template-columns:1fr; } }
+
+  .btn { padding:12px 20px; border-radius:12px; border:none; cursor:pointer; font-size:14px; font-weight:500; font-family:'Inter',sans-serif; transition:all .15s; width:100%; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { background:var(--accent2); }
+  .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text2); }
+  .btn-sm { padding:6px 14px; font-size:12px; border-radius:8px; width:auto; }
+  .btn-danger { background:#e87a7a22; color:var(--red); border:1px solid #e87a7a44; }
+
+  label { display:block; font-size:11px; color:var(--text3); letter-spacing:.5px; text-transform:uppercase; margin-bottom:6px; }
+  input, select, textarea { width:100%; padding:10px 14px; background:var(--bg3); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:14px; font-family:'Inter',sans-serif; outline:none; }
+  input:focus, select:focus, textarea:focus { border-color:var(--accent); }
+  .form-group { margin-bottom:16px; }
+
+  .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:500; }
+  .badge-green { background:rgba(125,191,155,.15); color:var(--green); }
+  .badge-violet { background:rgba(155,125,219,.15); color:var(--accent); }
+  .badge-red { background:rgba(232,122,122,.15); color:var(--red); }
+  .badge-orange { background:rgba(251,146,60,.15); color:#fb923c; }
+
+  .cours-pill { background:var(--bg3); border-radius:10px; padding:10px 12px; margin-bottom:6px; cursor:pointer; border-left:3px solid var(--accent); transition:opacity .15s; }
+  .cours-pill:hover { opacity:.85; }
+
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:100; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--bg2); border:1px solid var(--border); border-radius:20px; padding:28px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; }
+  .modal-title { font-family:'Cormorant Garamond',serif; font-size:26px; font-weight:300; margin-bottom:16px; }
+
+  .loading { display:flex; align-items:center; justify-content:center; gap:12px; padding:60px; color:var(--text3); }
+  .spinner { width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .week-nav { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+  .week-nav button { padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer; font-size:14px; }
+
+  .toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:12px 20px; font-size:13px; z-index:200; opacity:0; transition:opacity .3s; white-space:nowrap; }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">Yely in the Air</div>
+    <div class="auth-sub">Espace professeur</div>
+    <div id="auth-form">
+      <div class="form-group"><label>Email</label><input type="email" id="p-email" placeholder="ton@email.com"></div>
+      <div class="form-group"><label>Mot de passe</label><input type="password" id="p-password"></div>
+      <button class="btn btn-primary" onclick="profLogin()">Connexion</button>
+      <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" onclick="showResetPassword()">Mot de passe oublié / Changer mon mot de passe</button>
+    </div>
+    <div id="auth-reset" style="display:none">
+      <div class="form-group"><label>Ton email</label><input type="email" id="p-reset-email"></div>
+      <button class="btn btn-primary" onclick="sendReset()">Envoyer le lien de réinitialisation</button>
+      <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" onclick="showLogin()">Retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <img src="https://yelyana.github.io/Yelyintheair/yely-images/logo.svg" alt="Yely in the Air" style="height:80px;width:auto;filter:brightness(0) invert(1);opacity:0.9;display:block;margin-bottom:6px">
+      <span class="sub">Espace Prof</span>
+    </div>
+    <button class="nav-link active" id="nav-planning" onclick="showPage('planning')">📅 Planning</button>
+    <button class="nav-link" id="nav-eleves" onclick="showPage('eleves')">👩 Mes élèves</button>
+    <button class="nav-link" id="nav-stats" onclick="showPage('stats')">📊 Mes stats</button>
+    <button class="nav-link" id="nav-profil" onclick="showPage('profil')">⚙️ Mon profil</button>
+    <div style="flex:1"></div>
+    <button class="nav-link" onclick="profLogout()" style="color:var(--text3)">← Déconnexion</button>
+  </div>
+
+  <div class="mobile-bar">
+    <div class="mobile-tabs">
+      <button class="mobile-tab active" id="mob-planning" onclick="showPage('planning')"><span class="icon">📅</span>Planning</button>
+      <button class="mobile-tab" id="mob-eleves" onclick="showPage('eleves')"><span class="icon">👩</span>Élèves</button>
+      <button class="mobile-tab" id="mob-stats" onclick="showPage('stats')"><span class="icon">📊</span>Stats</button>
+      <button class="mobile-tab" id="mob-profil" onclick="showPage('profil')"><span class="icon">⚙️</span>Profil</button>
+    </div>
+  </div>
+
+  <div class="main" id="main-content"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal"><div id="modal-body"></div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const SUPABASE_URL = 'https://xayixasuyuranscustyw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhheWl4YXN1eXVyYW5zY3VzdHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc0MTE5MDcsImV4cCI6MjA2Mjk4NzkwN30.t1ERYUO2_bSyMuPTsLkLqD-e7kJqnFGcvBAnHR9APP4';
+
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, storageKey: 'yely-prof-auth' }
+});
+
+let currentUser = null;
+let currentProf = null;
+let profWeekOffset = 0;
+
+const JOURS = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+const JOURS_FULL = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+// ── AUTH ──────────────────────────────────────────────────
+async function profLogin() {
+  const email = document.getElementById('p-email').value.trim();
+  const password = document.getElementById('p-password').value;
+  if (!email || !password) return showToast('Email et mot de passe requis', true);
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
+  if (error) return showToast('Identifiants incorrects', true);
+  await initProf(data.user);
+}
+
+async function sendReset() {
+  const email = document.getElementById('p-reset-email').value.trim();
+  if (!email) return showToast('Entre ton email', true);
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/prof.html'
+  });
+  if (error) return showToast(error.message, true);
+  showToast('Email envoyé ! Vérifie ta boîte mail.');
+  showLogin();
+}
+
+function showResetPassword() {
+  document.getElementById('auth-form').style.display = 'none';
+  document.getElementById('auth-reset').style.display = 'block';
+  document.getElementById('p-reset-email').value = document.getElementById('p-email').value;
+}
+function showLogin() {
+  document.getElementById('auth-form').style.display = 'block';
+  document.getElementById('auth-reset').style.display = 'none';
+}
+
+async function profLogout() {
+  await db.auth.signOut();
+  currentUser = null; currentProf = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+async function initProf(user) {
+  currentUser = user;
+  const { data } = await db.from('profiles').select('*').eq('id', user.id).single();
+  currentProf = data;
+  if (!currentProf || currentProf.role !== 'teacher') {
+    await db.auth.signOut();
+    return showToast('Accès réservé aux professeurs', true);
+  }
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  showPage('planning');
+}
+
+// Init
+(async () => {
+  // Handle password reset from email link
+  const hash = window.location.hash;
+  if (hash.includes('type=recovery')) {
+    showResetPassword();
+    document.getElementById('p-reset-email').placeholder = 'Entre ton nouveau mot de passe ci-dessous';
+    return;
+  }
+  const { data: { session } } = await db.auth.getSession();
+  if (session?.user) await initProf(session.user);
+})();
+
+db.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    const newPwd = prompt('Entre ton nouveau mot de passe :');
+    if (newPwd) {
+      const { error } = await db.auth.updateUser({ password: newPwd });
+      if (error) return showToast(error.message, true);
+      showToast('Mot de passe mis à jour !');
+    }
+  } else if (event === 'SIGNED_IN' && session?.user && !currentUser) {
+    await initProf(session.user);
+  }
+});
+
+// ── NAVIGATION ────────────────────────────────────────────
+function showPage(page) {
+  ['planning','eleves','stats','profil'].forEach(p => {
+    document.getElementById('nav-'+p)?.classList.remove('active');
+    document.getElementById('mob-'+p)?.classList.remove('active');
+  });
+  document.getElementById('nav-'+page)?.classList.add('active');
+  document.getElementById('mob-'+page)?.classList.add('active');
+  const pages = { planning: loadPlanning, eleves: loadEleves, stats: loadStats, profil: loadProfil };
+  if (pages[page]) pages[page]();
+}
+
+function showToast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = isErr ? '#e87a7a44' : 'var(--border)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function openModal() { document.getElementById('modal').classList.add('open'); }
+function closeModal(e) { if (!e || e.target === document.getElementById('modal')) document.getElementById('modal').classList.remove('open'); }
+
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('fr-FR', { day:'numeric', month:'short' });
+}
+
+// ── PLANNING ──────────────────────────────────────────────
+async function loadPlanning() {
+  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+
+  const today = new Date();
+  const dow = today.getDay() === 0 ? 6 : today.getDay() - 1;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - dow + profWeekOffset * 7);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  const fmt = d => d.toISOString().slice(0,10);
+  const weekLabel = `${weekStart.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekEnd.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
+
+  const { data: instances } = await db.from('course_instances')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, disciplines(name,color))')
+    .eq('teacher_id', currentUser.id)
+    .gte('date', fmt(weekStart))
+    .lte('date', fmt(weekEnd))
+    .neq('status','cancelled')
+    .order('date').order('courses(start_time)');
+
+  const { data: allInstances } = await db.from('course_instances')
+    .select('id, date')
+    .eq('teacher_id', currentUser.id)
+    .gte('date', fmt(today))
+    .order('date').limit(20);
+
+  const days = Array.from({length:7}, (_,i) => {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate()+i); return d;
+  });
+  const byDate = {};
+  (instances||[]).forEach(ci => {
+    if (!byDate[ci.date]) byDate[ci.date] = [];
+    byDate[ci.date].push(ci);
+  });
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-title">Mon Planning</div>
+    <div class="week-nav">
+      <button onclick="profWeekOffset--;loadPlanning()">‹</button>
+      <span style="font-size:14px;font-weight:500;flex:1;text-align:center">${weekLabel}</span>
+      <button onclick="profWeekOffset++;loadPlanning()">›</button>
+      ${profWeekOffset !== 0 ? `<button onclick="profWeekOffset=0;loadPlanning()" style="font-size:12px;color:var(--accent)">Aujourd'hui</button>` : ''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${days.map(d => {
+        const key = fmt(d);
+        const isToday = key === fmt(today);
+        const dayCours = byDate[key] || [];
+        return `<div style="background:${isToday?'var(--accent)11':'var(--bg2)'};border:1px solid ${isToday?'var(--accent)44':'var(--border)'};border-radius:14px;padding:14px">
+          <div style="font-size:12px;font-weight:600;color:${isToday?'var(--accent)':'var(--text3)'};margin-bottom:${dayCours.length?'10px':'0'}">
+            ${JOURS_FULL[d.getDay()===0?6:d.getDay()-1]} ${d.getDate()}
+          </div>
+          ${dayCours.map(ci => {
+            const color = ci.courses?.disciplines?.color || '#a78bfa';
+            const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
+            return `<div class="cours-pill" style="border-left-color:${color}" onclick="openSeance('${ci.id}')">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <div style="font-size:13px;font-weight:500">${ci.courses?.start_time?.slice(0,5)} — ${name}</div>
+                  <div style="font-size:11px;color:var(--text3);margin-top:2px">${ci.courses?.duration_minutes} min · ${ci.courses?.max_students} places max</div>
+                </div>
+                <span style="font-size:11px;color:var(--accent)">Présences →</span>
+              </div>
+            </div>`;
+          }).join('') || `<div style="font-size:12px;color:var(--text3)">Pas de cours</div>`}
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ── SÉANCE DÉTAIL + PRÉSENCES ─────────────────────────────
+async function openSeance(instanceId) {
+  const { data: ci } = await db.from('course_instances')
+    .select('*, courses(custom_name, start_time, duration_minutes, max_students, disciplines(name,color))')
+    .eq('id', instanceId).single();
+  const { data: bookings } = await db.from('bookings')
+    .select('*, profiles(full_name, phone)')
+    .eq('course_instance_id', instanceId).eq('status','confirmed');
+
+  const color = ci?.courses?.disciplines?.color || '#a78bfa';
+  const name = ci?.courses?.custom_name || ci?.courses?.disciplines?.name || 'Cours';
+  const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}) : '';
+  const present = (bookings||[]).filter(b => b.attended === true).length;
+  const absent = (bookings||[]).filter(b => b.attended === false).length;
+  const total = (bookings||[]).length;
+
+  document.getElementById('modal-body').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <div style="width:4px;height:40px;background:${color};border-radius:2px"></div>
+      <div>
+        <div class="modal-title" style="margin-bottom:0">${name}</div>
+        <div style="font-size:12px;color:var(--text3)">${date} · ${ci?.courses?.start_time?.slice(0,5)}</div>
+      </div>
+    </div>
+
+    ${total > 0 ? `<div style="display:flex;gap:12px;margin:16px 0">
+      <div style="flex:1;text-align:center;background:var(--bg);border-radius:10px;padding:10px">
+        <div style="font-size:18px;font-weight:600;color:var(--green)">${present}</div>
+        <div style="font-size:10px;color:var(--text3)">PRÉSENTES</div>
+      </div>
+      <div style="flex:1;text-align:center;background:var(--bg);border-radius:10px;padding:10px">
+        <div style="font-size:18px;font-weight:600;color:var(--red)">${absent}</div>
+        <div style="font-size:10px;color:var(--text3)">ABSENTES</div>
+      </div>
+      <div style="flex:1;text-align:center;background:var(--bg);border-radius:10px;padding:10px">
+        <div style="font-size:18px;font-weight:600;color:var(--text3)">${total - present - absent}</div>
+        <div style="font-size:10px;color:var(--text3)">À MARQUER</div>
+      </div>
+    </div>` : ''}
+
+    <div class="section-title">Liste d'élèves (${total}/${ci?.courses?.max_students || '?'})</div>
+    ${(bookings||[]).length ? bookings.map(b => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:500">${b.profiles?.full_name}</div>
+          ${b.profiles?.phone ? `<div style="font-size:11px;color:var(--text3)">${b.profiles.phone}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="profMarkAttendance('${b.id}',true,'${instanceId}')"
+            style="padding:5px 10px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:500;
+            background:${b.attended===true?'var(--green)':'var(--bg3)'};color:${b.attended===true?'#fff':'var(--text3)'}">✓</button>
+          <button onclick="profMarkAttendance('${b.id}',false,'${instanceId}')"
+            style="padding:5px 10px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:500;
+            background:${b.attended===false?'var(--red)':'var(--bg3)'};color:${b.attended===false?'#fff':'var(--text3)'}">✗</button>
+        </div>
+      </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:16px 0">Aucune élève inscrite</div>'}
+
+    <button class="btn btn-ghost" style="margin-top:16px;width:100%" onclick="closeModal()">Fermer</button>
+  `;
+  openModal();
+}
+
+async function profMarkAttendance(bookingId, attended, instanceId) {
+  const { error } = await db.from('bookings').update({ attended }).eq('id', bookingId);
+  if (error) return showToast(error.message, true);
+  openSeance(instanceId);
+}
+
+// ── MES ÉLÈVES ────────────────────────────────────────────
+async function loadEleves() {
+  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+
+  const { data: bookings } = await db.from('bookings')
+    .select('student_id, attended, course_instances(date, courses(custom_name, disciplines(name)))')
+    .eq('status','confirmed')
+    .in('course_instance_id',
+      (await db.from('course_instances').select('id').eq('teacher_id', currentUser.id)).data?.map(c=>c.id) || []
+    );
+
+  const studentMap = {};
+  (bookings||[]).forEach(b => {
+    if (!studentMap[b.student_id]) studentMap[b.student_id] = { courses: [], attended: 0 };
+    studentMap[b.student_id].courses.push(b);
+    if (b.attended) studentMap[b.student_id].attended++;
+  });
+
+  const studentIds = Object.keys(studentMap);
+  if (!studentIds.length) {
+    document.getElementById('main-content').innerHTML = `
+      <div class="page-title">Mes élèves</div>
+      <div style="text-align:center;padding:60px;color:var(--text3)">Pas encore d'élèves inscrits à tes cours</div>`;
+    return;
+  }
+
+  const { data: profiles } = await db.from('profiles').select('id, full_name, email, phone').in('id', studentIds);
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-title">Mes élèves</div>
+    <div class="page-sub">${studentIds.length} élève${studentIds.length>1?'s':''} ont suivi tes cours</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${(profiles||[]).map(p => {
+        const stats = studentMap[p.id] || {};
+        const total = stats.courses?.length || 0;
+        const rate = total > 0 ? Math.round(stats.attended / total * 100) : 0;
+        return `<div class="card" style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:14px;font-weight:500">${p.full_name}</div>
+            <div style="font-size:11px;color:var(--text3)">${p.email}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:13px;font-weight:500">${total} cours</div>
+            <div style="font-size:11px;color:var(--text3)">${rate}% présence</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ── MES STATS ─────────────────────────────────────────────
+async function loadStats() {
+  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+
+  const today = new Date().toISOString().split('T')[0];
+  const monthStart = today.slice(0,7) + '-01';
+
+  const { data: myInstances } = await db.from('course_instances')
+    .select('id, date, courses(custom_name, max_students, disciplines(name,color))')
+    .eq('teacher_id', currentUser.id)
+    .gte('date', monthStart).lte('date', today)
+    .neq('status','cancelled');
+
+  const instanceIds = (myInstances||[]).map(ci => ci.id);
+  const { data: bookings } = instanceIds.length
+    ? await db.from('bookings').select('course_instance_id, attended').eq('status','confirmed').in('course_instance_id', instanceIds)
+    : { data: [] };
+
+  const totalCours = myInstances?.length || 0;
+  const totalEleves = new Set((bookings||[]).map(b => b.course_instance_id)).size;
+  const totalPresent = (bookings||[]).filter(b => b.attended).length;
+  const totalBookings = (bookings||[]).length;
+  const presentRate = totalBookings > 0 ? Math.round(totalPresent / totalBookings * 100) : 0;
+
+  // Stats par cours
+  const courseStats = {};
+  (myInstances||[]).forEach(ci => {
+    const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
+    const color = ci.courses?.disciplines?.color || '#a78bfa';
+    const max = ci.courses?.max_students || 10;
+    if (!courseStats[name]) courseStats[name] = { count:0, bookings:0, max, color };
+    courseStats[name].count++;
+    courseStats[name].bookings += (bookings||[]).filter(b => b.course_instance_id === ci.id).length;
+  });
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-title">Mes stats</div>
+    <div class="page-sub">${new Date().toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}</div>
+
+    <div class="grid-3">
+      <div class="stat-card"><div class="stat-val">${totalCours}</div><div class="stat-lbl">Cours donnés</div></div>
+      <div class="stat-card"><div class="stat-val">${totalBookings}</div><div class="stat-lbl">Passages élèves</div></div>
+      <div class="stat-card"><div class="stat-val">${presentRate}%</div><div class="stat-lbl">Taux de présence</div></div>
+    </div>
+
+    <div class="section-title">Remplissage par cours</div>
+    <div class="card">
+      ${Object.entries(courseStats).map(([name, s]) => {
+        const avg = s.count > 0 ? Math.round(s.bookings / s.count) : 0;
+        const pct = Math.round(avg / s.max * 100);
+        return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:13px">${name}</span>
+            <span style="font-size:12px;color:var(--text3)">${avg}/${s.max} en moyenne</span>
+          </div>
+          <div style="height:4px;background:var(--border);border-radius:2px">
+            <div style="height:4px;background:${s.color};border-radius:2px;width:${pct}%"></div>
+          </div>
+        </div>`;
+      }).join('') || '<div style="color:var(--text3);font-size:13px">Pas encore de données ce mois</div>'}
+    </div>
+  `;
+}
+
+// ── MON PROFIL ────────────────────────────────────────────
+async function loadProfil() {
+  const { data: teacher } = await db.from('teachers').select('*').eq('id', currentUser.id).single();
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-title">Mon profil</div>
+    <div class="card">
+      <div class="form-group"><label>Nom complet</label><input id="pr-name" value="${currentProf?.full_name||''}"></div>
+      <div class="form-group"><label>Téléphone</label><input id="pr-phone" value="${currentProf?.phone||''}"></div>
+      <div class="form-group"><label>Disciplines</label><input id="pr-disc" value="${(teacher?.disciplines||[]).join(', ')}"></div>
+      <div class="form-group"><label>Bio</label><textarea id="pr-bio" rows="3">${teacher?.bio||''}</textarea></div>
+      <div class="form-group"><label>Instagram</label><input id="pr-insta" value="${teacher?.instagram||''}" placeholder="@handle"></div>
+      <button class="btn btn-primary" onclick="saveProfil()">Enregistrer</button>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="section-title">Changer mon mot de passe</div>
+      <div class="form-group"><label>Nouveau mot de passe</label><input type="password" id="pr-pwd" placeholder="Minimum 6 caractères"></div>
+      <button class="btn btn-ghost" onclick="changePassword()">Mettre à jour le mot de passe</button>
+    </div>
+  `;
+}
+
+async function saveProfil() {
+  const name = document.getElementById('pr-name').value.trim();
+  const phone = document.getElementById('pr-phone').value.trim();
+  const disciplines = document.getElementById('pr-disc').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const bio = document.getElementById('pr-bio').value;
+  const instagram = document.getElementById('pr-insta').value;
+
+  await db.from('profiles').update({ full_name: name, phone }).eq('id', currentUser.id);
+  await db.from('teachers').upsert({ id: currentUser.id, disciplines, bio, instagram });
+  currentProf.full_name = name;
+  showToast('Profil mis à jour !');
+}
+
+async function changePassword() {
+  const pwd = document.getElementById('pr-pwd').value;
+  if (pwd.length < 6) return showToast('Minimum 6 caractères', true);
+  const { error } = await db.auth.updateUser({ password: pwd });
+  if (error) return showToast(error.message, true);
+  showToast('Mot de passe mis à jour !');
+  document.getElementById('pr-pwd').value = '';
+}
+</script>
+</body>
+</html>
