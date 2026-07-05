@@ -1,0 +1,9 @@
+{
+  "name": "Yely in the Air",
+  "short_name": "Yely",
+  "start_url": "/app.html",
+  "display": "standalone",
+  "background_color": "#17141f",
+  "theme_color": "#17141f",
+  "icons": []
+}
