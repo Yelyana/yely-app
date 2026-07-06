@@ -1587,12 +1587,12 @@ async function loadUserProfile(user) {
 }
 
 (async () => {
-  const { data: { session }, error } = await db.auth.getSession();
-  if (error) await db.auth.signOut();
-  if (session?.user) {
-    await loadUserProfile(session.user);
+  const { data: { user }, error } = await db.auth.getUser();
+  if (user && !error) {
+    await loadUserProfile(user);
     showApp();
   } else {
+    await db.auth.signOut();
     showAuth();
   }
 })();
