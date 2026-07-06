@@ -173,6 +173,7 @@ async function profLogin() {
   const email = document.getElementById('p-email').value.trim();
   const password = document.getElementById('p-password').value;
   if (!email || !password) return showToast('Email et mot de passe requis', true);
+  await db.auth.signOut();
   const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) return showToast(error.message, true);
   await initProf(data.user);
@@ -228,7 +229,8 @@ async function initProf(user) {
     document.getElementById('p-reset-email').placeholder = 'Entre ton nouveau mot de passe ci-dessous';
     return;
   }
-  const { data: { session } } = await db.auth.getSession();
+  const { data: { session }, error: sessErr } = await db.auth.getSession();
+  if (sessErr) await db.auth.signOut();
   if (session?.user) await initProf(session.user);
 })();
 

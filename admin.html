@@ -209,6 +209,7 @@ const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dim
 async function adminLogin() {
   const email = document.getElementById('a-email').value.trim();
   const password = document.getElementById('a-password').value;
+  await db.auth.signOut();
   const { error } = await db.auth.signInWithPassword({ email, password });
   if (error) return showToast(error.message, true);
 }
@@ -230,7 +231,8 @@ async function loadAdminUser(user) {
 }
 
 (async () => {
-  const { data: { session } } = await db.auth.getSession();
+  const { data: { session }, error } = await db.auth.getSession();
+  if (error) await db.auth.signOut();
   if (session?.user) await loadAdminUser(session.user);
 })();
 

@@ -400,6 +400,7 @@ async function login() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   if (!email || !password) return showToast('Remplis tous les champs', true);
+  await db.auth.signOut();
   const { error } = await db.auth.signInWithPassword({ email, password });
   if (error) return showToast(error.message || 'Erreur de connexion', true);
 }
@@ -1585,7 +1586,8 @@ async function loadUserProfile(user) {
 }
 
 (async () => {
-  const { data: { session } } = await db.auth.getSession();
+  const { data: { session }, error } = await db.auth.getSession();
+  if (error) await db.auth.signOut();
   if (session?.user) {
     await loadUserProfile(session.user);
     showApp();
