@@ -400,10 +400,14 @@ async function login() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   if (!email || !password) return showToast('Remplis tous les champs', true);
+  showToast('Étape 1: signOut...');
   await db.auth.signOut();
+  showToast('Étape 2: signIn...');
   const { data, error } = await db.auth.signInWithPassword({ email, password });
-  if (error) return showToast(error.message || 'Identifiants incorrects', true);
+  if (error) return showToast('ERREUR: ' + error.message, true);
+  showToast('Étape 3: profil...');
   await loadUserProfile(data.user);
+  showToast('Étape 4: showApp...');
   showApp();
 }
 
