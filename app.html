@@ -1611,5 +1611,20 @@ db.auth.onAuthStateChange(async (event, session) => {
   }
 });
 </script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/yely-app/sw.js').then(reg => {
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing;
+      newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          showToast('Mise à jour disponible — rechargement...');
+          setTimeout(() => window.location.reload(), 2000);
+        }
+      });
+    });
+  });
+}
+</script>
 </body>
 </html>
