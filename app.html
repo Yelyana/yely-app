@@ -183,10 +183,10 @@ select option { background: var(--card); }
       <button id="tab-login" class="active" onclick="switchAuthTab('login')">Connexion</button>
       <button id="tab-signup" onclick="switchAuthTab('signup')">Inscription</button>
     </div>
-    <form id="auth-login" onsubmit="login(); return false">
-      <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="ton@email.com" autocomplete="email"></div>
-      <div class="form-group"><label>Mot de passe</label><input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"></div>
-      <button type="submit" class="btn btn-primary">Se connecter</button>
+    <form id="auth-login" onsubmit="return false">
+      <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="ton@email.com" autocomplete="email" onkeydown="if(event.key==='Enter'){login()}"></div>
+      <div class="form-group"><label>Mot de passe</label><input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter'){login()}"></div>
+      <button type="button" class="btn btn-primary" onclick="login()">Se connecter</button>
       <button type="button" class="btn btn-ghost" style="margin-top:10px" onclick="forgotPassword()">Mot de passe oublié ?</button>
     </form>
     <form id="auth-signup" style="display:none" onsubmit="signup(); return false">
