@@ -1047,21 +1047,29 @@ async function loadProfs() {
       <div><div class="page-title">Professeurs</div></div>
       ${isAdmin ? `<button class="btn btn-primary" onclick="openCreateTeacher()">+ Créer un compte prof</button>` : ''}
     </div>
-    <div class="card">
-      <table>
-        <thead><tr><th>Nom</th><th>Email</th><th>Disciplines</th><th>Statut</th>${isAdmin ? '<th>Actions</th>' : ''}</tr></thead>
-        <tbody>
-          ${teachers?.map(t => `<tr>
-            <td><strong>${t.full_name}</strong></td>
-            <td style="color:var(--text3)">${t.email}</td>
-            <td>${(t.teachers?.disciplines || []).join(', ') || '—'}</td>
-            <td><span class="badge badge-green">Actif</span></td>
-            ${isAdmin ? `<td>
-              <button class="btn btn-ghost btn-sm" onclick="openTeacherModal(${JSON.stringify(t).replace(/"/g,'&quot;')})">Modifier</button>
-            </td>` : ''}
-          </tr>`).join('') || `<tr><td colspan="${isAdmin ? 5 : 4}" style="text-align:center;color:var(--text3);padding:32px">Aucun professeur</td></tr>`}
-        </tbody>
-      </table>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      ${teachers?.length ? teachers.map(t => {
+        const dispos = t.teachers?.disponibilites || [];
+        return `<div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+            <div>
+              <div style="font-size:16px;font-weight:600">${t.full_name}</div>
+              <div style="font-size:12px;color:var(--text3);margin-top:2px">${t.email}</div>
+              ${(t.teachers?.disciplines||[]).length ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">
+                ${(t.teachers.disciplines).map(d => `<span class="badge badge-violet">${d}</span>`).join('')}
+              </div>` : ''}
+            </div>
+            ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openTeacherModal(${JSON.stringify(t).replace(/"/g,'&quot;')})">Modifier</button>` : ''}
+          </div>
+          ${t.teachers?.bio ? `<div style="font-size:13px;color:var(--text2);margin-bottom:12px;font-style:italic">"${t.teachers.bio}"</div>` : ''}
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Disponibilités</div>
+          ${dispos.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${dispos.map(d => `<div style="background:var(--bg3);border-radius:8px;padding:5px 10px;font-size:12px">
+              <span style="font-weight:600">${d.jour}</span>${d.horaires ? ` · ${d.horaires}` : ''}
+            </div>`).join('')}
+          </div>` : `<div style="font-size:12px;color:var(--text3);font-style:italic">Pas encore renseignées</div>`}
+        </div>`;
+      }).join('') : `<div class="card" style="text-align:center;color:var(--text3);padding:32px">Aucun professeur</div>`}
     </div>
 
     ${currentProfile?.role === 'teacher' ? `
