@@ -1370,6 +1370,9 @@ async function loadProfil() {
       <div class="settings-row" onclick="editProfile()">
         <span>Mon profil</span><span style="color:var(--text3)">›</span>
       </div>
+      <div class="settings-row" onclick="openHealthForm()">
+        <span>🩺 Fiche santé</span><span style="color:var(--text3)">›</span>
+      </div>
       <div class="settings-row" onclick="changePassword()">
         <span>Mot de passe</span><span style="color:var(--text3)">›</span>
       </div>
@@ -1414,6 +1417,84 @@ async function saveProfile() {
   await db.from('profiles').update({ full_name, phone }).eq('id', currentUser.id);
   currentProfile.full_name = full_name; currentProfile.phone = phone;
   closeModal(); showToast('Profil mis à jour');
+}
+
+async function openHealthForm() {
+  const { data: p } = await db.from('profiles').select('health_info').eq('id', currentUser.id).single();
+  const h = p?.health_info || {};
+  document.getElementById('booking-modal').classList.add('open');
+  document.getElementById('modal-content').innerHTML = `
+    <h3 class="serif" style="font-size:22px;margin-bottom:4px">🩺 Fiche santé</h3>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:20px">Ces informations sont confidentielles et accessibles uniquement à l'équipe Yely in the Air.</p>
+
+    <div class="form-group">
+      <label>Niveau de pratique</label>
+      <select id="h-niveau">
+        <option value="" ${!h.niveau?'selected':''}>— Sélectionner —</option>
+        <option value="debutante" ${h.niveau==='debutante'?'selected':''}>Débutante (aucune expérience)</option>
+        <option value="intermediaire" ${h.niveau==='intermediaire'?'selected':''}>Intermédiaire (quelques cours)</option>
+        <option value="avancee" ${h.niveau==='avancee'?'selected':''}>Avancée (pratique régulière)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Objectifs</label>
+      <select id="h-objectifs" multiple style="height:90px">
+        ${['Souplesse','Fitness & tonification','Artistique & expression','Confiance en soi','Détente & bien-être','Découverte'].map(o =>
+          `<option value="${o}" ${(h.objectifs||[]).includes(o)?'selected':''}>${o}</option>`
+        ).join('')}
+      </select>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">Maintiens Cmd (Mac) ou Ctrl pour en sélectionner plusieurs</div>
+    </div>
+
+    <div class="form-group">
+      <label>Contre-indications médicales</label>
+      <textarea id="h-contre" rows="3" placeholder="Blessures, opérations récentes, problèmes cardiaques, vertiges, grossesse…">${h.contre_indications||''}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Allergies ou traitements en cours</label>
+      <input id="h-allergies" value="${h.allergies||''}" placeholder="Ex: allergie latex, traitement anticoagulant…">
+    </div>
+
+    <div class="form-group">
+      <label>Contact d'urgence — Nom</label>
+      <input id="h-urgence-nom" value="${h.urgence_nom||''}" placeholder="Prénom Nom">
+    </div>
+    <div class="form-group">
+      <label>Contact d'urgence — Téléphone</label>
+      <input id="h-urgence-tel" type="tel" value="${h.urgence_tel||''}" placeholder="06 XX XX XX XX">
+    </div>
+
+    <div style="background:rgba(155,125,219,0.08);border:1px solid rgba(155,125,219,0.2);border-radius:12px;padding:14px;margin-bottom:16px">
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text)">
+        <input type="checkbox" id="h-accord" ${h.accord_sante?'checked':''} style="width:auto;margin-top:2px;flex-shrink:0">
+        <span>Je certifie être apte à pratiquer une activité physique et m'engage à informer le professeur de tout changement de santé.</span>
+      </label>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveHealthForm()">Enregistrer</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Annuler</button>
+  `;
+}
+
+async function saveHealthForm() {
+  const objectifsEl = document.getElementById('h-objectifs');
+  const objectifs = Array.from(objectifsEl.selectedOptions).map(o => o.value);
+  const health_info = {
+    niveau: document.getElementById('h-niveau').value,
+    objectifs,
+    contre_indications: document.getElementById('h-contre').value.trim(),
+    allergies: document.getElementById('h-allergies').value.trim(),
+    urgence_nom: document.getElementById('h-urgence-nom').value.trim(),
+    urgence_tel: document.getElementById('h-urgence-tel').value.trim(),
+    accord_sante: document.getElementById('h-accord').checked,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await db.from('profiles').update({ health_info }).eq('id', currentUser.id);
+  if (error) return showToast(error.message, true);
+  showToast('Fiche santé enregistrée ✨');
+  closeModal();
 }
 
 function changePassword() {

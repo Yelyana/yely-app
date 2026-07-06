@@ -560,9 +560,10 @@ async function openEleveDetail(studentId, name) {
   const { data: profile } = await db.from('profiles').select('*').eq('id', studentId).single();
   const myInstanceIds = (await db.from('course_instances').select('id,date,courses(custom_name)').eq('teacher_id', currentUser.id).order('date',{ascending:false})).data || [];
   const ids = myInstanceIds.map(ci => ci.id);
-  const [{ data: bookings }, { data: existingNote }] = await Promise.all([
+  const [{ data: bookings }, { data: existingNote }, { data: fullProfile }] = await Promise.all([
     ids.length ? db.from('bookings').select('*').eq('student_id', studentId).in('course_instance_id', ids) : { data: [] },
-    db.from('teacher_student_notes').select('objectives').eq('teacher_id', currentUser.id).eq('student_id', studentId).single()
+    db.from('teacher_student_notes').select('objectives').eq('teacher_id', currentUser.id).eq('student_id', studentId).single(),
+    db.from('profiles').select('health_info').eq('id', studentId).single()
   ]);
 
   const total = bookings?.length || 0;
@@ -602,6 +603,21 @@ async function openEleveDetail(studentId, name) {
         </span>
       </div>`;
     }).join('') || '<div style="color:var(--text3);font-size:13px">Aucun historique</div>'}
+
+    ${(() => {
+      const h = fullProfile?.health_info || {};
+      if (!h.accord_sante && !h.niveau && !h.contre_indications) return `<div style="margin:12px 0;padding:10px;background:var(--bg);border-radius:10px;font-size:12px;color:var(--text3);text-align:center">🩺 Fiche santé non remplie</div>`;
+      return `<div style="margin-bottom:12px">
+        <div class="section-title">🩺 Fiche santé</div>
+        <div style="background:var(--bg);border-radius:12px;padding:12px;font-size:13px;display:flex;flex-direction:column;gap:5px">
+          ${h.niveau ? `<div><span style="color:var(--text3)">Niveau :</span> ${h.niveau}</div>` : ''}
+          ${h.objectifs?.length ? `<div><span style="color:var(--text3)">Objectifs :</span> ${h.objectifs.join(', ')}</div>` : ''}
+          ${h.contre_indications ? `<div style="color:var(--red)">⚠️ <span style="color:var(--text3)">Contre-indications :</span> ${h.contre_indications}</div>` : ''}
+          ${h.allergies ? `<div><span style="color:var(--text3)">Allergies :</span> ${h.allergies}</div>` : ''}
+          ${h.urgence_nom ? `<div><span style="color:var(--text3)">Urgence :</span> ${h.urgence_nom} — ${h.urgence_tel||'—'}</div>` : ''}
+        </div>
+      </div>`;
+    })()}
 
     <div class="section-title" style="margin-top:16px">Objectifs & progression</div>
     <textarea id="eleve-objectives-${studentId}" rows="3" placeholder="Ex: Travailler la souplesse des hanches, améliorer le timing…" style="width:100%;margin-bottom:8px">${existingNote?.objectives || ''}</textarea>

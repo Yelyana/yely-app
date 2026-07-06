@@ -865,10 +865,11 @@ function renderEleves() {
 
 async function openStudentDetail(studentId, name) {
   const student = _allStudentsData.find(s => s.id === studentId) || {};
-  const [{ data: credits }, { data: subs }, { data: bookings }] = await Promise.all([
+  const [{ data: credits }, { data: subs }, { data: bookings }, { data: fullProfile }] = await Promise.all([
     db.from('student_credits').select('*, products(name)').eq('student_id', studentId).order('purchased_at', { ascending: false }),
     db.from('subscriptions').select('*, products(name)').eq('student_id', studentId).order('created_at', { ascending: false }),
     db.from('bookings').select('*, course_instances(date, courses(custom_name, disciplines(name,color)))').eq('student_id', studentId).in('status',['confirmed','cancelled_by_student']).order('booked_at', { ascending: false }).limit(20),
+    db.from('profiles').select('health_info').eq('id', studentId).single(),
   ]);
 
   const attended = (bookings||[]).filter(b => b.attended === true).length;
@@ -907,6 +908,22 @@ async function openStudentDetail(studentId, name) {
       <div style="font-size:13px;color:var(--text2);margin-bottom:4px">📱 ${student.phone||'—'}</div>
       ${student.birthday ? `<div style="font-size:13px;color:var(--text2)">🎂 ${new Date(student.birthday).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</div>` : ''}
     </div>
+
+    ${(() => {
+      const h = fullProfile?.health_info || {};
+      if (!h.accord_sante && !h.niveau && !h.contre_indications) return `<div style="margin-bottom:16px;padding:12px;background:var(--bg);border-radius:10px;font-size:12px;color:var(--text3);text-align:center">🩺 Fiche santé non remplie</div>`;
+      return `<div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🩺 Fiche santé</div>
+        <div style="display:flex;flex-direction:column;gap:6px;background:var(--bg);border-radius:12px;padding:12px;font-size:13px">
+          ${h.niveau ? `<div><span style="color:var(--text3)">Niveau :</span> ${h.niveau}</div>` : ''}
+          ${h.objectifs?.length ? `<div><span style="color:var(--text3)">Objectifs :</span> ${h.objectifs.join(', ')}</div>` : ''}
+          ${h.contre_indications ? `<div style="color:var(--red)"><span style="color:var(--text3)">⚠️ Contre-indications :</span> ${h.contre_indications}</div>` : ''}
+          ${h.allergies ? `<div><span style="color:var(--text3)">Allergies/traitements :</span> ${h.allergies}</div>` : ''}
+          ${h.urgence_nom ? `<div><span style="color:var(--text3)">Contact urgence :</span> ${h.urgence_nom} — ${h.urgence_tel||'—'}</div>` : ''}
+          <div><span style="color:var(--text3)">Accord santé :</span> ${h.accord_sante ? '✅ Signé' : '❌ Non signé'}</div>
+        </div>
+      </div>`;
+    })()}
 
     <div style="margin-bottom:16px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Notes privées</div>
