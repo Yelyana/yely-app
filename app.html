@@ -467,7 +467,7 @@ async function loadHome() {
   document.getElementById('home-greeting').textContent = hour < 12 ? 'Bonjour,' : hour < 18 ? 'Bon après-midi,' : 'Bonsoir,';
   document.getElementById('home-name').textContent = currentProfile.full_name.split(' ')[0] + ' 🦇';
   const initials = currentProfile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  document.getElementById('home-avatar').textContent = initials;
+  updateAvatarBtns(currentProfile.avatar_url, initials);
   const authLogo = document.querySelector('#screen-auth img');
   if (authLogo) document.querySelectorAll('.topbar-logo').forEach(img => img.src = authLogo.src);
   document.getElementById('phrase-du-jour').textContent = PHRASES[new Date().getDay() % PHRASES.length];
@@ -1284,8 +1284,7 @@ async function submitComment(postId) {
 async function loadBoutique() {
   const el = document.getElementById('boutique-content');
   if (currentProfile?.full_name) {
-    document.getElementById('boutique-avatar').textContent =
-      currentProfile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    updateAvatarBtns(currentProfile.avatar_url, currentProfile.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2));
   }
   const { data: products } = await db.from('products').select('*').eq('is_active', true).order('sort_order');
   const forfaits = (products || []).filter(p => p.type === 'carte' || p.type === 'unite');
@@ -1383,6 +1382,18 @@ async function loadProfil() {
   `;
 }
 
+function updateAvatarBtns(avatarUrl, initials) {
+  ['home-avatar','boutique-avatar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (avatarUrl) {
+      el.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    } else {
+      el.textContent = initials;
+    }
+  });
+}
+
 async function uploadAvatar(input) {
   const file = input.files[0];
   if (!file) return;
@@ -1396,6 +1407,7 @@ async function uploadAvatar(input) {
   const avatarUrl = data.publicUrl + '?t=' + Date.now();
   await db.from('profiles').update({ avatar_url: avatarUrl }).eq('id', currentUser.id);
   currentProfile.avatar_url = avatarUrl;
+  updateAvatarBtns(avatarUrl, currentProfile.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2));
   showToast('Photo mise à jour ✨');
   loadProfil();
 }
