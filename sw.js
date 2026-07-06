@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yely-v2';
+const CACHE_NAME = 'yely-v3';
 const URLS = ['/yely-app/app.html', '/yely-app/manifest.json'];
 
 self.addEventListener('install', e => {
