@@ -528,7 +528,25 @@ async function loadEleves() {
   if (!studentIds.length) {
     document.getElementById('main-content').innerHTML = `
       <div class="page-title">Mes élèves</div>
-      <div style="text-align:center;padding:60px;color:var(--text3)">Pas encore d'élèves inscrits à tes cours</div>`;
+      <div style="text-align:center;padding:32px 20px 16px;color:var(--text3);font-size:22px">🌱</div>
+      <div style="text-align:center;font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px">Pas encore d'élèves inscrits</div>
+      <div style="text-align:center;font-size:13px;color:var(--text3);margin-bottom:28px">Dès que tes premières élèves réservent un cours, tu retrouves ici leur fiche complète.</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:12px">Ce que tu pourras faire ici</div>
+      ${[
+        { icon:'🩺', title:'Fiche santé', desc:'Consulte les informations médicales partagées par l\'élève — blessures, contre-indications, conditions à connaître avant le cours.' },
+        { icon:'📞', title:'Numéro de téléphone', desc:'Accède au contact direct de chaque élève pour les prévenir en cas d\'imprévu ou de changement de cours.' },
+        { icon:'📝', title:'Notes privées', desc:'Ajoute des notes personnelles sur chaque élève — objectifs, points à travailler, observations. Entièrement privées, jamais visibles par l\'élève.' },
+        { icon:'📅', title:'Historique des cours', desc:'Vois tous les cours suivis, les présences et absences pour mieux accompagner la progression de chaque élève.' },
+      ].map(f => `
+        <div style="display:flex;gap:12px;align-items:flex-start;background:var(--card);border-radius:12px;padding:14px;margin-bottom:8px">
+          <div style="font-size:22px;flex-shrink:0">${f.icon}</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px">${f.title}</div>
+            <div style="font-size:12px;color:var(--text3);line-height:1.5">${f.desc}</div>
+          </div>
+        </div>
+      `).join('')}
+    `;
     return;
   }
 
