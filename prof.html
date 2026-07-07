@@ -714,9 +714,10 @@ async function renderCommTab() {
             <span style="font-size:10px;color:var(--text3);margin-left:auto">${ago}</span>
           </div>
           <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px">${p.content}</div>
+          <div id="comments-${p.id}" style="display:none;margin-bottom:10px"></div>
           <div style="display:flex;gap:16px">
             <button onclick="profToggleLike(${p.id},this)" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;color:${liked?'#e87a7a':'var(--text3)'};font-size:13px">${liked?'❤️':'🤍'} <span>${likeCount}</span></button>
-            <span style="font-size:13px;color:var(--text3)">💬 ${commentCount}</span>
+            <button onclick="toggleProfComments(${p.id})" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;color:var(--text3);font-size:13px">💬 <span id="ccount-${p.id}">${commentCount}</span></button>
           </div>
         </div>
       </div>
@@ -742,6 +743,51 @@ async function profPostComm() {
   if (error) return showToast(error.message, true);
   showToast('Publié !');
   await renderCommTab();
+}
+
+async function toggleProfComments(postId) {
+  const box = document.getElementById('comments-' + postId);
+  if (!box) return;
+  if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div style="font-size:12px;color:var(--text3)">Chargement…</div>';
+  const { data: comments } = await db.from('community_comments')
+    .select('*, profiles(full_name, avatar_url)')
+    .eq('post_id', postId)
+    .order('created_at', { ascending: true });
+  const commHtml = (comments||[]).map(c => {
+    const initials = c.profiles?.full_name?.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2)||'?';
+    const av = c.profiles?.avatar_url
+      ? `<img src="${c.profiles.avatar_url}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+      : `<div style="width:26px;height:26px;border-radius:50%;background:var(--accent)22;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--accent);flex-shrink:0">${initials}</div>`;
+    return `<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">
+      ${av}
+      <div style="background:var(--bg);border-radius:10px;padding:7px 10px;flex:1">
+        <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px">${c.profiles?.full_name||'?'}</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.4">${c.content}</div>
+      </div>
+    </div>`;
+  }).join('') || '<div style="font-size:12px;color:var(--text3);margin-bottom:8px">Aucun commentaire</div>';
+  box.innerHTML = `
+    <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
+      ${commHtml}
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <input id="cinput-${postId}" placeholder="Ajouter un commentaire…" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);font-family:inherit">
+        <button onclick="sendProfComment(${postId})" style="padding:7px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:12px">Envoyer</button>
+      </div>
+    </div>`;
+}
+
+async function sendProfComment(postId) {
+  const input = document.getElementById('cinput-' + postId);
+  const content = input?.value.trim();
+  if (!content) return;
+  const { error } = await db.from('community_comments').insert({ post_id: postId, author_id: currentUser.id, content });
+  if (error) return showToast(error.message, true);
+  const countEl = document.getElementById('ccount-' + postId);
+  if (countEl) countEl.textContent = parseInt(countEl.textContent||'0') + 1;
+  await toggleProfComments(postId);
+  await toggleProfComments(postId);
 }
 
 async function profToggleLike(postId, btn) {
@@ -822,8 +868,18 @@ async function loadStats() {
 async function loadProfil() {
   const { data: teacher } = await db.from('teachers').select('*').eq('id', currentUser.id).single();
 
+  const avatarUrl = currentProf?.avatar_url;
   document.getElementById('main-content').innerHTML = `
     <div class="page-title">Mon profil</div>
+    <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px">
+      ${avatarUrl
+        ? `<img src="${avatarUrl}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--accent)33">`
+        : `<div style="width:80px;height:80px;border-radius:50%;background:var(--accent)22;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--accent)">${currentProf?.full_name?.[0]||'?'}</div>`}
+      <label style="cursor:pointer;padding:8px 18px;border-radius:10px;border:1px solid var(--border);font-size:13px;color:var(--text2)">
+        📷 Changer ma photo
+        <input type="file" accept="image/*" onchange="uploadProfAvatar(this)" style="display:none">
+      </label>
+    </div>
     <div class="card">
       <div class="form-group"><label>Nom complet</label><input id="pr-name" value="${currentProf?.full_name||''}"></div>
       <div class="form-group"><label>Téléphone</label><input id="pr-phone" value="${currentProf?.phone||''}"></div>
@@ -865,6 +921,22 @@ async function saveProfil() {
   await db.from('teachers').upsert({ id: currentUser.id, disciplines, bio, instagram });
   currentProf.full_name = name;
   showToast('Profil mis à jour !');
+}
+
+async function uploadProfAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) return showToast('Image trop lourde (max 2 Mo)', true);
+  showToast('Envoi en cours…');
+  const ext = file.name.split('.').pop();
+  const path = `avatars/${currentUser.id}.${ext}`;
+  const { error: upErr } = await db.storage.from('avatars').upload(path, file, { upsert: true });
+  if (upErr) return showToast(upErr.message, true);
+  const { data: { publicUrl } } = db.storage.from('avatars').getPublicUrl(path);
+  await db.from('profiles').update({ avatar_url: publicUrl }).eq('id', currentUser.id);
+  currentProf.avatar_url = publicUrl;
+  showToast('Photo mise à jour !');
+  loadProfil();
 }
 
 async function changePassword() {
