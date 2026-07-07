@@ -865,7 +865,7 @@ async function saveCourse(id) {
 
     if (isUnique) {
       const dateVal = document.getElementById('m-date').value;
-      if (dateVal) instances.push({ course_id: courseId, date: dateVal, teacher_id: teacherId, status: 'scheduled' });
+      if (dateVal) instances.push({ course_id: courseId, date: dateVal, teacher_id: teacherId, status: 'active' });
     } else {
       const weeks = parseInt(document.getElementById('m-weeks').value) || 12;
       const dayOfWeek = parseInt(document.getElementById('m-day').value); // 1=Lundi
@@ -882,7 +882,7 @@ async function saveCourse(id) {
       maxDate.setDate(today.getDate() + weeks * 7);
 
       while (d <= maxDate) {
-        instances.push({ course_id: courseId, date: d.toISOString().slice(0,10), teacher_id: teacherId, status: 'scheduled' });
+        instances.push({ course_id: courseId, date: d.toISOString().slice(0,10), teacher_id: teacherId, status: 'active' });
         d.setDate(d.getDate() + step);
       }
     }
