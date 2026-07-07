@@ -350,26 +350,22 @@ async function loadPlanning() {
     ${(() => {
       const selDay = days[profPlanningDay];
       const data = byDate[fmt(selDay)] || { air: [], terre: [] };
-      const pillHtml = ci => {
+      const allCours = [...data.air, ...data.terre].sort((a,b) => a.courses?.start_time?.localeCompare(b.courses?.start_time));
+      if (!allCours.length) return `<div style="text-align:center;padding:40px;color:var(--text3)">Aucun cours ce jour</div>`;
+      return allCours.map(ci => {
         const color = ci.courses?.disciplines?.color || '#a78bfa';
         const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
-        return `<div onclick="openSeance('${ci.id}')" style="background:${color}22;border-left:3px solid ${color};border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer">
-          <div style="font-size:11px;font-weight:600;color:${color}">${ci.courses?.start_time?.slice(0,5)}</div>
-          <div style="font-size:13px;color:var(--text);line-height:1.3;margin-top:2px">${name}</div>
+        const isMine = ci.teacher_id === currentUser.id;
+        return `<div onclick="${isMine ? `openSeance('${ci.id}')` : ''}" style="background:var(--card);border-left:4px solid ${color};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:${isMine?'pointer':'default'};opacity:${isMine?'1':'0.65'}">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:${color}">${ci.courses?.start_time?.slice(0,5)} · ${ci.courses?.duration_minutes} min</div>
+              <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:2px">${name}</div>
+            </div>
+            ${isMine ? `<div style="font-size:11px;background:${color}22;color:${color};padding:4px 8px;border-radius:6px;font-weight:600">Mon cours →</div>` : ''}
+          </div>
         </div>`;
-      };
-      const airHtml = data.air.length ? data.air.map(pillHtml).join('') : `<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Aucun cours</div>`;
-      const terreHtml = data.terre.length ? data.terre.map(pillHtml).join('') : `<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Aucun cours</div>`;
-      return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div style="background:var(--card);border-radius:12px;overflow:hidden">
-          <div style="font-size:11px;font-weight:700;padding:8px 12px;background:#ece4f2;color:#7c4a9e;letter-spacing:0.5px">🦇 SALLE AIR</div>
-          <div style="padding:8px">${airHtml}</div>
-        </div>
-        <div style="background:var(--card);border-radius:12px;overflow:hidden">
-          <div style="font-size:11px;font-weight:700;padding:8px 12px;background:#e6efe9;color:#5a8a7a;letter-spacing:0.5px">🌿 SALLE TERRE</div>
-          <div style="padding:8px">${terreHtml}</div>
-        </div>
-      </div>`;
+      }).join('');
     })()}
   `;
 }
