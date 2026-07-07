@@ -127,6 +127,7 @@
     </div>
     <button class="nav-link active" id="nav-planning" onclick="showPage('planning')">📅 Planning</button>
     <button class="nav-link" id="nav-eleves" onclick="showPage('eleves')">👩 Mes élèves</button>
+    <button class="nav-link" id="nav-communaute" onclick="showPage('communaute')">💬 Communauté</button>
     <button class="nav-link" id="nav-stats" onclick="showPage('stats')">📊 Mes stats</button>
     <button class="nav-link" id="nav-profil" onclick="showPage('profil')">⚙️ Mon profil</button>
     <div style="flex:1"></div>
@@ -137,6 +138,7 @@
     <div class="mobile-tabs">
       <button class="mobile-tab active" id="mob-planning" onclick="showPage('planning')"><span class="icon">📅</span>Planning</button>
       <button class="mobile-tab" id="mob-eleves" onclick="showPage('eleves')"><span class="icon">👩</span>Élèves</button>
+      <button class="mobile-tab" id="mob-communaute" onclick="showPage('communaute')"><span class="icon">💬</span>Commu</button>
       <button class="mobile-tab" id="mob-stats" onclick="showPage('stats')"><span class="icon">📊</span>Stats</button>
       <button class="mobile-tab" id="mob-profil" onclick="showPage('profil')"><span class="icon">⚙️</span>Profil</button>
     </div>
@@ -248,13 +250,13 @@ db.auth.onAuthStateChange(async (event, session) => {
 
 // ── NAVIGATION ────────────────────────────────────────────
 function showPage(page) {
-  ['planning','eleves','stats','profil'].forEach(p => {
+  ['planning','eleves','communaute','stats','profil'].forEach(p => {
     document.getElementById('nav-'+p)?.classList.remove('active');
     document.getElementById('mob-'+p)?.classList.remove('active');
   });
   document.getElementById('nav-'+page)?.classList.add('active');
   document.getElementById('mob-'+page)?.classList.add('active');
-  const pages = { planning: loadPlanning, eleves: loadEleves, stats: loadStats, profil: loadProfil };
+  const pages = { planning: loadPlanning, eleves: loadEleves, communaute: loadCommunaute, stats: loadStats, profil: loadProfil };
   if (pages[page]) pages[page]();
 }
 
@@ -637,6 +639,96 @@ async function saveObjectives(studentId) {
     .upsert({ teacher_id: currentUser.id, student_id: studentId, objectives, updated_at: new Date().toISOString() }, { onConflict: 'teacher_id,student_id' });
   if (error) return showToast(error.message, true);
   showToast('Objectifs sauvegardés !');
+}
+
+// ── COMMUNAUTÉ ────────────────────────────────────────────
+let commTab = 'eleves';
+
+async function loadCommunaute() {
+  const el = document.getElementById('main-content');
+  el.innerHTML = `
+    <div class="page-title">Communauté</div>
+    <div style="display:flex;background:var(--bg2);border-radius:12px;padding:3px;gap:2px;margin-bottom:20px">
+      <button onclick="commTab='eleves';loadCommunaute()" style="flex:1;padding:8px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:${commTab==='eleves'?'var(--accent)':'transparent'};color:${commTab==='eleves'?'#fff':'var(--text2)'}">👩‍🎓 Communauté élèves</button>
+      <button onclick="commTab='profs';loadCommunaute()" style="flex:1;padding:8px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:${commTab==='profs'?'var(--accent)':'transparent'};color:${commTab==='profs'?'#fff':'var(--text2)'}">🦇 Entre profs</button>
+    </div>
+    <div id="comm-content"><div class="loading"><div class="spinner"></div>Chargement…</div></div>
+  `;
+  await renderCommTab();
+}
+
+async function renderCommTab() {
+  const el = document.getElementById('comm-content');
+  if (!el) return;
+  const isProfs = commTab === 'profs';
+  const audience = isProfs ? 'teachers' : 'all';
+
+  const { data: posts } = await db.from('community_posts')
+    .select('*, profiles(full_name, avatar_url, role), community_reactions(emoji, user_id), community_comments(id)')
+    .eq('audience', audience)
+    .order('is_pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  const postHtml = (posts || []).map(p => {
+    const initials = p.profiles?.full_name?.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) || '?';
+    const avatar = p.profiles?.avatar_url
+      ? `<img src="${p.profiles.avatar_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">`
+      : `<div style="width:36px;height:36px;border-radius:50%;background:var(--accent)22;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--accent);flex-shrink:0">${initials}</div>`;
+    const role = p.profiles?.role;
+    const badge = role === 'admin' ? `<span style="font-size:9px;background:rgba(155,125,219,0.2);color:var(--accent);padding:2px 6px;border-radius:10px;margin-left:6px">Ana</span>`
+      : role === 'teacher' ? `<span style="font-size:9px;background:var(--accent)22;color:var(--accent);padding:2px 6px;border-radius:10px;margin-left:6px">Prof</span>` : '';
+    const liked = p.community_reactions?.some(r => r.user_id === currentUser.id);
+    const likeCount = p.community_reactions?.length || 0;
+    const commentCount = p.community_comments?.length || 0;
+    const ago = (() => { const s=(Date.now()-new Date(p.created_at))/1000; return s<60?'À l\'instant':s<3600?Math.floor(s/60)+'min':s<86400?Math.floor(s/3600)+'h':Math.floor(s/86400)+'j'; })();
+    return `<div style="background:var(--bg2);border-radius:14px;padding:14px;margin-bottom:10px${p.is_pinned?';border:1px solid var(--accent)33':''}">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        ${avatar}
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;margin-bottom:6px">
+            <span style="font-size:13px;font-weight:500">${p.profiles?.full_name || '?'}</span>${badge}
+            <span style="font-size:10px;color:var(--text3);margin-left:auto">${ago}</span>
+          </div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px">${p.content}</div>
+          <div style="display:flex;gap:16px">
+            <button onclick="profToggleLike(${p.id},this)" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;color:${liked?'#e87a7a':'var(--text3)'};font-size:13px">${liked?'❤️':'🤍'} <span>${likeCount}</span></button>
+            <span style="font-size:13px;color:var(--text3)">💬 ${commentCount}</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('') || `<div style="text-align:center;padding:40px 20px;color:var(--text3)">Aucun post pour l'instant</div>`;
+
+  el.innerHTML = `
+    <div style="background:var(--bg2);border-radius:14px;padding:14px;margin-bottom:16px">
+      <textarea id="comm-text" placeholder="${isProfs ? 'Écris un message aux profs…' : 'Écris un message aux élèves…'}" style="width:100%;background:transparent;border:none;color:var(--text);font-size:14px;resize:none;outline:none;min-height:70px;font-family:inherit"></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button onclick="profPostComm()" style="padding:8px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:500">Publier</button>
+      </div>
+    </div>
+    ${postHtml}
+  `;
+}
+
+async function profPostComm() {
+  const content = document.getElementById('comm-text').value.trim();
+  if (!content) return showToast('Écris quelque chose d\'abord', true);
+  const audience = commTab === 'profs' ? 'teachers' : 'all';
+  const { error } = await db.from('community_posts').insert({ author_id: currentUser.id, content, audience });
+  if (error) return showToast(error.message, true);
+  showToast('Publié !');
+  await renderCommTab();
+}
+
+async function profToggleLike(postId, btn) {
+  const { data: existing } = await db.from('community_reactions').select('id').eq('post_id', postId).eq('user_id', currentUser.id).maybeSingle();
+  if (existing) {
+    await db.from('community_reactions').delete().eq('id', existing.id);
+  } else {
+    await db.from('community_reactions').insert({ post_id: postId, user_id: currentUser.id, emoji: '❤️' });
+  }
+  await renderCommTab();
 }
 
 // ── MES STATS ─────────────────────────────────────────────

@@ -1135,6 +1135,7 @@ async function loadCommunaute() {
   const el = document.getElementById('communaute-content');
   const { data: posts } = await db.from('community_posts')
     .select('*, profiles(full_name, avatar_url, role), community_reactions(emoji, user_id), community_comments(id)')
+    .eq('audience', 'all')
     .order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(30);
 
   if (!posts?.length) {
@@ -1232,7 +1233,7 @@ async function submitPost() {
     if (error) return showToast('Erreur upload : ' + error.message, true);
     media_url = db.storage.from('community-media').getPublicUrl(path).data.publicUrl;
   }
-  await db.from('community_posts').insert({ author_id: currentUser.id, content, media_url, media_type: postMediaType });
+  await db.from('community_posts').insert({ author_id: currentUser.id, content, media_url, media_type: postMediaType, audience: 'all' });
   postMediaFile = null; postMediaType = null;
   closeModal(); showToast('Publié ! 🦇'); loadCommunaute();
 }
