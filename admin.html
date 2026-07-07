@@ -671,7 +671,7 @@ async function renderPlanning() {
 
 async function viewInstance(id) {
   const { data: ci } = await db.from('course_instances')
-    .select('*, courses(custom_name, start_time, duration_minutes, max_students, disciplines(name,color), profiles(full_name))')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, salle, is_recurring, event_date, disciplines(name,color), profiles(id, full_name))')
     .eq('id', id).single();
   const { data: bookings } = await db.from('bookings')
     .select('*, profiles(full_name, email)')
