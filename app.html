@@ -677,6 +677,7 @@ function renderCourseCard(ci, myStatus, myWaitlist) {
           </div>
           <div class="cours-name">${ci.discipline_name} <span style="color:var(--text3);font-size:12px">· ${ci.level}</span></div>
           <div class="cours-meta">${ci.duration_minutes} min · ${ci.teacher_name || 'Ana'} · ${ci.salle === 'pole' ? 'Salle Pole Dance' : 'Salle Multi'}</div>
+          ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${ci.description}</div>` : ''}
           ${isBooked ? '<div style="font-size:11px;color:var(--violet);margin-top:4px">✓ Réservé</div>' : ''}
           ${isWaiting ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">⏳ En liste d\'attente</div>' : ''}
         </div>
@@ -761,7 +762,8 @@ async function loadBookingForm(ci) {
 
   let html = `
     <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${ci.discipline_name}</h3>
-    <p style="color:var(--text3);font-size:13px;margin-bottom:20px">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${ci.teacher_name || 'Ana'}</p>
+    <p style="color:var(--text3);font-size:13px;margin-bottom:${ci.description ? '8px' : '20px'}">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${ci.teacher_name || 'Ana'}</p>
+    ${ci.description ? `<p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">${ci.description}</p>` : ''}
   `;
 
   if (subs?.length) {

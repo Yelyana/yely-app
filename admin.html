@@ -813,6 +813,10 @@ function openCourseModal(course, disciplines, teachers) {
         <input type="number" id="m-weeks" value="12" min="1" max="52">
       </div>
     </div>
+    <div class="form-group" style="margin-top:4px">
+      <label>Description (visible par les élèves)</label>
+      <textarea id="m-description" rows="3" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text1);font-family:inherit;font-size:0.9rem;resize:vertical">${course?.description || ''}</textarea>
+    </div>
     <div style="display:flex;gap:10px;margin-top:4px">
       <button class="btn btn-primary" onclick="saveCourse(${course?.id || 'null'})" style="flex:1">${isNew ? 'Créer le cours' : 'Enregistrer'}</button>
       ${!isNew ? `<button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : ''}
@@ -845,6 +849,7 @@ async function saveCourse(id) {
     is_recurring: !isUnique,
     day_of_week: isUnique ? null : parseInt(document.getElementById('m-day').value),
     event_date: isUnique ? document.getElementById('m-date').value || null : null,
+    description: document.getElementById('m-description').value || null,
   };
 
   let courseId = id;
