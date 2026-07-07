@@ -588,11 +588,43 @@ async function renderPlanning() {
   let gridHtml = '';
   if (planningView === 'week') {
     const days = Array.from({length:7}, (_,i) => { const d = new Date(rangeStart); d.setDate(rangeStart.getDate()+i); return d; });
-    gridHtml = `<div style="overflow-x:auto"><table><thead><tr>
-      ${days.map(d => `<th style="${fmt(d)===fmt(today)?'color:var(--accent)':''}">${JOURS[d.getDay()===0?6:d.getDay()-1]}<br><span style="font-size:11px;font-weight:400">${d.getDate()}</span></th>`).join('')}
-    </tr></thead><tbody><tr style="vertical-align:top">
-      ${days.map(d => `<td>${(byDate[fmt(d)]||[]).map(pillHtml).join('')}</td>`).join('')}
-    </tr></tbody></table></div>`;
+
+    // Grouper par date + salle
+    const byDateSalle = {};
+    (instances || []).forEach(ci => {
+      const key = ci.date;
+      if (!byDateSalle[key]) byDateSalle[key] = { air: [], terre: [] };
+      const salle = ci.courses?.salle === 'terre' ? 'terre' : 'air';
+      byDateSalle[key][salle].push(ci);
+    });
+
+    const dayHeaders = days.map(d => {
+      const isToday = fmt(d) === fmt(today);
+      const label = JOURS[d.getDay()===0?6:d.getDay()-1];
+      const num = d.getDate();
+      return `<div style="grid-column:span 2;text-align:center;font-weight:700;font-size:12px;color:${isToday?'var(--accent)':'white'};background:${isToday?'var(--accent)':'#3a2a5a'};padding:6px 4px;border-radius:8px 8px 0 0">${label} <span style="font-weight:400;font-size:11px">${num}</span></div>`;
+    }).join('');
+
+    const subHeaders = days.map(() => `
+      <div style="font-size:10px;font-weight:700;padding:4px;background:#ece4f2;color:#7c4a9e;text-align:center;border-radius:0 0 0 0">🦇 Salle Air</div>
+      <div style="font-size:10px;font-weight:700;padding:4px;background:#e6efe9;color:#5a8a7a;text-align:center">🌿 Salle Terre</div>
+    `).join('');
+
+    const dayCols = days.map(d => {
+      const data = byDateSalle[fmt(d)] || { air: [], terre: [] };
+      const airHtml = data.air.length ? data.air.map(pillHtml).join('') : `<div style="font-size:10px;color:var(--text3);text-align:center;padding:8px;opacity:0.5">—</div>`;
+      const terreHtml = data.terre.length ? data.terre.map(pillHtml).join('') : `<div style="font-size:10px;color:var(--text3);text-align:center;padding:8px;opacity:0.5">—</div>`;
+      return `<div style="background:#ece4f211;padding:4px;min-width:120px;vertical-align:top">${airHtml}</div>
+              <div style="background:#e6efe911;padding:4px;min-width:120px;vertical-align:top">${terreHtml}</div>`;
+    }).join('');
+
+    gridHtml = `<div style="overflow-x:auto">
+      <div style="display:grid;grid-template-columns:repeat(14,minmax(110px,1fr));gap:3px;min-width:1200px">
+        ${dayHeaders}
+        ${subHeaders}
+        ${dayCols}
+      </div>
+    </div>`;
   } else {
     const firstDow = (rangeStart.getDay() + 6) % 7;
     const daysInMonth = rangeEnd.getDate();
