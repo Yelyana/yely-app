@@ -747,36 +747,27 @@ function openCourseModal(course, disciplines, teachers) {
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">${isNew ? 'Nouveau cours' : 'Modifier le cours'}</div>
     <div class="form-group">
-      <label>Type de cours</label>
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button type="button" id="btn-recurrent" onclick="setCourseType('recurrent')" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:500">🔁 Cours récurrent</button>
-        <button type="button" id="btn-unique" onclick="setCourseType('unique')" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:13px;font-weight:500">⭐ Événement unique</button>
-      </div>
-      <input type="hidden" id="m-type" value="${course?.is_recurring === false ? 'unique' : 'recurrent'}">
+      <label>Nom du cours</label>
+      <input type="text" id="m-name" value="${course?.custom_name || ''}" placeholder="Ex: Pole Initiation, Workshop Tissu…">
     </div>
     <div class="form-group">
-      <label>Nom du cours</label>
-      <input type="text" id="m-name" value="${course?.custom_name || ''}" placeholder="Ex: Workshop Tissu Aérien avec Marina">
-      <div style="font-size:11px;color:var(--text3);margin-top:4px">Laisse vide pour utiliser le nom de la discipline</div>
+      <label>Fréquence</label>
+      <select id="m-freq" onchange="updateFreqFields()">
+        <option value="weekly" ${!course || course.is_recurring ? 'selected' : ''}>🔁 Toutes les semaines</option>
+        <option value="biweekly">🔁 Toutes les 2 semaines</option>
+        <option value="monthly">📅 Une fois par mois</option>
+        <option value="unique" ${course?.is_recurring === false ? 'selected' : ''}>⭐ Événement unique</option>
+      </select>
     </div>
     <div class="form-row">
-      <div class="form-group">
-        <label>Professeur</label>
-        <select id="m-teacher">
-          <option value="">— Choisir —</option>
-          ${(teachers || []).map(t => `<option value="${t.id}" ${course?.teacher_id === t.id ? 'selected' : ''}>${t.full_name}</option>`).join('')}
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group" id="field-day" ${course?.is_recurring === false ? 'style="display:none"' : ''}>
-        <label>Jour</label>
+      <div class="form-group" id="field-day">
+        <label>Jour récurrent</label>
         <select id="m-day">
           ${JOURS.map((j,i) => `<option value="${i+1}" ${course?.day_of_week === i+1 ? 'selected' : ''}>${j}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" id="field-date" ${course?.is_recurring !== false ? 'style="display:none"' : ''}>
-        <label>Date</label>
+      <div class="form-group" id="field-date" style="display:none">
+        <label>Date unique</label>
         <input type="date" id="m-date" value="${course?.event_date || ''}">
       </div>
       <div class="form-group">
@@ -787,29 +778,40 @@ function openCourseModal(course, disciplines, teachers) {
     <div class="form-row">
       <div class="form-group">
         <label>Durée (minutes)</label>
-        <input type="number" id="m-duration" value="${course?.duration_minutes || 60}" min="30" step="15">
+        <input type="number" id="m-duration" value="${course?.duration_minutes || 75}" min="30" step="15">
       </div>
       <div class="form-group">
         <label>Places maximum</label>
         <input type="number" id="m-max" value="${course?.max_students || 8}" min="1">
       </div>
     </div>
-    <div class="form-group">
-      <label>Salle</label>
-      <select id="m-salle">
-        <option value="air" ${course?.salle === 'air' || !course?.salle ? 'selected' : ''}>🌬️ Salle Air (Pole Dance, Cerceau Aérien)</option>
-        <option value="terre" ${course?.salle === 'terre' ? 'selected' : ''}>🌿 Salle Terre (Souplesse, Yoga, Pilates)</option>
-      </select>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Professeur</label>
+        <select id="m-teacher">
+          <option value="">— Choisir —</option>
+          ${(teachers || []).map(t => `<option value="${t.id}" ${course?.teacher_id === t.id ? 'selected' : ''}>${t.full_name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Salle</label>
+        <select id="m-salle">
+          <option value="air" ${course?.salle === 'air' || !course?.salle ? 'selected' : ''}>🦇 Salle Air</option>
+          <option value="terre" ${course?.salle === 'terre' ? 'selected' : ''}>🌿 Salle Terre</option>
+        </select>
+      </div>
     </div>
-    <div class="form-group">
-      <label>Niveau</label>
-      <select id="m-level">
-        ${['Tous niveaux','Débutant','Intermédiaire','Avancé'].map(l => `<option ${course?.level === l ? 'selected' : ''}>${l}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Description (optionnel)</label>
-      <textarea id="m-desc" rows="2">${course?.description || ''}</textarea>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Niveau</label>
+        <select id="m-level">
+          ${['Tous niveaux','Débutant','Intermédiaire','Avancé'].map(l => `<option ${course?.level === l ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" id="field-weeks">
+        <label>Générer pour (semaines)</label>
+        <input type="number" id="m-weeks" value="12" min="1" max="52">
+      </div>
     </div>
     <div style="display:flex;gap:10px;margin-top:4px">
       <button class="btn btn-primary" onclick="saveCourse(${course?.id || 'null'})" style="flex:1">${isNew ? 'Créer le cours' : 'Enregistrer'}</button>
@@ -820,40 +822,80 @@ function openCourseModal(course, disciplines, teachers) {
   openModal();
 }
 
-function setCourseType(type) {
-  document.getElementById('m-type').value = type;
-  const isUnique = type === 'unique';
-  document.getElementById('btn-recurrent').style.cssText = isUnique
-    ? 'flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:13px;font-weight:500'
-    : 'flex:1;padding:10px;border-radius:10px;border:2px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:500';
-  document.getElementById('btn-unique').style.cssText = isUnique
-    ? 'flex:1;padding:10px;border-radius:10px;border:2px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:500'
-    : 'flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:13px;font-weight:500';
+function updateFreqFields() {
+  const freq = document.getElementById('m-freq').value;
+  const isUnique = freq === 'unique';
   document.getElementById('field-day').style.display = isUnique ? 'none' : '';
   document.getElementById('field-date').style.display = isUnique ? '' : 'none';
+  document.getElementById('field-weeks').style.display = isUnique ? 'none' : '';
 }
 
 async function saveCourse(id) {
-  const isUnique = document.getElementById('m-type').value === 'unique';
+  const freq = document.getElementById('m-freq').value;
+  const isUnique = freq === 'unique';
+  const teacherId = document.getElementById('m-teacher').value || null;
   const data = {
-    discipline_id: isUnique ? null : parseInt(document.getElementById('m-discipline').value),
-    teacher_id: document.getElementById('m-teacher').value || null,
+    teacher_id: teacherId,
     start_time: document.getElementById('m-time').value,
     duration_minutes: parseInt(document.getElementById('m-duration').value),
     max_students: parseInt(document.getElementById('m-max').value),
     level: document.getElementById('m-level').value,
     salle: document.getElementById('m-salle').value,
-    description: document.getElementById('m-desc').value || null,
     custom_name: document.getElementById('m-name').value || null,
     is_recurring: !isUnique,
     day_of_week: isUnique ? null : parseInt(document.getElementById('m-day').value),
     event_date: isUnique ? document.getElementById('m-date').value || null : null,
   };
+
+  let courseId = id;
   let error;
-  if (id) { ({ error } = await db.from('courses').update(data).eq('id', id)); }
-  else { ({ error } = await db.from('courses').insert(data)); }
+  if (id) {
+    ({ error } = await db.from('courses').update(data).eq('id', id));
+  } else {
+    const { data: inserted, error: insertErr } = await db.from('courses').insert(data).select('id').single();
+    error = insertErr;
+    if (inserted) courseId = inserted.id;
+  }
   if (error) return showToast(error.message, true);
-  closeModal(); showToast(id ? 'Cours mis à jour' : 'Cours créé !'); loadPlanning();
+
+  // Générer les instances automatiquement
+  if (courseId) {
+    const instances = [];
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    if (isUnique) {
+      const dateVal = document.getElementById('m-date').value;
+      if (dateVal) instances.push({ course_id: courseId, date: dateVal, teacher_id: teacherId, status: 'scheduled' });
+    } else {
+      const weeks = parseInt(document.getElementById('m-weeks').value) || 12;
+      const dayOfWeek = parseInt(document.getElementById('m-day').value); // 1=Lundi
+      const step = freq === 'biweekly' ? 14 : freq === 'monthly' ? 28 : 7;
+
+      // Trouver la première occurrence à partir d'aujourd'hui
+      let d = new Date(today);
+      const todayDow = d.getDay() === 0 ? 7 : d.getDay(); // 1=Lundi, 7=Dimanche
+      let diff = dayOfWeek - todayDow;
+      if (diff < 0) diff += 7;
+      d.setDate(d.getDate() + diff);
+
+      const maxDate = new Date(today);
+      maxDate.setDate(today.getDate() + weeks * 7);
+
+      while (d <= maxDate) {
+        instances.push({ course_id: courseId, date: d.toISOString().slice(0,10), teacher_id: teacherId, status: 'scheduled' });
+        d.setDate(d.getDate() + step);
+      }
+    }
+
+    if (instances.length) {
+      const { error: instErr } = await db.from('course_instances').insert(instances);
+      if (instErr) return showToast('Cours créé mais erreur instances : ' + instErr.message, true);
+    }
+  }
+
+  closeModal();
+  showToast(id ? 'Cours mis à jour !' : `Cours créé avec ${id ? '' : 'ses séances'} !`);
+  loadPlanning();
 }
 
 async function deleteCourse(id) {
