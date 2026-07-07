@@ -442,6 +442,8 @@ async function generateInstances() {
 // ── PLANNING ──────────────────────────────────────────────
 let planningView = 'week';
 let planningOffset = 0;
+let planningDay = (new Date().getDay() + 6) % 7; // 0=Lun … 5=Sam, défaut = aujourd'hui
+if (planningDay > 5) planningDay = 0;
 
 function renderPlanningTemplate() {
   const colors = {
@@ -587,7 +589,7 @@ async function renderPlanning() {
 
   let gridHtml = '';
   if (planningView === 'week') {
-    const days = Array.from({length:7}, (_,i) => { const d = new Date(rangeStart); d.setDate(rangeStart.getDate()+i); return d; });
+    const days = Array.from({length:6}, (_,i) => { const d = new Date(rangeStart); d.setDate(rangeStart.getDate()+i); return d; });
 
     // Grouper par date + salle
     const byDateSalle = {};
@@ -598,33 +600,40 @@ async function renderPlanning() {
       byDateSalle[key][salle].push(ci);
     });
 
-    const dayHeaders = days.map(d => {
+    // Onglets jours
+    const dayTabs = days.map((d, i) => {
       const isToday = fmt(d) === fmt(today);
-      const label = JOURS[d.getDay()===0?6:d.getDay()-1];
+      const isActive = i === planningDay;
+      const label = JOURS[i].slice(0,3);
       const num = d.getDate();
-      return `<div style="grid-column:span 2;text-align:center;font-weight:700;font-size:12px;color:${isToday?'var(--accent)':'white'};background:${isToday?'var(--accent)':'#3a2a5a'};padding:6px 4px;border-radius:8px 8px 0 0">${label} <span style="font-weight:400;font-size:11px">${num}</span></div>`;
+      return `<button onclick="planningDay=${i};renderPlanning()" style="flex:1;padding:8px 4px;border:none;cursor:pointer;border-radius:10px;font-size:12px;font-weight:${isActive?'700':'400'};background:${isActive?'var(--accent)':'transparent'};color:${isActive?'#fff':isToday?'var(--accent)':'var(--text2)'}">
+        <div>${label}</div><div style="font-size:11px;opacity:0.8">${num}</div>
+      </button>`;
     }).join('');
 
-    const subHeaders = days.map(() => `
-      <div style="font-size:10px;font-weight:700;padding:4px;background:#ece4f2;color:#7c4a9e;text-align:center;border-radius:0 0 0 0">🦇 Salle Air</div>
-      <div style="font-size:10px;font-weight:700;padding:4px;background:#e6efe9;color:#5a8a7a;text-align:center">🌿 Salle Terre</div>
-    `).join('');
+    const selectedDay = days[planningDay];
+    const data = byDateSalle[fmt(selectedDay)] || { air: [], terre: [] };
+    const airHtml = data.air.length
+      ? data.air.sort((a,b) => a.courses?.start_time?.localeCompare(b.courses?.start_time)).map(pillHtml).join('')
+      : `<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Aucun cours</div>`;
+    const terreHtml = data.terre.length
+      ? data.terre.sort((a,b) => a.courses?.start_time?.localeCompare(b.courses?.start_time)).map(pillHtml).join('')
+      : `<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Aucun cours</div>`;
 
-    const dayCols = days.map(d => {
-      const data = byDateSalle[fmt(d)] || { air: [], terre: [] };
-      const airHtml = data.air.length ? data.air.map(pillHtml).join('') : `<div style="font-size:10px;color:var(--text3);text-align:center;padding:8px;opacity:0.5">—</div>`;
-      const terreHtml = data.terre.length ? data.terre.map(pillHtml).join('') : `<div style="font-size:10px;color:var(--text3);text-align:center;padding:8px;opacity:0.5">—</div>`;
-      return `<div style="background:#ece4f211;padding:4px;min-width:120px;vertical-align:top">${airHtml}</div>
-              <div style="background:#e6efe911;padding:4px;min-width:120px;vertical-align:top">${terreHtml}</div>`;
-    }).join('');
-
-    gridHtml = `<div style="overflow-x:auto">
-      <div style="display:grid;grid-template-columns:repeat(14,minmax(110px,1fr));gap:3px;min-width:1200px">
-        ${dayHeaders}
-        ${subHeaders}
-        ${dayCols}
+    gridHtml = `
+      <div style="display:flex;background:var(--bg2);border-radius:12px;padding:4px;gap:2px;margin-bottom:16px">
+        ${dayTabs}
       </div>
-    </div>`;
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="background:var(--card);border-radius:12px;overflow:hidden">
+          <div style="font-size:11px;font-weight:700;padding:8px 12px;background:#ece4f2;color:#7c4a9e;letter-spacing:0.5px">🦇 SALLE AIR</div>
+          <div style="padding:8px">${airHtml}</div>
+        </div>
+        <div style="background:var(--card);border-radius:12px;overflow:hidden">
+          <div style="font-size:11px;font-weight:700;padding:8px 12px;background:#e6efe9;color:#5a8a7a;letter-spacing:0.5px">🌿 SALLE TERRE</div>
+          <div style="padding:8px">${terreHtml}</div>
+        </div>
+      </div>`;
   } else {
     const firstDow = (rangeStart.getDay() + 6) % 7;
     const daysInMonth = rangeEnd.getDate();
