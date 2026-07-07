@@ -443,6 +443,92 @@ async function generateInstances() {
 let planningView = 'week';
 let planningOffset = 0;
 
+function renderPlanningTemplate() {
+  const colors = {
+    coline:'#7c4a9e', yely:'#2a0a45', anita:'#b8895f',
+    catherine:'#5a8a7a', florie:'#c76b8a', myriam:'#4a7a9e', arecruter:'#a8a8a8'
+  };
+  const days = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const rows = [
+    { time:'9h30', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:{name:'Pole Débutant',who:'Coline / futur prof',c:'coline'},b:{name:'Reformer Débutant',who:'Myriam',c:'myriam'}} }},
+    { time:'10h30', data:{ Lundi:{a:null,b:{name:'Yoga Vinyasa',who:'Catherine',c:'catherine'}}, Mardi:{a:null,b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:{name:'Yoga Vinyasa',who:'Catherine',c:'catherine'}}, Vendredi:{a:null,b:null}, Samedi:{a:{name:'Pole Technique / Chorégraphie',who:'Coline / futur prof',c:'coline'},b:{name:'Reformer Intermédiaire',who:'Myriam',c:'myriam'}} }},
+    { time:'11h45', data:{ Lundi:{a:null,b:{name:'Yoga Doux',who:'Catherine',c:'catherine'}}, Mardi:{a:null,b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:{name:'Yin Yoga',who:'Catherine',c:'catherine'}}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+    { time:'14h00', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Kids Pole',who:'Coline',c:'coline'},b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+    { time:'15h15', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Kids Cerceau',who:'Coline',c:'coline'},b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+    { time:'16h30', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Parent / Enfant',who:'Coline',c:'coline'},b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+    { time:'18h00', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Pole Initiation',who:'Coline',c:'coline'},b:{name:'✨ YELY SIGNATURE',who:'Souplesse, Backbends, Mobilité — Ana',c:'yely'}}, Jeudi:{a:null,b:null}, Vendredi:{a:{name:'Pole Initiation',who:'Coline',c:'coline'},b:{name:'Reformer Débutant',who:'Myriam',c:'myriam'}}, Samedi:{a:null,b:null} }},
+    { time:'18h45', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:{name:'Yoga Dynamique',who:'Anita',c:'anita'}}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+    { time:'19h00', data:{ Lundi:{a:{name:'Pole Initiation',who:'Coline',c:'coline'},b:{name:'Reformer Débutant',who:'Myriam',c:'myriam'}}, Mardi:{a:{name:'Pole Initiation',who:'À recruter',c:'arecruter'},b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:{name:'Cerceau Tous Niveaux',who:'Coline / futur prof',c:'coline'},b:{name:'Vinyasa Flow',who:'Florie',c:'florie'}}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+    { time:'19h15', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Pole Intermédiaire',who:'Coline',c:'coline'},b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+    { time:'19h45', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:{name:'Pole Intermédiaire',who:'Coline',c:'coline'},b:{name:'Reformer Intermédiaire',who:'Myriam',c:'myriam'}}, Samedi:{a:null,b:null} }},
+    { time:'20h00', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:{name:'Yoga Doux',who:'Anita',c:'anita'}}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+    { time:'20h15', data:{ Lundi:{a:{name:'Pole Intermédiaire',who:'Coline',c:'coline'},b:{name:'Reformer Intermédiaire',who:'Myriam',c:'myriam'}}, Mardi:{a:{name:'Pole Technique / Chorégraphie',who:'À recruter',c:'arecruter'},b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:{name:'Yoga Aérien',who:'À recruter',c:'arecruter'},b:{name:'Vinyasa Stretch',who:'Florie',c:'florie'}}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+    { time:'20h30–22h30', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Pratique Libre Encadrée (2h)',who:'Coline',c:'coline'},b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+  ];
+
+  const cellHtml = (course) => {
+    if (!course) return `<div style="border-radius:6px;min-height:44px;border:1px dashed var(--border)"></div>`;
+    const isRecruit = course.c === 'arecruter';
+    const bg = isRecruit
+      ? 'repeating-linear-gradient(135deg,#a8a8a8,#a8a8a8 7px,#b8b8b8 7px,#b8b8b8 14px)'
+      : colors[course.c];
+    const textColor = isRecruit ? '#2a2a2a' : 'white';
+    const border = isRecruit ? '1px dashed #6a6a6a' : 'none';
+    return `<div style="border-radius:6px;min-height:44px;padding:5px 6px;background:${bg};color:${textColor};border:${border};font-size:10px;line-height:1.3">
+      <div style="font-weight:600">${course.name}</div>
+      <div style="opacity:0.85;font-size:9px;margin-top:1px">${course.who}</div>
+    </div>`;
+  };
+
+  const legendHtml = [
+    {c:'coline',label:'Coline'},{c:'yely',label:'Ana / Yely'},{c:'anita',label:'Anita'},
+    {c:'catherine',label:'Catherine'},{c:'florie',label:'Florie'},{c:'myriam',label:'Myriam'}
+  ].map(l => `<span style="display:flex;align-items:center;gap:5px;font-size:11px"><span style="width:10px;height:10px;border-radius:3px;background:${colors[l.c]};display:inline-block"></span>${l.label}</span>`).join('');
+
+  const gridRows = rows.map(row => {
+    const cells = days.map(day => {
+      const info = row.data[day];
+      return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px">${cellHtml(info.a)}${cellHtml(info.b)}</div>`;
+    }).join('');
+    return `<div style="display:contents">
+      <div style="display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--text3);text-align:center;padding:2px">${row.time}</div>
+      ${days.map(day => { const info = row.data[day]; return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px">${cellHtml(info.a)}${cellHtml(info.b)}</div>`; }).join('')}
+    </div>`;
+  }).join('');
+
+  const headersHtml = days.map(d => `<div style="text-align:center">
+    <div style="font-weight:700;font-size:12px;color:white;background:var(--accent);padding:6px 4px;border-radius:6px 6px 0 0;text-transform:uppercase;letter-spacing:0.5px">${d}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px">
+      <div style="font-size:9px;font-weight:700;padding:3px;background:#ece4f2;color:#7c4a9e;border-radius:0 0 4px 4px;text-align:center">Salle A</div>
+      <div style="font-size:9px;font-weight:700;padding:3px;background:#e6efe9;color:#5a8a7a;border-radius:0 0 4px 4px;text-align:center">Salle B</div>
+    </div>
+  </div>`).join('');
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header"><div class="page-title">Planning — Vue type</div></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="display:flex;background:var(--bg2);border-radius:10px;padding:3px;gap:2px">
+        <button onclick="planningView='week';planningOffset=0;renderPlanning()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:transparent;color:var(--text2)">Semaine</button>
+        <button onclick="planningView='month';planningOffset=0;renderPlanning()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:transparent;color:var(--text2)">Mois</button>
+        <button style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:var(--accent);color:#fff">Vue type</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-left:8px">${legendHtml}</div>
+      <span style="font-size:11px;color:var(--text3);margin-left:auto">🦇 Salle A — Pole & Aérien &nbsp;|&nbsp; 🌿 Salle B — Yoga · Souplesse · Reformer</span>
+    </div>
+    <div style="overflow-x:auto">
+      <div style="display:grid;grid-template-columns:72px repeat(6,1fr);gap:4px;min-width:900px">
+        <div></div>${headersHtml}
+        ${gridRows}
+      </div>
+    </div>
+    <div style="margin-top:16px;background:var(--bg2);border-radius:10px;padding:14px 18px;font-size:12px;color:var(--text2);line-height:1.8">
+      <b style="color:var(--text)">Mardi (Salle A) :</b> soirée tenue par une prof à recruter ou en remplacement ponctuel.<br>
+      <b style="color:var(--text)">Mercredi 18h (Salle B) — Yely Signature :</b> ton seul cours de la semaine.<br>
+      <b style="color:var(--text)">Samedi après-midi (Salle A) :</b> Workshops · EVJF · Anniversaires · Cours privés · Shooting.
+    </div>
+  `;
+}
+
 async function loadPlanning() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
   const [{ data: disciplines }, { data: teachers }] = await Promise.all([
@@ -538,6 +624,7 @@ async function renderPlanning() {
       <div style="display:flex;background:var(--bg2);border-radius:10px;padding:3px;gap:2px">
         <button onclick="planningView='week';planningOffset=0;renderPlanning()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:${planningView==='week'?'var(--accent)':'transparent'};color:${planningView==='week'?'#fff':'var(--text2)'}">Semaine</button>
         <button onclick="planningView='month';planningOffset=0;renderPlanning()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:${planningView==='month'?'var(--accent)':'transparent'};color:${planningView==='month'?'#fff':'var(--text2)'}">Mois</button>
+        <button onclick="renderPlanningTemplate()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:transparent;color:var(--text2)">Vue type</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button onclick="planningOffset--;renderPlanning()" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer">‹</button>
