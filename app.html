@@ -1342,6 +1342,7 @@ function buyProduct(id, name, price_cents) {
 async function loadProfil() {
   const el = document.getElementById('profil-content');
   const { data: subs } = await db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active');
+  setTimeout(updateNotifStatus, 100);
   const { count: totalCours } = await db.from('bookings').select('*', { count: 'exact', head: true }).eq('student_id', currentUser.id).eq('status', 'confirmed');
   const initials = currentProfile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   el.innerHTML = `
@@ -1382,6 +1383,9 @@ async function loadProfil() {
       </div>
       <div class="settings-row" onclick="changePassword()">
         <span>Mot de passe</span><span style="color:var(--text3)">›</span>
+      </div>
+      <div class="settings-row" onclick="togglePushNotifications()" id="notif-row">
+        <span>🔔 Notifications de cours</span><span id="notif-status" style="color:var(--text3);font-size:12px">Chargement…</span>
       </div>
     </div>
 
@@ -1616,6 +1620,47 @@ db.auth.onAuthStateChange(async (event, session) => {
 });
 </script>
 <script>
+// ── PUSH NOTIFICATIONS ───────────────────────────────────
+const VAPID_PUBLIC = 'BGMrFAtGZrNj6_E9PUyYjqqE7104WJJTBklluDS6wMQxOGNZEoE71xoBkU6q27zrd6UKSaA2RP4rm3rtvcQ357s';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function updateNotifStatus() {
+  const el = document.getElementById('notif-status');
+  if (!el) return;
+  if (!('PushManager' in window)) { el.textContent = 'Non supporté'; return; }
+  const perm = Notification.permission;
+  if (perm === 'denied') { el.textContent = '🚫 Bloquées'; return; }
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  el.textContent = sub ? '✅ Activées' : 'Activer ›';
+}
+
+async function togglePushNotifications() {
+  if (!('PushManager' in window)) return showToast('Notifications non supportées sur ce navigateur', true);
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) {
+    await existing.unsubscribe();
+    await db.from('push_subscriptions').delete().eq('user_id', currentUser.id).eq('endpoint', existing.endpoint);
+    showToast('Notifications désactivées');
+    updateNotifStatus();
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') return showToast('Notifications refusées', true);
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC) });
+  const { endpoint, keys } = sub.toJSON();
+  await db.from('push_subscriptions').upsert({ user_id: currentUser.id, endpoint, p256dh: keys.p256dh, auth: keys.auth }, { onConflict: 'endpoint' });
+  showToast('Notifications activées ! 🔔');
+  updateNotifStatus();
+}
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/yely-app/sw.js').then(reg => {
     reg.addEventListener('updatefound', () => {

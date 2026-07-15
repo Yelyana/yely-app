@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yely-v23';
+const CACHE_NAME = 'yely-v24';
 
 self.addEventListener('install', e => { self.skipWaiting(); });
 
@@ -25,4 +25,20 @@ self.addEventListener('fetch', e => {
       return res;
     }))
   );
+});
+
+self.addEventListener('push', e => {
+  const data = e.data?.json() || {};
+  e.waitUntil(self.registration.showNotification(data.title || 'Yely in the Air 🦇', {
+    body: data.body || '',
+    icon: '/yely-app/icon-192.png',
+    badge: '/yely-app/icon-192.png',
+    tag: data.tag || 'yely-notif',
+    data: { url: data.url || '/yely-app/app.html' }
+  }));
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.openWindow(e.notification.data?.url || '/yely-app/app.html'));
 });
