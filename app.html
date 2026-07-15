@@ -554,14 +554,19 @@ async function loadHome() {
 
   // Prochain cours
   const today0 = new Date().toISOString().split('T')[0];
-  const { data: nextCIRows } = await db.from('course_instances').select(`
-    *, courses(*, disciplines(*), profiles(*)), bookings!inner(id, student_id, status)
-  `).eq('bookings.student_id', currentUser.id).eq('bookings.status', 'confirmed')
-    .neq('status', 'cancelled').gte('date', today0).order('date').limit(1);
-
-  const ciRow = nextCIRows?.[0];
-  const nb = ciRow ? { id: ciRow.bookings?.[0]?.id } : null;
-  const ci = ciRow ? { ...ciRow, courses: ciRow.courses } : null;
+  const { data: myBookings } = await db.from('bookings').select('id, course_instance_id')
+    .eq('student_id', currentUser.id).eq('status', 'confirmed');
+  const myInstanceIds = (myBookings || []).map(b => b.course_instance_id);
+  let nb = null, ci = null;
+  if (myInstanceIds.length) {
+    const { data: nextCIRows } = await db.from('course_instances').select(
+      '*, courses(*, disciplines(*), profiles(*))'
+    ).in('id', myInstanceIds).neq('status', 'cancelled').gte('date', today0).order('date').limit(1);
+    if (nextCIRows?.[0]) {
+      ci = nextCIRows[0];
+      nb = myBookings.find(b => b.course_instance_id === ci.id);
+    }
+  }
   const el = document.getElementById('next-cours-content');
   if (ci) {
     const c = ci.courses;
