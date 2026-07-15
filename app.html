@@ -553,14 +553,15 @@ async function loadHome() {
   document.getElementById('stat-credits').textContent = totalCredits > 0 ? totalCredits : '–';
 
   // Prochain cours
-  const { data: nextBookings } = await db.from('bookings').select(`
-    *, course_instances!inner(*, courses(*, disciplines(*), profiles(*)))
-  `).eq('student_id', currentUser.id).eq('status', 'confirmed')
-    .gte('course_instances.date', new Date().toISOString().split('T')[0])
-    .order('course_instances.date').limit(1);
+  const today0 = new Date().toISOString().split('T')[0];
+  const { data: nextCIRows } = await db.from('course_instances').select(`
+    *, courses(*, disciplines(*), profiles(*)), bookings!inner(id, student_id, status)
+  `).eq('bookings.student_id', currentUser.id).eq('bookings.status', 'confirmed')
+    .neq('status', 'cancelled').gte('date', today0).order('date').limit(1);
 
-  const nb = nextBookings?.[0];
-  const ci = nb?.course_instances;
+  const ciRow = nextCIRows?.[0];
+  const nb = ciRow ? { id: ciRow.bookings?.[0]?.id } : null;
+  const ci = ciRow ? { ...ciRow, courses: ciRow.courses } : null;
   const el = document.getElementById('next-cours-content');
   if (ci) {
     const c = ci.courses;
@@ -594,16 +595,19 @@ async function loadHome() {
   // Journal prompt (cours d'hier sans journal)
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
   const yStr = yesterday.toISOString().split('T')[0];
-  const { data: recentBooking } = await db.from('bookings').select(`
-    id, course_instances!inner(id, date, courses(disciplines(name)))
-  `).eq('student_id', currentUser.id).eq('status', 'confirmed')
-    .eq('course_instances.date', yStr).limit(1);
+  const { data: recentCIRows } = await db.from('course_instances').select(`
+    id, date, courses(disciplines(name)), bookings!inner(id, student_id, status)
+  `).eq('bookings.student_id', currentUser.id).eq('bookings.status', 'confirmed')
+    .eq('date', yStr).limit(1);
 
-  if (recentBooking?.[0]?.course_instances) {
-    const { data: hasJournal } = await db.from('journal_entries').select('id').eq('booking_id', recentBooking[0].id).limit(1);
-    if (!hasJournal?.length) {
-      document.getElementById('journal-prompt').style.display = 'block';
-      renderQuickFeelings(recentBooking[0].id, recentBooking[0].course_instances.id);
+  if (recentCIRows?.[0]) {
+    const bkId = recentCIRows[0].bookings?.[0]?.id;
+    if (bkId) {
+      const { data: hasJournal } = await db.from('journal_entries').select('id').eq('booking_id', bkId).limit(1);
+      if (!hasJournal?.length) {
+        document.getElementById('journal-prompt').style.display = 'block';
+        renderQuickFeelings(bkId, recentCIRows[0].id);
+      }
     }
   }
 }
