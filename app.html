@@ -585,7 +585,7 @@ async function loadHome() {
         ${teacherName ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Prof</span><span style="color:var(--text1)">${teacherName}</span></div>` : ''}
         ${c?.description ? `<div style="font-size:12px;color:var(--text3);margin-top:2px;font-style:italic">${c.description}</div>` : ''}
       </div>
-      <button class="btn btn-ghost" style="margin-top:4px" onclick="cancelBooking(${nb.id}, ${ci.id}, '${ci.date}')">Annuler ma réservation</button>
+      <div style="margin-top:8px;text-align:right"><button onclick="cancelBooking(${nb.id}, ${ci.id}, '${ci.date}')" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;padding:0">Annuler ma réservation</button></div>
     `;
   } else {
     el.innerHTML = `<div style="text-align:center;padding:20px 0">
