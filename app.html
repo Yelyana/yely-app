@@ -554,19 +554,14 @@ async function loadHome() {
 
   // Prochain cours
   const today0 = new Date().toISOString().split('T')[0];
-  const { data: myBookings } = await db.from('bookings').select('id, course_instance_id')
+  const { data: allMyBookings } = await db.from('bookings')
+    .select('id, course_instances(id, date, status, courses(custom_name, start_time, level, disciplines(name,color)))')
     .eq('student_id', currentUser.id).eq('status', 'confirmed');
-  const myInstanceIds = (myBookings || []).map(b => b.course_instance_id);
-  let nb = null, ci = null;
-  if (myInstanceIds.length) {
-    const { data: nextCIRows } = await db.from('course_instances').select(
-      '*, courses(*, disciplines(*), profiles(*))'
-    ).in('id', myInstanceIds).neq('status', 'cancelled').gte('date', today0).order('date').limit(1);
-    if (nextCIRows?.[0]) {
-      ci = nextCIRows[0];
-      nb = myBookings.find(b => b.course_instance_id === ci.id);
-    }
-  }
+  const futureBookings = (allMyBookings || [])
+    .filter(b => b.course_instances?.date >= today0 && b.course_instances?.status !== 'cancelled')
+    .sort((a, b) => a.course_instances.date.localeCompare(b.course_instances.date));
+  let nb = futureBookings[0] || null;
+  let ci = nb?.course_instances || null;
   const el = document.getElementById('next-cours-content');
   if (ci) {
     const c = ci.courses;
@@ -579,8 +574,8 @@ async function loadHome() {
     el.innerHTML = `
       <div style="margin-bottom:12px">
         <div class="serif" style="font-size:28px;color:var(--ivoire);font-weight:300">${d?.name || c?.custom_name || 'Cours'}</div>
-        <div class="serif" style="font-size:22px;color:var(--violet-light);font-style:italic">${c.level}</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:4px">${formatDate(ci.date)} · ${formatTime(c.start_time)} — ${c.profiles?.full_name || 'Ana'}</div>
+        <div class="serif" style="font-size:22px;color:var(--violet-light);font-style:italic">${c?.level || ''}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px">${formatDate(ci.date)} · ${formatTime(c.start_time)}</div>
       </div>
       ${diff > 0 ? `<div class="countdown-row">
         <div class="countdown-box"><div class="countdown-val">${days}</div><div class="countdown-lbl">Jours</div></div>
