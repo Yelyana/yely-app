@@ -1033,6 +1033,7 @@ function renderEleves() {
               <div style="font-size:12px;font-weight:600">${s.totalCours} cours</div>
               <div style="font-size:10px;color:var(--text3)">${s.lastCours ? 'Dernière : ' + new Date(s.lastCours).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : 'Jamais venue'}</div>
             </div>
+            ${!s.hasActive ? `<span style="font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:20px;background:#e87a7a22;color:#e87a7a">Sans forfait</span>` : ''}
             <span style="font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:20px;background:${badge.color}22;color:${badge.color}">${badge.label}</span>
           </div>
         </div>`;
@@ -1206,16 +1207,24 @@ async function doSendMessage(studentIds) {
 async function addCreditsModal(studentId, name) {
   const { data: products } = await db.from('products').select('*').eq('is_active', true).in('type', ['carte']).order('sort_order');
   document.getElementById('modal-body').innerHTML = `
-    <div class="modal-title">Ajouter des crédits — ${name}</div>
+    <div class="modal-title">Enregistrer un paiement — ${name}</div>
     <div class="form-group"><label>Forfait</label>
-      <select id="ac-product">${products?.map(p => `<option value="${p.id}" data-sessions="${p.sessions_count}" data-valid="${p.valid_for}" data-days="${p.validity_days || 120}">${p.name} (${p.sessions_count} séances)</option>`).join('')}</select>
+      <select id="ac-product">${products?.map(p => `<option value="${p.id}" data-sessions="${p.sessions_count}" data-valid="${p.valid_for}" data-days="${p.validity_days || 120}" data-price="${p.price_cents}">${p.name} (${p.sessions_count} séances · ${formatPrice(p.price_cents)})</option>`).join('')}</select>
     </div>
-    <div class="form-group"><label>Raison</label><input id="ac-reason" placeholder="Achat espèces, offert, correction..."></div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-primary" onclick="saveManualCredits('${studentId}')" style="flex:1">Ajouter</button>
+    <div class="form-group"><label>Mode de paiement</label>
+      <select id="ac-method">
+        <option value="especes">💵 Espèces</option>
+        <option value="virement">🏦 Virement</option>
+        <option value="cheque">📄 Chèque</option>
+        <option value="offert">🎁 Offert / Correction</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" onclick="saveManualCredits('${studentId}')" style="flex:1">✓ Enregistrer</button>
       <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
     </div>
   `;
+  document.getElementById('modal-overlay').style.display = 'flex';
 }
 
 async function saveManualCredits(studentId) {
@@ -1225,10 +1234,68 @@ async function saveManualCredits(studentId) {
   const sessions = parseInt(opt.dataset.sessions);
   const validFor = opt.dataset.valid;
   const days = parseInt(opt.dataset.days);
+  const priceCents = parseInt(opt.dataset.price) || 0;
+  const method = document.getElementById('ac-method').value;
   const expires = new Date(Date.now() + days * 86400000).toISOString();
-  const { error } = await db.from('student_credits').insert({ student_id: studentId, product_id: productId, sessions_remaining: sessions, sessions_total: sessions, valid_for: validFor, expires_at: expires });
-  if (error) return showToast(error.message, true);
-  closeModal(); showToast('Crédits ajoutés !');
+
+  const [creditResult, orderResult] = await Promise.all([
+    db.from('student_credits').insert({ student_id: studentId, product_id: productId, sessions_remaining: sessions, sessions_total: sessions, valid_for: validFor, expires_at: expires }),
+    method !== 'offert' ? db.from('orders').insert({ user_id: studentId, product_id: productId, amount_cents: priceCents, status: 'paid', payment_method: method }) : Promise.resolve({ error: null }),
+  ]);
+  if (creditResult.error) return showToast(creditResult.error.message, true);
+  closeModal();
+  showToast(method === 'offert' ? 'Crédits ajoutés !' : `Paiement enregistré (${method}) !`);
+}
+
+async function openPaymentModal() {
+  const [{ data: students }, { data: products }] = await Promise.all([
+    db.from('profiles').select('id, full_name').eq('role', 'student').order('full_name'),
+    db.from('products').select('*').eq('is_active', true).in('type', ['carte']).order('sort_order'),
+  ]);
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">Enregistrer un paiement</div>
+    <div class="form-group"><label>Élève</label>
+      <select id="pm-student">${(students||[]).map(s => `<option value="${s.id}">${s.full_name}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label>Forfait</label>
+      <select id="pm-product">${(products||[]).map(p => `<option value="${p.id}" data-sessions="${p.sessions_count}" data-valid="${p.valid_for}" data-days="${p.validity_days || 120}" data-price="${p.price_cents}">${p.name} (${p.sessions_count} séances · ${formatPrice(p.price_cents)})</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label>Mode de paiement</label>
+      <select id="pm-method">
+        <option value="especes">💵 Espèces</option>
+        <option value="virement">🏦 Virement</option>
+        <option value="cheque">📄 Chèque</option>
+        <option value="offert">🎁 Offert / Correction</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" onclick="savePaymentModal()" style="flex:1">✓ Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+    </div>
+  `;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+async function savePaymentModal() {
+  const studentId = document.getElementById('pm-student').value;
+  const sel = document.getElementById('pm-product');
+  const opt = sel.options[sel.selectedIndex];
+  const productId = parseInt(sel.value);
+  const sessions = parseInt(opt.dataset.sessions);
+  const validFor = opt.dataset.valid;
+  const days = parseInt(opt.dataset.days);
+  const priceCents = parseInt(opt.dataset.price) || 0;
+  const method = document.getElementById('pm-method').value;
+  const expires = new Date(Date.now() + days * 86400000).toISOString();
+
+  const [creditResult, orderResult] = await Promise.all([
+    db.from('student_credits').insert({ student_id: studentId, product_id: productId, sessions_remaining: sessions, sessions_total: sessions, valid_for: validFor, expires_at: expires }),
+    method !== 'offert' ? db.from('orders').insert({ user_id: studentId, product_id: productId, amount_cents: priceCents, status: 'paid', payment_method: method }) : Promise.resolve({ error: null }),
+  ]);
+  if (creditResult.error) return showToast(creditResult.error.message, true);
+  closeModal();
+  showToast(method === 'offert' ? 'Crédits ajoutés !' : `Paiement enregistré !`);
+  loadRevenus();
 }
 
 // ── PROFESSEURS ───────────────────────────────────────────
@@ -1403,6 +1470,7 @@ async function loadRevenus() {
     db.from('orders').select('*, products(name), profiles(full_name)').eq('status', 'paid').gte('created_at', thisMonth + '-01').order('created_at', { ascending: false }),
     db.from('teacher_revenue').select('*').order('month', { ascending: false }).limit(30),
   ]);
+  const methodLabel = { especes: '💵 Espèces', virement: '🏦 Virement', cheque: '📄 Chèque', offert: '🎁 Offert', stripe: '💳 Carte' };
 
   const totalCA = (orders || []).reduce((s, o) => s + o.amount_cents, 0);
   const totalCours = (revenue || []).reduce((s, r) => s + r.classes_given, 0);
@@ -1417,9 +1485,9 @@ async function loadRevenus() {
   });
 
   document.getElementById('main-content').innerHTML = `
-    <div class="page-header">
-      <div class="page-title">Revenus</div>
-      <div class="page-sub">${new Date().toLocaleString('fr', { month: 'long', year: 'numeric' })}</div>
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><div class="page-title">Revenus</div><div class="page-sub">${new Date().toLocaleString('fr', { month: 'long', year: 'numeric' })}</div></div>
+      <button class="btn btn-primary" onclick="openPaymentModal()">+ Enregistrer un paiement</button>
     </div>
     <div class="grid-3">
       <div class="stat-card"><div class="stat-val">${formatPrice(totalCA)}</div><div class="stat-lbl">CA ce mois</div></div>
@@ -1444,14 +1512,15 @@ async function loadRevenus() {
     <div class="section-title">Dernières commandes</div>
     <div class="card">
       <table>
-        <thead><tr><th>Élève</th><th>Forfait</th><th>Montant</th><th>Date</th></tr></thead>
+        <thead><tr><th>Élève</th><th>Forfait</th><th>Montant</th><th>Paiement</th><th>Date</th></tr></thead>
         <tbody>
           ${orders?.map(o => `<tr>
             <td>${o.profiles?.full_name || '—'}</td>
             <td>${o.products?.name || '—'}</td>
             <td style="color:var(--violet-light)">${formatPrice(o.amount_cents)}</td>
+            <td style="font-size:12px;color:var(--text3)">${methodLabel[o.payment_method] || o.payment_method || '—'}</td>
             <td style="color:var(--text3)">${formatDate(o.created_at)}</td>
-          </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:24px">Aucune commande ce mois</td></tr>'}
+          </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">Aucune commande ce mois</td></tr>'}
         </tbody>
       </table>
     </div>
