@@ -211,7 +211,13 @@ select option { background: var(--card); }
           <div class="serif" style="font-size:24px;font-weight:300;color:var(--ivoire)" id="home-name">chargement…</div>
         </div>
       </div>
-      <div class="avatar-btn" id="home-avatar" onclick="navigate('profil')">?</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="position:relative;cursor:pointer" onclick="navigate('notifications')">
+          <div style="font-size:22px;line-height:1">🔔</div>
+          <div id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#e87a7a;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center"></div>
+        </div>
+        <div class="avatar-btn" id="home-avatar" onclick="navigate('profil')">?</div>
+      </div>
     </div>
 
     <!-- Prochain cours -->
@@ -313,6 +319,15 @@ select option { background: var(--card); }
       <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:0.8;margin-right:8px;vertical-align:middle"><div class="top-bar-title">Mon profil</div></div>
     </div>
     <div id="profil-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+
+  <!-- NOTIFICATIONS -->
+  <div id="screen-notifications" class="screen" style="padding-top:0">
+    <div class="top-bar">
+      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:0.8;margin-right:8px;vertical-align:middle"><div class="top-bar-title">Notifications</div></div>
+      <button onclick="navigate('home')" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer">Fermer</button>
+    </div>
+    <div id="notif-content"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 
   <!-- BOTTOM NAV -->
@@ -451,6 +466,7 @@ function navigate(screen) {
   if (screen === 'profil') loadProfil();
   if (screen === 'boutique') loadBoutique();
   if (screen === 'communaute') loadCommunaute();
+  if (screen === 'notifications') loadNotifications();
 }
 
 function showAuth() {
@@ -466,8 +482,51 @@ function showApp() {
 }
 
 // ── HOME ──────────────────────────────────────────────────
+async function loadNotifications() {
+  const el = document.getElementById('notif-content');
+  const { data: notifs } = await db.from('notifications')
+    .select('*').eq('student_id', currentUser.id)
+    .order('created_at', { ascending: false }).limit(30);
+
+  await db.from('notifications').update({ read: true })
+    .eq('student_id', currentUser.id).eq('read', false);
+  updateNotifBadge();
+
+  if (!notifs?.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text3)">Aucune notification pour le moment.</div>';
+    return;
+  }
+  el.innerHTML = notifs.map(n => `
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);${!n.read ? 'background:rgba(155,125,219,0.06)' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div>
+          <div style="font-size:14px;font-weight:${!n.read ? '600' : '400'};color:var(--text);margin-bottom:3px">${n.title}</div>
+          <div style="font-size:13px;color:var(--text3);line-height:1.5">${n.message}</div>
+        </div>
+        ${!n.read ? '<div style="width:7px;height:7px;border-radius:50%;background:var(--violet);flex-shrink:0;margin-top:4px"></div>' : ''}
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">${new Date(n.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+    </div>
+  `).join('');
+}
+
+async function updateNotifBadge() {
+  const { count } = await db.from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('student_id', currentUser.id).eq('read', false);
+  const badge = document.getElementById('notif-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.style.display = 'flex';
+    badge.textContent = count > 9 ? '9+' : count;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
 async function loadHome() {
   if (!currentProfile) { showToast('Chargement du profil…'); return; }
+  updateNotifBadge();
   const hour = new Date().getHours();
   document.getElementById('home-greeting').textContent = hour < 12 ? 'Bonjour,' : hour < 18 ? 'Bon après-midi,' : 'Bonsoir,';
   document.getElementById('home-name').textContent = currentProfile.full_name.split(' ')[0] + ' 🦇';
@@ -1341,10 +1400,20 @@ function buyProduct(id, name, price_cents) {
 
 async function loadProfil() {
   const el = document.getElementById('profil-content');
-  const { data: subs } = await db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active');
+  const [
+    { data: subs },
+    { data: credits },
+    { data: upcomingBookings },
+    { count: totalCours2 }
+  ] = await Promise.all([
+    db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active'),
+    db.from('student_credits').select('*, products(name)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).order('expires_at'),
+    db.from('bookings').select('*, course_instances(date, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').gte('course_instances.date', new Date().toISOString().split('T')[0]).order('course_instances(date)').limit(3),
+    db.from('bookings').select('*', { count: 'exact', head: true }).eq('student_id', currentUser.id).eq('status', 'confirmed'),
+  ]);
   setTimeout(updateNotifStatus, 100);
-  const { count: totalCours } = await db.from('bookings').select('*', { count: 'exact', head: true }).eq('student_id', currentUser.id).eq('status', 'confirmed');
   const initials = currentProfile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const totalCredits = (credits||[]).reduce((s,c) => s + c.sessions_remaining, 0);
   el.innerHTML = `
     <div style="text-align:center;padding:20px 0">
       <div style="position:relative;width:72px;margin:0 auto 12px;cursor:pointer" onclick="document.getElementById('avatar-input').click()">
@@ -1358,6 +1427,17 @@ async function loadProfil() {
       <div style="font-size:13px;color:var(--text3)">${currentProfile.email}</div>
     </div>
 
+    ${credits?.length ? `
+    <div class="card card-sm" style="margin-bottom:12px;background:linear-gradient(135deg,#2a1f4e,#1a1530);border-color:rgba(155,125,219,0.3)">
+      <div style="font-size:10px;color:var(--violet-light);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">Mes crédits</div>
+      ${credits.map(c => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(155,125,219,0.15)">
+          <div style="font-size:13px;color:var(--text2)">${c.products?.name || '—'}</div>
+          <div style="font-size:14px;font-weight:600;color:var(--violet-light)">${c.sessions_remaining} séance${c.sessions_remaining>1?'s':''}</div>
+        </div>`).join('')}
+      <div style="text-align:right;margin-top:8px;font-size:12px;color:var(--text3)">Total : <strong style="color:var(--ivoire)">${totalCredits} séance${totalCredits>1?'s':''}</strong></div>
+    </div>` : ''}
+
     ${subs?.length ? subs.map(s => `
     <div class="abo-card">
       <div style="font-size:10px;color:var(--violet-light);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Abonnement actif</div>
@@ -1365,9 +1445,28 @@ async function loadProfil() {
       <div style="font-size:12px;color:var(--text2)">Actif jusqu'au ${formatDate(s.current_period_end)}</div>
     </div>`).join('') : ''}
 
+    ${upcomingBookings?.length ? `
+    <div class="card card-sm" style="margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Prochains cours</div>
+      ${upcomingBookings.map(b => {
+        const ci = b.course_instances;
+        const color = ci?.courses?.disciplines?.color || '#a78bfa';
+        const name = ci?.courses?.custom_name || ci?.courses?.disciplines?.name || 'Cours';
+        const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}) : '';
+        const time = ci?.courses?.start_time?.slice(0,5) || '';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="width:3px;height:32px;background:${color};border-radius:2px;flex-shrink:0"></div>
+          <div>
+            <div style="font-size:13px;font-weight:500">${name}</div>
+            <div style="font-size:11px;color:var(--text3)">${date} · ${time}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
     <div class="card card-sm" style="margin-bottom:12px">
       <div class="stat-row" style="margin:0">
-        <div class="stat-box"><div class="stat-val">${totalCours || 0}</div><div class="stat-lbl">Cours</div></div>
+        <div class="stat-box"><div class="stat-val">${totalCours2 || 0}</div><div class="stat-lbl">Cours</div></div>
         <div class="stat-box"><div class="stat-val">–</div><div class="stat-lbl">Figures</div></div>
         <div class="stat-box"><div class="stat-val">–</div><div class="stat-lbl">Victoires</div></div>
       </div>
