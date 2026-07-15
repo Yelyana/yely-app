@@ -767,6 +767,13 @@ function openCourseModal(course, disciplines, teachers) {
       <input type="text" id="m-name" value="${course?.custom_name || ''}" placeholder="Ex: Pole Initiation, Workshop Tissu…">
     </div>
     <div class="form-group">
+      <label>Discipline</label>
+      <select id="m-discipline">
+        <option value="">— Aucune —</option>
+        ${(disciplines || []).map(d => `<option value="${d.id}" ${course?.discipline_id === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
       <label>Fréquence</label>
       <select id="m-freq" onchange="updateFreqFields()">
         <option value="weekly" ${!course || course.is_recurring ? 'selected' : ''}>🔁 Toutes les semaines</option>
@@ -862,6 +869,7 @@ async function saveCourse(id) {
     level: document.getElementById('m-level').value,
     salle: document.getElementById('m-salle').value,
     custom_name: document.getElementById('m-name').value || null,
+    discipline_id: document.getElementById('m-discipline').value || null,
     is_recurring: !isUnique,
     day_of_week: isUnique ? null : parseInt(document.getElementById('m-day').value),
     event_date: isUnique ? document.getElementById('m-date').value || null : null,
