@@ -653,9 +653,52 @@ async function openEleveDetail(studentId, name) {
     <textarea id="eleve-objectives-${studentId}" rows="3" placeholder="Ex: Travailler la souplesse des hanches, améliorer le timing…" style="width:100%;margin-bottom:8px">${existingNote?.objectives || ''}</textarea>
     <button class="btn btn-ghost btn-sm" onclick="saveObjectives('${studentId}')">Sauvegarder</button>
 
-    <button class="btn btn-ghost" style="margin-top:16px;width:100%" onclick="closeModal()">Fermer</button>
+    <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="openProfPayment('${studentId}','${name.replace(/'/g,"\\'")}')">💵 Encaisser un forfait</button>
+    <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="closeModal()">Fermer</button>
   `;
   openModal();
+}
+
+async function openProfPayment(studentId, name) {
+  const { data: products } = await db.from('products').select('*').eq('is_active', true).in('type', ['carte']).order('sort_order');
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">Encaisser un forfait — ${name}</div>
+    <div class="form-group"><label>Forfait</label>
+      <select id="pp-product">${(products||[]).map(p => `<option value="${p.id}" data-sessions="${p.sessions_count}" data-valid="${p.valid_for}" data-days="${p.validity_days || 120}" data-price="${p.price_cents}">${p.name} (${p.sessions_count} séances · ${Math.round((p.price_cents||0)/100)} €)</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label>Mode de paiement</label>
+      <select id="pp-method">
+        <option value="especes">💵 Espèces</option>
+        <option value="virement">🏦 Virement</option>
+        <option value="cheque">📄 Chèque</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" onclick="saveProfPayment('${studentId}')" style="flex:1">✓ Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+    </div>
+  `;
+}
+
+async function saveProfPayment(studentId) {
+  const sel = document.getElementById('pp-product');
+  const opt = sel.options[sel.selectedIndex];
+  const productId = parseInt(sel.value);
+  const sessions = parseInt(opt.dataset.sessions);
+  const validFor = opt.dataset.valid;
+  const days = parseInt(opt.dataset.days);
+  const priceCents = parseInt(opt.dataset.price) || 0;
+  const method = document.getElementById('pp-method').value;
+  const expires = new Date(Date.now() + days * 86400000).toISOString();
+
+  const [creditResult, orderResult] = await Promise.all([
+    db.from('student_credits').insert({ student_id: studentId, product_id: productId, sessions_remaining: sessions, sessions_total: sessions, valid_for: validFor, expires_at: expires }),
+    db.from('orders').insert({ student_id: studentId, product_id: productId, amount_cents: priceCents, status: 'paid', payment_method: method }),
+  ]);
+  if (creditResult.error) return showToast(creditResult.error.message, true);
+  if (orderResult.error) return showToast('Crédit OK mais ordre échoué : ' + orderResult.error.message, true);
+  closeModal();
+  showToast('Paiement enregistré !');
 }
 
 async function saveObjectives(studentId) {
