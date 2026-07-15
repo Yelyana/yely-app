@@ -868,6 +868,27 @@ async function loadBookingForm(ci) {
   window._currentCi = ci;
 }
 
+async function sendConfirmationEmail(instanceId) {
+  try {
+    const { data: ci } = await db.from('course_instances')
+      .select('date, courses(custom_name, start_time, disciplines(name))')
+      .eq('id', instanceId).single();
+    const courseName = ci?.courses?.custom_name || ci?.courses?.disciplines?.name || 'Cours';
+    const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
+    const time = ci?.courses?.start_time?.slice(0,5) || '';
+    const { data: { session } } = await db.auth.getSession();
+    await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/send-confirmation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        studentEmail: currentProfile.email,
+        studentName: currentProfile.full_name.split(' ')[0],
+        courseName, date, time
+      })
+    });
+  } catch(e) {}
+}
+
 async function bookWithSub(instanceId, subId) {
   const { data: sub } = await db.from('subscriptions').select('*, products(*)').eq('id', subId).single();
   if (sub.products.type === 'abo_mensuel' && sub.sessions_used_this_month >= sub.products.sessions_per_month) {
@@ -879,6 +900,7 @@ async function bookWithSub(instanceId, subId) {
     await db.from('subscriptions').update({ sessions_used_this_month: sub.sessions_used_this_month + 1 }).eq('id', subId);
   }
   closeModal(); showToast('Réservation confirmée ! 🦇');
+  sendConfirmationEmail(instanceId);
   loadCoursesForDay(selectedDay || new Date());
 }
 
@@ -889,6 +911,7 @@ async function bookWithCredit(instanceId, creditId) {
   if (error) return showToast(error.code === '23505' ? 'Déjà inscrite !' : error.message, true);
   await db.from('student_credits').update({ sessions_remaining: credit.sessions_remaining - 1 }).eq('id', creditId);
   closeModal(); showToast('Réservation confirmée ! 🦇');
+  sendConfirmationEmail(instanceId);
   loadCoursesForDay(selectedDay || new Date());
 }
 
