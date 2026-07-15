@@ -233,9 +233,8 @@ async function loadAdminUser(user) {
 }
 
 (async () => {
-  const { data: { user }, error: userErr } = await db.auth.getUser();
-  if (user && !userErr) await loadAdminUser(user);
-  else { await db.auth.signOut(); }
+  const { data: { session } } = await db.auth.getSession();
+  if (session?.user) await loadAdminUser(session.user);
 })();
 
 db.auth.onAuthStateChange(async (event, session) => {

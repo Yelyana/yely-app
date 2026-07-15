@@ -235,9 +235,8 @@ async function initProf(user) {
     document.getElementById('p-reset-email').placeholder = 'Entre ton nouveau mot de passe ci-dessous';
     return;
   }
-  const { data: { user }, error: userErr } = await db.auth.getUser();
-  if (user && !userErr) await initProf(user);
-  else { await db.auth.signOut(); }
+  const { data: { session } } = await db.auth.getSession();
+  if (session?.user) await initProf(session.user);
 })();
 
 db.auth.onAuthStateChange(async (event, session) => {

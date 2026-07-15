@@ -1593,12 +1593,11 @@ async function loadUserProfile(user) {
 }
 
 (async () => {
-  const { data: { user }, error } = await db.auth.getUser();
-  if (user && !error) {
-    await loadUserProfile(user);
+  const { data: { session } } = await db.auth.getSession();
+  if (session?.user) {
+    await loadUserProfile(session.user);
     showApp();
   } else {
-    await db.auth.signOut();
     showAuth();
   }
 })();
