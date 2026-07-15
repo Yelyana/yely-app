@@ -909,7 +909,7 @@ async function saveCourse(id) {
     }
 
     if (instances.length) {
-      const { error: instErr } = await db.from('course_instances').insert(instances);
+      const { error: instErr } = await db.from('course_instances').upsert(instances, { onConflict: 'course_id,date', ignoreDuplicates: true });
       if (instErr) return showToast('Cours créé mais erreur instances : ' + instErr.message, true);
     }
   }
