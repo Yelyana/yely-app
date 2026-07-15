@@ -1293,6 +1293,7 @@ async function savePaymentModal() {
     method !== 'offert' ? db.from('orders').insert({ student_id: studentId, product_id: productId, amount_cents: priceCents, status: 'paid', payment_method: method }) : Promise.resolve({ error: null }),
   ]);
   if (creditResult.error) return showToast(creditResult.error.message, true);
+  if (orderResult.error) return showToast('Crédit OK mais ordre échoué : ' + orderResult.error.message, true);
   closeModal();
   showToast(method === 'offert' ? 'Crédits ajoutés !' : `Paiement enregistré !`);
   loadRevenus();
