@@ -555,7 +555,7 @@ async function loadHome() {
   // Prochain cours
   const today0 = new Date().toISOString().split('T')[0];
   const { data: allMyBookings } = await db.from('bookings')
-    .select('id, course_instances(id, date, status, courses(custom_name, start_time, level, disciplines(name,color)))')
+    .select('id, course_instances(id, date, status, courses(custom_name, start_time, duration_minutes, level, salle, description, disciplines(name,color), profiles(full_name)))')
     .eq('student_id', currentUser.id).eq('status', 'confirmed');
   const futureBookings = (allMyBookings || [])
     .filter(b => b.course_instances?.date >= today0 && b.course_instances?.status !== 'cancelled')
@@ -571,18 +571,21 @@ async function loadHome() {
     const hours = Math.floor(diff / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);
     const days = Math.floor(hours / 24);
+    const salleLabel = c?.salle === 'terre' ? '🌿 Salle Terre' : '🦇 Salle Air';
+    const teacherName = c?.profiles?.full_name || '';
     el.innerHTML = `
-      <div style="margin-bottom:12px">
-        <div class="serif" style="font-size:28px;color:var(--ivoire);font-weight:300">${d?.name || c?.custom_name || 'Cours'}</div>
-        <div class="serif" style="font-size:22px;color:var(--violet-light);font-style:italic">${c?.level || ''}</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:4px">${formatDate(ci.date)} · ${formatTime(c.start_time)}</div>
+      <div style="margin-bottom:14px">
+        <div class="serif" style="font-size:26px;color:var(--ivoire);font-weight:300">${d?.name || c?.custom_name || 'Cours'}</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px">${formatDate(ci.date)} · ${formatTime(c.start_time)}</div>
       </div>
-      ${diff > 0 ? `<div class="countdown-row">
-        <div class="countdown-box"><div class="countdown-val">${days}</div><div class="countdown-lbl">Jours</div></div>
-        <div class="countdown-box"><div class="countdown-val">${hours % 24}</div><div class="countdown-lbl">Heures</div></div>
-        <div class="countdown-box"><div class="countdown-val">${mins}</div><div class="countdown-lbl">Minutes</div></div>
-      </div>` : ''}
-      <button class="btn btn-ghost" style="margin-top:8px" onclick="cancelBooking(${nb.id}, ${ci.id}, '${ci.date}')">Annuler ma réservation</button>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+        ${c?.level ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Niveau</span><span style="color:var(--text1)">${c.level}</span></div>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Salle</span><span style="color:var(--text1)">${salleLabel}</span></div>
+        ${c?.duration_minutes ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Durée</span><span style="color:var(--text1)">${c.duration_minutes} min</span></div>` : ''}
+        ${teacherName ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Prof</span><span style="color:var(--text1)">${teacherName}</span></div>` : ''}
+        ${c?.description ? `<div style="font-size:12px;color:var(--text3);margin-top:2px;font-style:italic">${c.description}</div>` : ''}
+      </div>
+      <button class="btn btn-ghost" style="margin-top:4px" onclick="cancelBooking(${nb.id}, ${ci.id}, '${ci.date}')">Annuler ma réservation</button>
     `;
   } else {
     el.innerHTML = `<div style="text-align:center;padding:20px 0">
