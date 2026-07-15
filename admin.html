@@ -1240,7 +1240,7 @@ async function saveManualCredits(studentId) {
 
   const [creditResult, orderResult] = await Promise.all([
     db.from('student_credits').insert({ student_id: studentId, product_id: productId, sessions_remaining: sessions, sessions_total: sessions, valid_for: validFor, expires_at: expires }),
-    method !== 'offert' ? db.from('orders').insert({ user_id: studentId, product_id: productId, amount_cents: priceCents, status: 'paid', payment_method: method }) : Promise.resolve({ error: null }),
+    method !== 'offert' ? db.from('orders').insert({ student_id: studentId, product_id: productId, amount_cents: priceCents, status: 'paid', payment_method: method }) : Promise.resolve({ error: null }),
   ]);
   if (creditResult.error) return showToast(creditResult.error.message, true);
   closeModal();
@@ -1290,7 +1290,7 @@ async function savePaymentModal() {
 
   const [creditResult, orderResult] = await Promise.all([
     db.from('student_credits').insert({ student_id: studentId, product_id: productId, sessions_remaining: sessions, sessions_total: sessions, valid_for: validFor, expires_at: expires }),
-    method !== 'offert' ? db.from('orders').insert({ user_id: studentId, product_id: productId, amount_cents: priceCents, status: 'paid', payment_method: method }) : Promise.resolve({ error: null }),
+    method !== 'offert' ? db.from('orders').insert({ student_id: studentId, product_id: productId, amount_cents: priceCents, status: 'paid', payment_method: method }) : Promise.resolve({ error: null }),
   ]);
   if (creditResult.error) return showToast(creditResult.error.message, true);
   closeModal();
