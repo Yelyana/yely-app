@@ -1432,8 +1432,12 @@ async function loadBoutique() {
 
     <div class="section-label" style="margin-top:16px">Abonnements</div>
     ${abos.map(p => {
-      const pricePerCourse = p.courses_per_month ? (p.price_cents / p.courses_per_month / 100).toFixed(2).replace('.',',') : null;
-      const engPricePerCourse = (p.engagement_price_cents && p.courses_per_month) ? (p.engagement_price_cents / p.courses_per_month / 100).toFixed(2).replace('.',',') : null;
+      const nameLower = (p.name + ' ' + (p.description || '')).toLowerCase();
+      const is2x = /2x|x2|2 fois|deux fois|2\/semaine/.test(nameLower);
+      const coursesPerMonth = is2x ? 8 : 4;
+      const freq = is2x ? '2 cours/semaine' : '1 cours/semaine';
+      const pricePerCourse = (p.price_cents / coursesPerMonth / 100).toFixed(2).replace('.',',');
+      const engPricePerCourse = p.engagement_price_cents ? (p.engagement_price_cents / coursesPerMonth / 100).toFixed(2).replace('.',',') : null;
       return `
     <div class="card card-sm" style="margin-bottom:12px">
       <div style="margin-bottom:10px">
@@ -1444,12 +1448,14 @@ async function loadBoutique() {
         <button class="btn btn-ghost btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border:1px solid var(--border);border-radius:12px" onclick="confirmAndPay(${p.id}, false)">
           <span style="font-size:13px;color:var(--text2)">Sans engagement</span>
           <span style="font-size:18px;font-weight:600;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>
-          ${pricePerCourse ? `<span style="font-size:10px;color:var(--text3)">soit ${pricePerCourse}€/cours</span>` : ''}
+          <span style="font-size:10px;color:var(--text3)">soit ${pricePerCourse}€/cours</span>
+          <span style="font-size:10px;color:var(--text3)">(${freq})</span>
         </button>
         ${p.engagement_price_cents ? `<button class="btn btn-primary btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border-radius:12px" onclick="confirmAndPay(${p.id}, true)">
           <span style="font-size:11px;opacity:0.85">Engagement ${p.engagement_months} mois ⭐</span>
           <span style="font-size:18px;font-weight:600">${(p.engagement_price_cents/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>
-          ${engPricePerCourse ? `<span style="font-size:10px;opacity:0.8">soit ${engPricePerCourse}€/cours</span>` : ''}
+          <span style="font-size:10px;opacity:0.75">soit ${engPricePerCourse}€/cours</span>
+          <span style="font-size:10px;opacity:0.75">(${freq})</span>
         </button>` : ''}
       </div>
     </div>`;}).join('')}
