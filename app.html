@@ -1414,8 +1414,27 @@ async function loadBoutique() {
   const abos = (products || []).filter(p => p.type === 'abo_illimite' || p.type === 'abo_mensuel');
 
   el.innerHTML = `
-    <div class="section-label">Abonnements</div>
-    ${abos.map(p => `
+    <div class="section-label">Cartes & unités</div>
+    ${forfaits.map(p => {
+      const pricePerCourse = p.sessions_count ? (p.price_cents / p.sessions_count / 100).toFixed(2).replace('.',',') : null;
+      return `
+    <div class="card card-sm" style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div>
+        <div style="font-size:15px;font-weight:500">${p.name}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">${p.description || ''}${p.sessions_count ? ' · ' + p.sessions_count + ' cours' : ''}</div>
+        ${pricePerCourse ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">soit ${pricePerCourse}€/cours</div>` : ''}
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€</div>
+        <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="confirmAndPay(${p.id}, false)">Acheter</button>
+      </div>
+    </div>`;}).join('')}
+
+    <div class="section-label" style="margin-top:16px">Abonnements</div>
+    ${abos.map(p => {
+      const pricePerCourse = p.courses_per_month ? (p.price_cents / p.courses_per_month / 100).toFixed(2).replace('.',',') : null;
+      const engPricePerCourse = (p.engagement_price_cents && p.courses_per_month) ? (p.engagement_price_cents / p.courses_per_month / 100).toFixed(2).replace('.',',') : null;
+      return `
     <div class="card card-sm" style="margin-bottom:12px">
       <div style="margin-bottom:10px">
         <div style="font-size:15px;font-weight:500">${p.name}</div>
@@ -1425,27 +1444,15 @@ async function loadBoutique() {
         <button class="btn btn-ghost btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border:1px solid var(--border);border-radius:12px" onclick="confirmAndPay(${p.id}, false)">
           <span style="font-size:13px;color:var(--text2)">Sans engagement</span>
           <span style="font-size:18px;font-weight:600;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>
+          ${pricePerCourse ? `<span style="font-size:10px;color:var(--text3)">soit ${pricePerCourse}€/cours</span>` : ''}
         </button>
         ${p.engagement_price_cents ? `<button class="btn btn-primary btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border-radius:12px" onclick="confirmAndPay(${p.id}, true)">
           <span style="font-size:11px;opacity:0.85">Engagement ${p.engagement_months} mois ⭐</span>
           <span style="font-size:18px;font-weight:600">${(p.engagement_price_cents/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>
-          <span style="font-size:10px;opacity:0.8">soit ${(p.engagement_price_cents/100 * 10).toFixed(0)}€/an</span>
+          ${engPricePerCourse ? `<span style="font-size:10px;opacity:0.8">soit ${engPricePerCourse}€/cours</span>` : ''}
         </button>` : ''}
       </div>
-    </div>`).join('')}
-
-    <div class="section-label" style="margin-top:16px">Cartes & unités</div>
-    ${forfaits.map(p => `
-    <div class="card card-sm" style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <div>
-        <div style="font-size:15px;font-weight:500">${p.name}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:3px">${p.description || ''}${p.sessions_count ? ' · ' + p.sessions_count + ' séances' : ''}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€</div>
-        <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="confirmAndPay(${p.id}, false)">Acheter</button>
-      </div>
-    </div>`).join('')}
+    </div>`;}).join('')}
 
     <div class="section-label" style="margin-top:16px">Merch</div>
     <div class="card card-sm" style="text-align:center;padding:24px 16px">
@@ -1477,7 +1484,7 @@ function confirmAndPay(productId, engagement) {
       <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
     </div>
   `;
-  openModal();
+  document.getElementById('booking-modal').classList.add('open');
 }
 
 
