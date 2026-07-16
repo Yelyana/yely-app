@@ -1408,20 +1408,29 @@ async function loadBoutique() {
     updateAvatarBtns(currentProfile.avatar_url, currentProfile.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2));
   }
   const { data: products } = await db.from('products').select('*').eq('is_active', true).order('sort_order');
+  window._boutiqueProducts = {};
+  (products || []).forEach(p => window._boutiqueProducts[p.id] = p);
   const forfaits = (products || []).filter(p => p.type === 'carte' || p.type === 'unite');
   const abos = (products || []).filter(p => p.type === 'abo_illimite' || p.type === 'abo_mensuel');
 
   el.innerHTML = `
     <div class="section-label">Abonnements</div>
     ${abos.map(p => `
-    <div class="card card-sm" style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <div>
+    <div class="card card-sm" style="margin-bottom:12px">
+      <div style="margin-bottom:10px">
         <div style="font-size:15px;font-weight:500">${p.name}</div>
         <div style="font-size:12px;color:var(--text3);margin-top:3px">${p.description || ''}</div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€<span style="font-size:11px;color:var(--text3)">/mois</span></div>
-        <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="buyProduct(${JSON.stringify(p).replace(/"/g,'&quot;')})">Choisir</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border:1px solid var(--border);border-radius:12px" onclick="confirmAndPay(${p.id}, false)">
+          <span style="font-size:13px;color:var(--text2)">Sans engagement</span>
+          <span style="font-size:18px;font-weight:600;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>
+        </button>
+        ${p.engagement_price_cents ? `<button class="btn btn-primary btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border-radius:12px" onclick="confirmAndPay(${p.id}, true)">
+          <span style="font-size:11px;opacity:0.85">Engagement ${p.engagement_months} mois ⭐</span>
+          <span style="font-size:18px;font-weight:600">${(p.engagement_price_cents/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>
+          <span style="font-size:10px;opacity:0.8">soit ${(p.engagement_price_cents/100 * 10).toFixed(0)}€/an</span>
+        </button>` : ''}
       </div>
     </div>`).join('')}
 
@@ -1434,7 +1443,7 @@ async function loadBoutique() {
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€</div>
-        <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="buyProduct(${JSON.stringify(p).replace(/"/g,'&quot;')})">Acheter</button>
+        <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="confirmAndPay(${p.id}, false)">Acheter</button>
       </div>
     </div>`).join('')}
 
@@ -1448,39 +1457,29 @@ async function loadBoutique() {
   `;
 }
 
-function buyProduct(p) {
-  const hasEngagement = p.engagement_price_cents && p.engagement_months > 0;
+function confirmAndPay(productId, engagement) {
+  const p = window._boutiqueProducts[productId];
+  if (!p) return;
+  const price = engagement && p.engagement_price_cents ? p.engagement_price_cents : p.price_cents;
   const isAbo = ['abo_illimite', 'abo_mensuel'].includes(p.type);
-  if (hasEngagement) {
-    document.getElementById('modal-content').innerHTML = `
-      <div style="font-size:18px;font-weight:500;margin-bottom:6px">${p.name}</div>
-      <div style="font-size:13px;color:var(--text3);margin-bottom:20px">${p.description || ''}</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="cours-card" onclick="redirectToStripe(${p.id}, false)">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div><div style="font-size:14px;font-weight:500">Sans engagement</div><div style="font-size:12px;color:var(--text3)">Résiliable à tout moment</div></div>
-            <div style="font-size:17px;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€${isAbo ? '/mois' : ''}</div>
-          </div>
-        </button>
-        <button class="cours-card" onclick="redirectToStripe(${p.id}, true)">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div style="font-size:14px;font-weight:500">Engagement ${p.engagement_months} mois ⭐</div>
-              <div style="font-size:12px;color:var(--text3)">Pause juillet-août · ${p.engagement_months} mois à partir d'aujourd'hui</div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-size:17px;color:var(--violet-light)">${(p.engagement_price_cents/100).toFixed(0)}€${isAbo ? '/mois' : ''}</div>
-              <div style="font-size:10px;color:var(--green)">Économie ${((p.price_cents - p.engagement_price_cents)/100 * 10).toFixed(0)}€/an</div>
-            </div>
-          </div>
-        </button>
-        <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
-      </div>`;
-    openModal();
-  } else {
-    redirectToStripe(p.id, false);
-  }
+  const label = engagement ? `${p.name} — Engagement ${p.engagement_months} mois` : p.name;
+  const engagementMention = engagement ? `<div style="font-size:12px;color:var(--text3);margin-top:4px">Engagement ${p.engagement_months} mois · pause juillet-août · reconduction automatique</div>` : '';
+  document.getElementById('modal-content').innerHTML = `
+    <div style="font-size:18px;font-weight:500;margin-bottom:4px">${label}</div>
+    <div style="font-size:22px;color:var(--violet-light);font-weight:600;margin-bottom:4px">${(price/100).toFixed(0)}€${isAbo ? '/mois' : ''}</div>
+    ${engagementMention}
+    <div style="margin:16px 0;padding:12px;background:rgba(255,255,255,0.04);border-radius:10px;font-size:12px;color:var(--text3);line-height:1.6">
+      En procédant au paiement, j'accepte les <a href="https://yelyintheair.com/cgv" target="_blank" style="color:var(--violet-light)">Conditions Générales de Vente</a> de Yely in the Air.
+      ${engagement ? '<br><br>• Engagement de 12 mois calendaires glissants à partir de la date de souscription<br>• Pause automatique et gratuite en juillet-août<br>• Reconduction automatique, résiliable avant la date anniversaire' : ''}
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" style="flex:1" onclick="redirectToStripe(${productId}, ${engagement})">Payer en sécurité →</button>
+      <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
+    </div>
+  `;
+  openModal();
 }
+
 
 async function loadProfil() {
   const el = document.getElementById('profil-content');
