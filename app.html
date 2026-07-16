@@ -478,7 +478,14 @@ function showAuth() {
 function showApp() {
   document.getElementById('screen-auth').classList.remove('active');
   document.getElementById('bottom-nav').style.display = 'flex';
-  navigate('home');
+  const hash = window.location.hash;
+  if (hash.includes('boutique') && hash.includes('success=1')) {
+    window.location.hash = '';
+    navigate('boutique');
+    setTimeout(() => showToast('🎉 Paiement confirmé ! Ton forfait est activé.'), 500);
+  } else {
+    navigate('home');
+  }
 }
 
 // ── HOME ──────────────────────────────────────────────────
@@ -928,13 +935,25 @@ async function bookWithCredit(instanceId, creditId) {
 }
 
 async function buyAndBook(instanceId, productId) {
-  // Créer une commande et rediriger vers Stripe
-  const { data: product } = await db.from('products').select('*').eq('id', productId).single();
-  const { data: order, error } = await db.from('orders').insert({ student_id: currentUser.id, product_id: productId, amount_cents: product.price_cents, status: 'pending' }).select().single();
-  if (error) return showToast('Erreur lors de la création de la commande', true);
-  // En production : appeler une Edge Function Supabase qui crée un PaymentIntent Stripe
-  showToast('Paiement bientôt disponible — contacte Ana pour réserver', false);
-  closeModal();
+  window._pendingBookingInstanceId = instanceId;
+  await redirectToStripe(productId, false);
+}
+
+async function redirectToStripe(productId, engagement) {
+  showToast('Redirection vers le paiement…');
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ product_id: productId, engagement }),
+    });
+    const { url, error } = await res.json();
+    if (error) return showToast('Erreur : ' + error, true);
+    window.location.href = url;
+  } catch(e) {
+    showToast('Erreur de connexion', true);
+  }
 }
 
 async function cancelBookingFromModal() {
@@ -1402,7 +1421,7 @@ async function loadBoutique() {
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€<span style="font-size:11px;color:var(--text3)">/mois</span></div>
-        <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="buyProduct(${p.id},'${p.name}',${p.price_cents})">Choisir</button>
+        <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="buyProduct(${JSON.stringify(p).replace(/"/g,'&quot;')})">Choisir</button>
       </div>
     </div>`).join('')}
 
@@ -1415,7 +1434,7 @@ async function loadBoutique() {
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€</div>
-        <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="buyProduct(${p.id},'${p.name}',${p.price_cents})">Acheter</button>
+        <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="buyProduct(${JSON.stringify(p).replace(/"/g,'&quot;')})">Acheter</button>
       </div>
     </div>`).join('')}
 
@@ -1429,8 +1448,38 @@ async function loadBoutique() {
   `;
 }
 
-function buyProduct(id, name, price_cents) {
-  showToast('Paiement en ligne bientôt disponible !');
+function buyProduct(p) {
+  const hasEngagement = p.engagement_price_cents && p.engagement_months > 0;
+  const isAbo = ['abo_illimite', 'abo_mensuel'].includes(p.type);
+  if (hasEngagement) {
+    document.getElementById('modal-content').innerHTML = `
+      <div style="font-size:18px;font-weight:500;margin-bottom:6px">${p.name}</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:20px">${p.description || ''}</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="cours-card" onclick="redirectToStripe(${p.id}, false)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><div style="font-size:14px;font-weight:500">Sans engagement</div><div style="font-size:12px;color:var(--text3)">Résiliable à tout moment</div></div>
+            <div style="font-size:17px;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€${isAbo ? '/mois' : ''}</div>
+          </div>
+        </button>
+        <button class="cours-card" onclick="redirectToStripe(${p.id}, true)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:14px;font-weight:500">Engagement ${p.engagement_months} mois ⭐</div>
+              <div style="font-size:12px;color:var(--text3)">Pause juillet-août · ${p.engagement_months} mois à partir d'aujourd'hui</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:17px;color:var(--violet-light)">${(p.engagement_price_cents/100).toFixed(0)}€${isAbo ? '/mois' : ''}</div>
+              <div style="font-size:10px;color:var(--green)">Économie ${((p.price_cents - p.engagement_price_cents)/100 * 10).toFixed(0)}€/an</div>
+            </div>
+          </div>
+        </button>
+        <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+      </div>`;
+    openModal();
+  } else {
+    redirectToStripe(p.id, false);
+  }
 }
 
 async function loadProfil() {
