@@ -827,7 +827,12 @@ async function loadBookingForm(ci) {
   const { data: subs } = await db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active').in('valid_for', validFor);
 
   // Produits à acheter
-  const { data: products } = await db.from('products').select('*').eq('is_active', true).in('type', ['unite', 'carte']).in('valid_for', isReformer ? ['reformer'] : ['all', 'non_reformer']).order('sort_order');
+  const [{ data: products }, { data: pastOrders }] = await Promise.all([
+    db.from('products').select('*').eq('is_active', true).in('type', ['unite', 'carte']).in('valid_for', isReformer ? ['reformer'] : ['all', 'non_reformer']).order('sort_order'),
+    db.from('orders').select('product_id').eq('student_id', currentUser.id).neq('status', 'cancelled'),
+  ]);
+  const alreadyBoughtIds = new Set((pastOrders || []).map(o => o.product_id));
+  const availableProducts = (products || []).filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id));
 
   let html = `
     <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${ci.discipline_name}</h3>
@@ -861,7 +866,7 @@ async function loadBookingForm(ci) {
   }
 
   html += `<div class="section-label" style="margin-top:8px">Acheter</div>`;
-  products?.forEach(p => {
+  availableProducts?.forEach(p => {
     html += `<button class="cours-card" style="margin-bottom:8px" onclick="buyAndBook(${ci.id}, ${p.id})">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div><div style="font-size:14px">${p.name}</div><div style="font-size:11px;color:var(--text3)">${p.description || ''}</div></div>
