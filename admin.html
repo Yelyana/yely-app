@@ -1411,9 +1411,11 @@ async function doCreateTeacher() {
   const userId = signUpData.user?.id;
   if (!userId) return showToast('Erreur création compte', true);
 
-  // Créer le profil avec rôle teacher
-  await db.from('profiles').upsert({ id: userId, email, full_name: name, role: 'teacher' });
-  if (disciplines.length) await db.from('teachers').upsert({ id: userId, disciplines });
+  // Créer le profil avec rôle teacher via fonction SECURITY DEFINER
+  const { error: profileErr } = await db.rpc('create_teacher_profile', {
+    user_id: userId, user_email: email, user_name: name, user_disciplines: disciplines
+  });
+  if (profileErr) return showToast('Compte créé mais profil échoué : ' + profileErr.message, true);
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">✅ Compte créé !</div>
