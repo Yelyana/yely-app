@@ -1624,10 +1624,18 @@ function openProductModal(p) {
 }
 
 async function deleteProduct(id) {
-  if (!confirm('Supprimer ce forfait ? Cette action est irréversible.')) return;
-  const { error } = await db.from('products').delete().eq('id', id);
-  if (error) return showToast('Erreur : ' + error.message, true);
-  closeModal(); showToast('Forfait supprimé'); loadForfaits();
+  const { count } = await db.from('orders').select('*', { count: 'exact', head: true }).eq('product_id', id);
+  if (count > 0) {
+    if (!confirm('Ce forfait a des commandes liées — impossible de le supprimer. Le désactiver à la place ? (il n\'apparaîtra plus aux élèves)')) return;
+    const { error } = await db.from('products').update({ is_active: false }).eq('id', id);
+    if (error) return showToast('Erreur : ' + error.message, true);
+    closeModal(); showToast('Forfait désactivé'); loadForfaits();
+  } else {
+    if (!confirm('Supprimer ce forfait ? Cette action est irréversible.')) return;
+    const { error } = await db.from('products').delete().eq('id', id);
+    if (error) return showToast('Erreur : ' + error.message, true);
+    closeModal(); showToast('Forfait supprimé'); loadForfaits();
+  }
 }
 
 async function saveProduct(id) {
