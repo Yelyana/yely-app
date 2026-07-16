@@ -1579,7 +1579,7 @@ function openProductModal(p) {
     <div class="form-row">
       <div class="form-group">
         <label>Type</label>
-        <select id="p-type">
+        <select id="p-type" onchange="document.getElementById('engagement-fields').style.display=['abo_illimite','abo_mensuel'].includes(this.value)?'':'none'">
           <option value="unite" ${p?.type==='unite'?'selected':''}>Cours à l'unité</option>
           <option value="carte" ${p?.type==='carte'?'selected':''}>Carte multi-séances</option>
           <option value="abo_illimite" ${p?.type==='abo_illimite'?'selected':''}>Abonnement illimité</option>
@@ -1610,6 +1610,20 @@ function openProductModal(p) {
       </select>
     </div>
     <div class="form-group"><label>Description</label><textarea id="p-desc" rows="2">${p?.description || ''}</textarea></div>
+    <div id="engagement-fields" style="${['abo_illimite','abo_mensuel'].includes(p?.type) ? '' : 'display:none'}">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Option engagement</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Prix avec engagement (€/mois)</label>
+          <input type="number" id="p-eng-price" value="${p?.engagement_price_cents ? p.engagement_price_cents/100 : ''}" step="0.01" min="0" placeholder="Ex: 120">
+        </div>
+        <div class="form-group">
+          <label>Durée engagement (mois)</label>
+          <input type="number" id="p-eng-months" value="${p?.engagement_months || 12}" min="1" placeholder="12">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:-8px;margin-bottom:12px">Laisser vide si pas d'option engagement pour cet abonnement</div>
+    </div>
     <div class="form-group" style="display:flex;align-items:center;gap:10px">
       <input type="checkbox" id="p-active" ${p?.is_active !== false ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">Actif (visible aux élèves)</label>
@@ -1653,6 +1667,8 @@ async function saveProduct(id) {
     description: document.getElementById('p-desc').value || null,
     is_active: document.getElementById('p-active').checked,
     one_time_only: document.getElementById('p-onetime').checked,
+    engagement_price_cents: document.getElementById('p-eng-price')?.value ? Math.round(parseFloat(document.getElementById('p-eng-price').value) * 100) : null,
+    engagement_months: parseInt(document.getElementById('p-eng-months')?.value) || 0,
   };
   let error;
   if (id) { ({ error } = await db.from('products').update(data).eq('id', id)); }
