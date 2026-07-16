@@ -1416,12 +1416,13 @@ async function loadBoutique() {
   el.innerHTML = `
     <div class="section-label">Cartes & unités</div>
     ${forfaits.map(p => {
-      const pricePerCourse = p.sessions_count ? (p.price_cents / p.sessions_count / 100).toFixed(2).replace('.',',') : null;
+      const isUnite = p.type === 'unite';
+      const pricePerCourse = (!isUnite && p.sessions_count) ? (p.price_cents / p.sessions_count / 100).toFixed(2).replace('.',',') : null;
       return `
     <div class="card card-sm" style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px">
       <div>
         <div style="font-size:15px;font-weight:500">${p.name}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:3px">${p.description || ''}${p.sessions_count ? ' · ' + p.sessions_count + ' cours' : ''}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">${p.description || ''}${p.sessions_count && !isUnite ? ' · ' + p.sessions_count + ' cours' : ''}</div>
         ${pricePerCourse ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">soit ${pricePerCourse}€/cours</div>` : ''}
       </div>
       <div style="text-align:right;flex-shrink:0">
