@@ -909,6 +909,15 @@ async function sendConfirmationEmail(instanceId) {
 }
 
 async function bookWithSub(instanceId, subId) {
+  const ci = window._currentCi;
+  if (isKidsCourse(ci)) {
+    selectChildForBooking(instanceId, (childId) => _doBookWithSub(instanceId, subId, childId));
+    return;
+  }
+  return _doBookWithSub(instanceId, subId, null);
+}
+
+async function _doBookWithSub(instanceId, subId, childId) {
   const { data: sub } = await db.from('subscriptions').select('*, products(*)').eq('id', subId).single();
   if (sub.products.type === 'abo_mensuel' && sub.sessions_used_this_month >= sub.products.sessions_per_month) {
     return showToast('Tu as utilisé toutes tes séances ce mois', true);
@@ -940,7 +949,7 @@ async function bookWithSub(instanceId, subId) {
     }
   }
 
-  const { error } = await db.from('bookings').insert({ student_id: currentUser.id, course_instance_id: instanceId, status: 'confirmed', payment_type: sub.products.type, subscription_id: subId });
+  const { error } = await db.from('bookings').insert({ student_id: currentUser.id, course_instance_id: instanceId, status: 'confirmed', payment_type: sub.products.type, subscription_id: subId, child_id: childId || null });
   if (error) return showToast(error.code === '23505' ? 'Déjà inscrite !' : error.message, true);
   if (sub.products.type === 'abo_mensuel') {
     await db.from('subscriptions').update({ sessions_used_this_month: sub.sessions_used_this_month + 1 }).eq('id', subId);
@@ -951,9 +960,18 @@ async function bookWithSub(instanceId, subId) {
 }
 
 async function bookWithCredit(instanceId, creditId) {
+  const ci = window._currentCi;
+  if (isKidsCourse(ci)) {
+    selectChildForBooking(instanceId, (childId) => _doBookWithCredit(instanceId, creditId, childId));
+    return;
+  }
+  return _doBookWithCredit(instanceId, creditId, null);
+}
+
+async function _doBookWithCredit(instanceId, creditId, childId) {
   const { data: credit } = await db.from('student_credits').select('*').eq('id', creditId).single();
   if (credit.sessions_remaining <= 0) return showToast('Plus de séances disponibles', true);
-  const { error } = await db.from('bookings').insert({ student_id: currentUser.id, course_instance_id: instanceId, status: 'confirmed', payment_type: 'carte', credit_id: creditId });
+  const { error } = await db.from('bookings').insert({ student_id: currentUser.id, course_instance_id: instanceId, status: 'confirmed', payment_type: 'carte', credit_id: creditId, child_id: childId || null });
   if (error) return showToast(error.code === '23505' ? 'Déjà inscrite !' : error.message, true);
   await db.from('student_credits').update({ sessions_remaining: credit.sessions_remaining - 1 }).eq('id', creditId);
   closeModal(); showToast('Réservation confirmée ! 🦇');
@@ -1528,13 +1546,37 @@ async function loadProfil() {
     { data: subs },
     { data: credits },
     { data: upcomingBookings },
-    { count: totalCours2 }
+    { count: totalCours2 },
+    { data: children },
   ] = await Promise.all([
     db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active'),
     db.from('student_credits').select('*, products(name)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).order('expires_at'),
     db.from('bookings').select('*, course_instances(date, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').gte('course_instances.date', new Date().toISOString().split('T')[0]).order('course_instances(date)').limit(3),
     db.from('bookings').select('*', { count: 'exact', head: true }).eq('student_id', currentUser.id).eq('status', 'confirmed'),
+    db.from('children').select('*').eq('parent_id', currentUser.id).order('first_name'),
   ]);
+  // Carte enfants
+  const childrenCard = document.getElementById('children-card');
+  if (childrenCard) {
+    childrenCard.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:12px;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase">👧 Mes enfants</div>
+        <button class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:12px" onclick="addChildModal()">+ Ajouter</button>
+      </div>
+      ${(children || []).length === 0
+        ? `<div style="font-size:13px;color:var(--text3)">Aucun enfant enregistré.<br><span style="font-size:11px">Ajoute un enfant pour réserver les cours Pole Kids.</span></div>`
+        : (children || []).map(c => {
+            const age = c.birthdate ? Math.floor((Date.now() - new Date(c.birthdate)) / 31557600000) : null;
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+              <div>
+                <div style="font-size:14px;font-weight:500">${c.first_name}</div>
+                ${age !== null ? `<div style="font-size:11px;color:var(--text3)">${age} ans</div>` : ''}
+              </div>
+              <button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px;color:var(--red)" onclick="deleteChild(${c.id}, '${c.first_name}')">Supprimer</button>
+            </div>`;
+          }).join('')}
+    `;
+  }
   setTimeout(updateNotifStatus, 100);
   const initials = currentProfile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const totalCredits = (credits||[]).reduce((s,c) => s + c.sessions_remaining, 0);
@@ -1596,6 +1638,8 @@ async function loadProfil() {
       </div>
     </div>
 
+    <div class="card card-sm" id="children-card" style="margin-bottom:12px"></div>
+
     <div class="card card-sm" style="margin-bottom:12px">
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px;letter-spacing:0.5px;text-transform:uppercase">Paramètres</div>
       <div class="settings-row" onclick="editProfile()">
@@ -1615,6 +1659,84 @@ async function loadProfil() {
     <button class="btn btn-ghost" onclick="logout()" style="color:var(--red);border-color:rgba(232,122,122,0.3)">Se déconnecter</button>
     <div style="text-align:center;padding:16px 0;font-size:11px;color:var(--text3)">Yely in the Air · v1.0</div>
   `;
+}
+
+function addChildModal() {
+  document.getElementById('booking-modal').classList.add('open');
+  document.getElementById('modal-content').innerHTML = `
+    <h3 class="serif" style="font-size:20px;margin-bottom:16px">Ajouter un enfant</h3>
+    <div class="form-group"><label>Prénom</label><input id="child-name" placeholder="Prénom de l'enfant"></div>
+    <div class="form-group"><label>Date de naissance</label><input id="child-birth" type="date"></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveChild()">Enregistrer</button>
+      <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
+    </div>`;
+}
+
+async function saveChild() {
+  const firstName = document.getElementById('child-name').value.trim();
+  const birthdate = document.getElementById('child-birth').value || null;
+  if (!firstName) return showToast('Prénom requis', true);
+  const { error } = await db.from('children').insert({ parent_id: currentUser.id, first_name: firstName, birthdate });
+  if (error) return showToast('Erreur : ' + error.message, true);
+  closeModal();
+  showToast('Enfant ajouté ✨');
+  loadProfil();
+}
+
+async function deleteChild(id, name) {
+  document.getElementById('booking-modal').classList.add('open');
+  document.getElementById('modal-content').innerHTML = `
+    <div style="font-size:17px;font-weight:500;margin-bottom:12px">Supprimer ${name} ?</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:20px">Les réservations existantes ne seront pas affectées.</div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" style="flex:1;background:var(--red);border-color:var(--red)" onclick="confirmDeleteChild(${id})">Supprimer</button>
+      <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
+    </div>`;
+}
+
+async function confirmDeleteChild(id) {
+  await db.from('children').delete().eq('id', id);
+  closeModal(); showToast('Enfant supprimé'); loadProfil();
+}
+
+function isKidsCourse(ci) {
+  const name = ((ci?.courses?.custom_name || '') + ' ' + (ci?.courses?.disciplines?.name || '')).toLowerCase();
+  return /kids|enfant|parent.enfant/.test(name);
+}
+
+async function selectChildForBooking(instanceId, bookingFn) {
+  const { data: children } = await db.from('children').select('*').eq('parent_id', currentUser.id).order('first_name');
+  if (!children || children.length === 0) {
+    document.getElementById('booking-modal').classList.add('open');
+    document.getElementById('modal-content').innerHTML = `
+      <div style="font-size:17px;font-weight:500;margin-bottom:12px">Ce cours est réservé aux enfants 👧</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:20px">Ajoute d'abord un enfant dans ton profil pour pouvoir réserver ce cours.</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" style="flex:1" onclick="closeModal();showSection('profil')">Aller dans mon profil</button>
+        <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
+      </div>`;
+    return;
+  }
+  document.getElementById('booking-modal').classList.add('open');
+  document.getElementById('modal-content').innerHTML = `
+    <div style="font-size:17px;font-weight:500;margin-bottom:4px">Pour quel enfant ?</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:16px">Sélectionne l'enfant qui participera au cours.</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      ${children.map(c => {
+        const age = c.birthdate ? Math.floor((Date.now() - new Date(c.birthdate)) / 31557600000) : null;
+        return `<button class="cours-card" style="text-align:left" onclick="window._selectedChildId=${c.id};bookingFnWithChild()">
+          <div style="font-weight:500">${c.first_name}</div>
+          ${age !== null ? `<div style="font-size:12px;color:var(--text3)">${age} ans</div>` : ''}
+        </button>`;
+      }).join('')}
+    </div>
+    <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>`;
+  window._pendingBookingFn = bookingFn;
+  window.bookingFnWithChild = () => {
+    closeModal();
+    window._pendingBookingFn(window._selectedChildId);
+  };
 }
 
 function updateAvatarBtns(avatarUrl, initials) {
