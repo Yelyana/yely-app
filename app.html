@@ -876,30 +876,26 @@ async function loadBookingForm(ci) {
   const forfaitsAcheter = (availableProducts || []).filter(p => p.type === 'carte' || p.type === 'unite');
   const abosAcheter = (availableProducts || []).filter(p => p.type === 'abo_illimite' || p.type === 'abo_mensuel');
   forfaitsAcheter.forEach(p => {
-    const isAbo = false;
-    html += `<button class="cours-card" style="margin-bottom:8px" onclick="buyAndBook(${ci.id}, ${p.id})">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div><div style="font-size:14px;color:var(--ivoire)">${p.name}</div><div style="font-size:11px;color:var(--text3)">${p.description || ''}${p.sessions_count && p.type !== 'unite' ? ' · ' + p.sessions_count + ' cours' : ''}</div></div>
-        <div style="text-align:right">
-          <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}</div>
-        </div>
+    html += `<button class="cours-card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px" onclick="buyAndBook(${ci.id}, ${p.id})">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${p.name}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.description || ''}${p.sessions_count && p.type !== 'unite' ? ' · ' + p.sessions_count + ' cours' : ''}</div>
       </div>
+      <div style="flex-shrink:0;font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}</div>
     </button>`;
   });
   if (abosAcheter.length) {
     html += `<div class="section-label" style="margin-top:8px">Abonnements</div>`;
     abosAcheter.forEach(p => {
       const isIllimite = p.type === 'abo_illimite';
-      html += `<button class="cours-card" style="margin-bottom:8px" onclick="confirmAndPay(${p.id}, false)">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <div style="font-size:14px;color:var(--ivoire)">${p.name}</div>
-            <div style="font-size:11px;color:var(--text3)">${isIllimite ? '+ practice libre ✨' : (p.description || '')}</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}<span style="font-size:11px;font-weight:400">/mois</span></div>
-            ${p.engagement_price_cents ? `<div style="font-size:10px;color:var(--text3)">${formatPrice(p.engagement_price_cents)}/mois avec engagement</div>` : ''}
-          </div>
+      html += `<button class="cours-card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px" onclick="confirmAndPay(${p.id}, false)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${p.name}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${isIllimite ? '+ practice libre ✨' : (p.description || '')}</div>
+        </div>
+        <div style="flex-shrink:0;text-align:right">
+          <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}<span style="font-size:11px;font-weight:400">/mois</span></div>
+          ${p.engagement_price_cents ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${formatPrice(p.engagement_price_cents)}/mois avec engagement</div>` : ''}
         </div>
       </button>`;
     });
