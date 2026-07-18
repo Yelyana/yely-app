@@ -913,6 +913,33 @@ async function bookWithSub(instanceId, subId) {
   if (sub.products.type === 'abo_mensuel' && sub.sessions_used_this_month >= sub.products.sessions_per_month) {
     return showToast('Tu as utilisé toutes tes séances ce mois', true);
   }
+
+  // Vérification limite hebdomadaire
+  const limit = sub.products.sessions_per_week;
+  if (limit) {
+    const { data: ci } = await db.from('course_instances').select('date').eq('id', instanceId).single();
+    const courseDate = new Date(ci.date);
+    const day = courseDate.getDay();
+    const monday = new Date(courseDate);
+    monday.setDate(courseDate.getDate() - (day === 0 ? 6 : day - 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const mondayStr = monday.toISOString().split('T')[0];
+    const sundayStr = sunday.toISOString().split('T')[0];
+
+    const { data: weekBookings } = await db.from('bookings')
+      .select('id, course_instances!inner(date)')
+      .eq('student_id', currentUser.id)
+      .eq('status', 'confirmed')
+      .eq('subscription_id', subId)
+      .gte('course_instances.date', mondayStr)
+      .lte('course_instances.date', sundayStr);
+
+    if ((weekBookings || []).length >= limit) {
+      return showToast(`Ton abonnement est limité à ${limit} cours/semaine — cette semaine est complète.`, true);
+    }
+  }
+
   const { error } = await db.from('bookings').insert({ student_id: currentUser.id, course_instance_id: instanceId, status: 'confirmed', payment_type: sub.products.type, subscription_id: subId });
   if (error) return showToast(error.code === '23505' ? 'Déjà inscrite !' : error.message, true);
   if (sub.products.type === 'abo_mensuel') {
