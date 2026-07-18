@@ -833,16 +833,16 @@ async function loadBookingForm(ci) {
   // Abonnements actifs
   const { data: subs } = await db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active').in('valid_for', validFor);
 
-  // Produits à acheter
+  // Produits à acheter (cartes, unités ET abonnements)
   const [{ data: products }, { data: pastOrders }] = await Promise.all([
-    db.from('products').select('*').eq('is_active', true).in('type', ['unite', 'carte']).in('valid_for', isReformer ? ['reformer'] : ['all', 'non_reformer']).order('sort_order'),
+    db.from('products').select('*').eq('is_active', true).in('valid_for', isReformer ? ['reformer', 'all'] : ['all', 'non_reformer']).order('sort_order'),
     db.from('orders').select('product_id').eq('student_id', currentUser.id).neq('status', 'cancelled'),
   ]);
   const alreadyBoughtIds = new Set((pastOrders || []).map(o => o.product_id));
   const availableProducts = (products || []).filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id));
 
   let html = `
-    <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${ci.discipline_name}</h3>
+    <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">${ci.discipline_name}</h3>
     <p style="color:var(--text3);font-size:13px;margin-bottom:${ci.description ? '8px' : '20px'}">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${ci.teacher_name || 'Ana'}</p>
     ${ci.description ? `<p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">${ci.description}</p>` : ''}
   `;
@@ -873,14 +873,37 @@ async function loadBookingForm(ci) {
   }
 
   html += `<div class="section-label" style="margin-top:8px">Acheter</div>`;
-  availableProducts?.forEach(p => {
+  const forfaitsAcheter = (availableProducts || []).filter(p => p.type === 'carte' || p.type === 'unite');
+  const abosAcheter = (availableProducts || []).filter(p => p.type === 'abo_illimite' || p.type === 'abo_mensuel');
+  forfaitsAcheter.forEach(p => {
+    const isAbo = false;
     html += `<button class="cours-card" style="margin-bottom:8px" onclick="buyAndBook(${ci.id}, ${p.id})">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div><div style="font-size:14px">${p.name}</div><div style="font-size:11px;color:var(--text3)">${p.description || ''}</div></div>
-        <div style="font-size:16px;color:var(--violet-light);font-family:'Cormorant Garamond',serif">${formatPrice(p.price_cents)}</div>
+        <div><div style="font-size:14px;color:var(--ivoire)">${p.name}</div><div style="font-size:11px;color:var(--text3)">${p.description || ''}${p.sessions_count && p.type !== 'unite' ? ' · ' + p.sessions_count + ' cours' : ''}</div></div>
+        <div style="text-align:right">
+          <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}</div>
+        </div>
       </div>
     </button>`;
   });
+  if (abosAcheter.length) {
+    html += `<div class="section-label" style="margin-top:8px">Abonnements</div>`;
+    abosAcheter.forEach(p => {
+      const isIllimite = p.type === 'abo_illimite';
+      html += `<button class="cours-card" style="margin-bottom:8px" onclick="confirmAndPay(${p.id}, false)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:14px;color:var(--ivoire)">${p.name}</div>
+            <div style="font-size:11px;color:var(--text3)">${isIllimite ? '+ practice libre ✨' : (p.description || '')}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}<span style="font-size:11px;font-weight:400">/mois</span></div>
+            ${p.engagement_price_cents ? `<div style="font-size:10px;color:var(--text3)">${formatPrice(p.engagement_price_cents)}/mois avec engagement</div>` : ''}
+          </div>
+        </div>
+      </button>`;
+    });
+  }
 
   html += `<button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Annuler</button>`;
   document.getElementById('modal-content').innerHTML = html;
