@@ -685,7 +685,7 @@ async function viewInstance(id) {
     .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, salle, is_recurring, event_date, disciplines(name,color), profiles(id, full_name))')
     .eq('id', id).single();
   const { data: bookings } = await db.from('bookings')
-    .select('*, profiles(full_name, email)')
+    .select('*, profiles(full_name, email), children(first_name)')
     .eq('course_instance_id', id).eq('status', 'confirmed');
   const { data: waitlist } = await db.from('waitlist')
     .select('*, profiles(full_name)')
@@ -705,7 +705,7 @@ async function viewInstance(id) {
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inscrits (${bookings?.length || 0}/${c.max_students || '?'})</div>
       ${bookings?.length ? bookings.map(b => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-          <span style="font-size:13px">${b.profiles?.full_name}</span>
+          <span style="font-size:13px">${b.profiles?.full_name}${b.children?.first_name ? ` <span style="font-size:11px;color:var(--violet-light);background:rgba(155,125,219,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">👧 ${b.children.first_name}</span>` : ''}</span>
           <div style="display:flex;gap:6px;align-items:center">
             ${!isCancelled ? `
               <button onclick="markAttendance('${b.id}',true,'${ci.id}')" style="padding:3px 8px;border-radius:6px;border:none;cursor:pointer;font-size:11px;background:${b.attended===true?'#7dbf9b':'var(--bg)'};color:${b.attended===true?'#fff':'var(--text3)'}">✓ Présente</button>
