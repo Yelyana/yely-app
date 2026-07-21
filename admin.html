@@ -1417,6 +1417,16 @@ async function doCreateTeacher() {
   });
   if (profileErr) return showToast('Compte créé mais profil échoué : ' + profileErr.message, true);
 
+  // Email de bienvenue prof
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/send-welcome-teacher', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ email, full_name: name, temp_password: password }),
+    });
+  } catch(e) {}
+
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">✅ Compte créé !</div>
     <div style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:16px">
