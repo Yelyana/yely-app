@@ -365,6 +365,15 @@ select option { background: var(--card); }
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+<div id="pwa-banner" style="display:none;position:fixed;bottom:calc(var(--nav-h) + var(--safe-bottom) + 12px);left:12px;right:12px;background:var(--card);border:1px solid var(--violet);border-radius:14px;padding:12px 14px;z-index:999;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4)">
+  <div style="font-size:20px">📲</div>
+  <div style="flex:1">
+    <div style="font-size:13px;font-weight:600">Installer l'appli</div>
+    <div style="font-size:11px;color:var(--text3)">Accès rapide depuis ton écran d'accueil</div>
+  </div>
+  <button onclick="installPWA()" style="background:var(--violet);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer">Installer</button>
+  <button onclick="document.getElementById('pwa-banner').style.display='none'" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0 4px">×</button>
+</div>
 
 <script>
 // ── CONFIG — REMPLACE CES VALEURS ────────────────────────────────────
@@ -723,19 +732,21 @@ async function loadCoursesForDay(date) {
   const instanceIds = data.map(d => d.id);
   const [{ data: myBookings }, { data: myWaitlist }] = await Promise.all([
     db.from('bookings').select('course_instance_id, status').eq('student_id', currentUser.id).in('course_instance_id', instanceIds),
-    db.from('waitlist').select('course_instance_id').eq('student_id', currentUser.id).in('course_instance_id', instanceIds),
+    db.from('waitlist').select('course_instance_id, position').eq('student_id', currentUser.id).in('course_instance_id', instanceIds),
   ]);
   const myBookingMap = {};
   (myBookings || []).forEach(b => myBookingMap[b.course_instance_id] = b.status);
   const myWaitlistSet = new Set((myWaitlist || []).map(w => w.course_instance_id));
+  const myWaitlistPos = {};
+  (myWaitlist || []).forEach(w => myWaitlistPos[w.course_instance_id] = w.position);
 
   document.getElementById('cours-list').innerHTML = `
     <div class="section-label">${JOURS_FULL[(date.getDay() || 7) - 1]} ${date.getDate()} ${date.toLocaleString('fr', { month: 'long' })}</div>
-    ${data.map(ci => renderCourseCard(ci, myBookingMap[ci.id], myWaitlistSet.has(ci.id))).join('')}
+    ${data.map(ci => renderCourseCard(ci, myBookingMap[ci.id], myWaitlistSet.has(ci.id), myWaitlistPos[ci.id])).join('')}
   `;
 }
 
-function renderCourseCard(ci, myStatus, myWaitlist) {
+function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
   const isFull = ci.spots_remaining <= 0;
   const isBooked = myStatus === 'confirmed';
   const isWaiting = myWaitlist === true;
@@ -743,7 +754,7 @@ function renderCourseCard(ci, myStatus, myWaitlist) {
   const spotsText = isFull ? 'Complet' : ci.spots_remaining === 1 ? '1 place' : `${ci.spots_remaining} places`;
   return `
     <div class="cours-card ${isBooked ? 'selected' : ''}"
-         onclick="openBookingModal(${JSON.stringify(ci).replace(/"/g, '&quot;')}, '${myStatus || ''}', ${isWaiting})">
+         onclick="openBookingModal(${JSON.stringify(ci).replace(/"/g, '&quot;')}, '${myStatus || ''}', ${isWaiting}, ${waitlistPos || 'null'})">
       <div style="display:flex;gap:12px;align-items:stretch">
         <div class="cours-bar" style="background:${ci.discipline_color}"></div>
         <div style="flex:1">
@@ -755,14 +766,14 @@ function renderCourseCard(ci, myStatus, myWaitlist) {
           <div class="cours-meta">${ci.duration_minutes} min · ${ci.teacher_name || 'Ana'} · ${ci.salle === 'pole' ? 'Salle Pole Dance' : 'Salle Multi'}</div>
           ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${ci.description}</div>` : ''}
           ${isBooked ? '<div style="font-size:11px;color:var(--violet);margin-top:4px">✓ Réservé</div>' : ''}
-          ${isWaiting ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">⏳ En liste d\'attente</div>' : ''}
+          ${isWaiting ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">⏳ Liste d'attente${waitlistPos ? ' · position ' + waitlistPos : ''}</div>` : ''}
         </div>
       </div>
     </div>
   `;
 }
 
-function openBookingModal(ci, myStatus, isWaiting) {
+function openBookingModal(ci, myStatus, isWaiting, waitlistPos) {
   const modal = document.getElementById('booking-modal');
   modal.classList.add('open');
   window._currentCi = ci;
@@ -784,7 +795,7 @@ function openBookingModal(ci, myStatus, isWaiting) {
       <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${name}</h3>
       <p style="color:var(--text3);font-size:13px;margin-bottom:20px">${formatDate(ci.date)} · ${formatTime(ci.start_time)}</p>
       <div class="card card-sm" style="background:rgba(200,200,200,0.08);border-color:var(--border);margin-bottom:20px">
-        <div style="font-size:13px;color:var(--text2)">⏳ Tu es en liste d'attente.<br><span style="color:var(--text3);font-size:12px">Tu seras automatiquement inscrite si une place se libère.</span></div>
+        <div style="font-size:13px;color:var(--text2)">⏳ Tu es en liste d'attente${waitlistPos ? ` · <strong>position ${waitlistPos}</strong>` : ''}.<br><span style="color:var(--text3);font-size:12px">Tu seras automatiquement inscrite si une place se libère.</span></div>
       </div>
       <button class="btn btn-danger" onclick="leaveWaitlist(${ci.id})">Quitter la liste d'attente</button>
       <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Fermer</button>
@@ -1567,12 +1578,14 @@ async function loadProfil() {
     { data: upcomingBookings },
     { count: totalCours2 },
     { data: children },
+    { data: orders },
   ] = await Promise.all([
     db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active'),
     db.from('student_credits').select('*, products(name)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).order('expires_at'),
     db.from('bookings').select('*, course_instances(date, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').gte('course_instances.date', new Date().toISOString().split('T')[0]).order('course_instances(date)').limit(3),
     db.from('bookings').select('*', { count: 'exact', head: true }).eq('student_id', currentUser.id).eq('status', 'confirmed'),
     db.from('children').select('*').eq('parent_id', currentUser.id).order('first_name'),
+    db.from('orders').select('*, products(name, price)').eq('student_id', currentUser.id).neq('status', 'cancelled').order('created_at', { ascending: false }).limit(10),
   ]);
   // Carte enfants
   const childrenCard = document.getElementById('children-card');
@@ -1658,6 +1671,22 @@ async function loadProfil() {
     </div>
 
     <div class="card card-sm" id="children-card" style="margin-bottom:12px"></div>
+
+    ${orders?.length ? `
+    <div class="card card-sm" style="margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">🛍 Mes achats</div>
+      ${orders.map(o => {
+        const date = new Date(o.created_at).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' });
+        const price = o.products?.price ? (o.products.price / 100).toFixed(0) + ' €' : '';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:500">${o.products?.name || '—'}</div>
+            <div style="font-size:11px;color:var(--text3)">${date}</div>
+          </div>
+          <div style="font-size:13px;font-weight:600;color:var(--text2)">${price}</div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
 
     <div class="card card-sm" style="margin-bottom:12px">
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px;letter-spacing:0.5px;text-transform:uppercase">Paramètres</div>
@@ -2023,6 +2052,24 @@ async function togglePushNotifications() {
   await db.from('push_subscriptions').upsert({ user_id: currentUser.id, endpoint, p256dh: keys.p256dh, auth: keys.auth }, { onConflict: 'endpoint' });
   showToast('Notifications activées ! 🔔');
   updateNotifStatus();
+}
+
+// PWA install prompt
+let _pwaPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaPrompt = e;
+  const banner = document.getElementById('pwa-banner');
+  if (banner) banner.style.display = 'flex';
+});
+function installPWA() {
+  if (!_pwaPrompt) return;
+  _pwaPrompt.prompt();
+  _pwaPrompt.userChoice.then(() => {
+    _pwaPrompt = null;
+    const banner = document.getElementById('pwa-banner');
+    if (banner) banner.style.display = 'none';
+  });
 }
 
 if ('serviceWorker' in navigator) {

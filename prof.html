@@ -281,6 +281,8 @@ function formatDate(d) {
 }
 
 // ── PLANNING ──────────────────────────────────────────────
+let profStudioView = false;
+
 async function loadPlanning() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
 
@@ -294,13 +296,15 @@ async function loadPlanning() {
   const fmt = d => d.toISOString().slice(0,10);
   const weekLabel = `${weekStart.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekEnd.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
 
-  const { data: instances } = await db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, salle, disciplines(name,color))')
-    .eq('teacher_id', currentUser.id)
+  let instancesQuery = db.from('course_instances')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, salle, disciplines(name,color)), profiles(full_name)')
     .gte('date', fmt(weekStart))
     .lte('date', fmt(weekEnd))
     .neq('status','cancelled')
     .order('date').order('courses(start_time)');
+  if (!profStudioView) instancesQuery = instancesQuery.eq('teacher_id', currentUser.id);
+
+  const { data: instances } = await instancesQuery;
 
   const { data: allInstances } = await db.from('course_instances')
     .select('id, date')
@@ -323,7 +327,13 @@ async function loadPlanning() {
   const next = allFuture[0];
 
   document.getElementById('main-content').innerHTML = `
-    <div class="page-title">Mon Planning</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div class="page-title" style="margin-bottom:0">${profStudioView ? 'Planning du studio' : 'Mon Planning'}</div>
+      <div style="display:flex;background:var(--bg2);border-radius:10px;padding:3px;gap:2px">
+        <button onclick="profStudioView=false;loadPlanning()" style="padding:5px 10px;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:${!profStudioView?'600':'400'};background:${!profStudioView?'var(--accent)':'transparent'};color:${!profStudioView?'#fff':'var(--text2)'}">Mes cours</button>
+        <button onclick="profStudioView=true;loadPlanning()" style="padding:5px 10px;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:${profStudioView?'600':'400'};background:${profStudioView?'var(--accent)':'transparent'};color:${profStudioView?'#fff':'var(--text2)'}">Studio</button>
+      </div>
+    </div>
 
     ${next ? `<div style="background:linear-gradient(135deg,var(--accent)22,var(--accent)11);border:1px solid var(--accent)44;border-radius:16px;padding:16px;margin-bottom:20px">
       <div style="font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Prochain cours</div>
@@ -358,11 +368,13 @@ async function loadPlanning() {
         const color = ci.courses?.disciplines?.color || '#a78bfa';
         const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
         const isMine = ci.teacher_id === currentUser.id;
-        return `<div onclick="${isMine ? `openSeance('${ci.id}')` : ''}" style="background:var(--card);border-left:4px solid ${color};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:${isMine?'pointer':'default'};opacity:${isMine?'1':'0.65'}">
+        const teacherName = ci.profiles?.full_name || '';
+        return `<div onclick="${isMine ? `openSeance('${ci.id}')` : ''}" style="background:var(--card);border-left:4px solid ${color};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:${isMine?'pointer':'default'};opacity:${isMine?'1':'0.75'}">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <div style="font-size:12px;font-weight:700;color:${color}">${ci.courses?.start_time?.slice(0,5)} · ${ci.courses?.duration_minutes} min</div>
               <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:2px">${name}</div>
+              ${profStudioView && !isMine && teacherName ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">👤 ${teacherName}</div>` : ''}
             </div>
             ${isMine ? `<div style="font-size:11px;background:${color}22;color:${color};padding:4px 8px;border-radius:6px;font-weight:600">Mon cours →</div>` : ''}
           </div>
