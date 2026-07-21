@@ -2074,7 +2074,7 @@ function installPWA() {
 }
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/yely-app/sw.js').then(reg => {
+  navigator.serviceWorker.register('/sw.js').then(reg => {
     reg.addEventListener('updatefound', () => {
       const newSW = reg.installing;
       newSW.addEventListener('statechange', () => {
