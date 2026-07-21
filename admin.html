@@ -1418,13 +1418,15 @@ async function doCreateTeacher() {
   if (profileErr) return showToast('Compte créé mais profil échoué : ' + profileErr.message, true);
 
   // Email de bienvenue prof
-  const emailRes = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/send-welcome-teacher', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, full_name: name, temp_password: password }),
-  });
-  const emailData = await emailRes.json();
-  if (!emailRes.ok) showToast('Email prof non envoyé : ' + JSON.stringify(emailData), true);
+  try {
+    const emailRes = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/send-welcome-teacher', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, full_name: name, temp_password: password }),
+    });
+    const emailText = await emailRes.text();
+    if (!emailRes.ok) showToast('Email prof non envoyé : ' + emailText, true);
+  } catch(e) { showToast('Email prof erreur : ' + e.message, true); }
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">✅ Compte créé !</div>
