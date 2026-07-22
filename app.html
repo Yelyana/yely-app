@@ -1389,7 +1389,7 @@ function buildChart(bookings, victories) {
   ).join('');
 
   return `<div style="overflow-x:auto;margin-bottom:4px">
-    <svg width="${W}" height="${H + 50}" viewBox="0 0 ${W} ${H + 50}" style="min-width:${W}px">
+    <svg width="100%" height="auto" viewBox="0 0 ${W} ${H + 50}" style="min-width:280px;display:block">
       <line x1="0" y1="${H-20}" x2="${W}" y2="${H-20}" stroke="#2a2540" stroke-width="1"/>
       ${bars}
       ${legend}
