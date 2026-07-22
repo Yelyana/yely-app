@@ -222,9 +222,9 @@ async function loadAdminUser(user) {
   currentUser = user;
   const { data } = await db.from('profiles').select('*').eq('id', user.id).single();
   currentProfile = data;
-  if (!['admin', 'teacher'].includes(currentProfile?.role)) {
+  if (user.email !== 'yelyanaa@gmail.com') {
     await db.auth.signOut();
-    return showToast("Accès réservé à l'équipe Yely", true);
+    return showToast("Accès réservé à l'administration", true);
   }
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
