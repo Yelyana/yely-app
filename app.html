@@ -8,7 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#17141f">
+<meta name="theme-color" content="#0f0d16">
 <title>Yely in the Air</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -16,9 +16,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
-  --bg: #17141f;
-  --bg2: #1a1530;
-  --card: #221c3a;
+  --bg: #0f0d16;
+  --bg2: #17141f;
+  --card: #1e1a2e;
   --border: #2a2540;
   --violet: #9b7ddb;
   --violet-light: #c4a8f5;
@@ -170,6 +170,42 @@ select option { background: var(--card); }
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 0; }
+
+/* ── RESPONSIVE DESKTOP ── */
+@media (min-width: 768px) {
+  html, body {
+    overflow: hidden;
+    background: #080610;
+  }
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  #app {
+    width: 430px;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px var(--border), 0 40px 120px rgba(0,0,0,0.9), 0 0 60px rgba(155,125,219,0.08);
+    position: relative;
+  }
+  .screen { padding-left: 24px; padding-right: 24px; }
+  .screen-auth { padding: 40px 32px; }
+  .stat-row { gap: 12px; }
+  .feeling-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1100px) {
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 20% 50%, rgba(155,125,219,0.04) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 50% at 80% 50%, rgba(155,125,219,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  #app { z-index: 1; }
+}
 </style>
 </head>
 <body>
@@ -204,25 +240,25 @@ select option { background: var(--card); }
 
   <!-- MAIN APP -->
   <div id="screen-home" class="screen" style="padding-top:0">
-    <div class="top-bar">
-      <div style="display:flex;align-items:center;gap:12px">
-        <img id="home-logo-img" class="topbar-logo" style="height:34px;width:auto;filter:brightness(0) invert(1);opacity:0.9">
-        <div>
-          <div style="font-size:11px;color:var(--text3);letter-spacing:0.5px" id="home-greeting">Bonjour,</div>
-          <div class="serif" style="font-size:24px;font-weight:300;color:var(--ivoire)" id="home-name">chargement…</div>
-        </div>
+    <div style="padding:20px 20px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="font-size:11px;color:var(--text3);letter-spacing:0.5px" id="home-greeting">Bonjour,</div>
+        <div class="serif" style="font-size:26px;font-weight:300;color:var(--ivoire)" id="home-name">chargement…</div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="position:relative;cursor:pointer" onclick="navigate('notifications')">
-          <div style="font-size:22px;line-height:1">🔔</div>
-          <div id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#e87a7a;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center"></div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <img id="home-logo-img" class="topbar-logo" style="height:52px;width:auto;filter:brightness(0) invert(1);opacity:0.92">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="position:relative;cursor:pointer" onclick="navigate('notifications')">
+            <div style="font-size:22px;line-height:1">🔔</div>
+            <div id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#e87a7a;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center"></div>
+          </div>
+          <div class="avatar-btn" id="home-avatar" onclick="navigate('profil')">?</div>
         </div>
-        <div class="avatar-btn" id="home-avatar" onclick="navigate('profil')">?</div>
       </div>
     </div>
 
     <!-- Prochain cours -->
-    <div id="next-cours-widget" class="card" style="background:linear-gradient(135deg,#2a1f4e,#1a1530);border-color:rgba(155,125,219,0.3)">
+    <div id="next-cours-widget" class="card" style="background:linear-gradient(135deg,#2a1f4e,#17141f);border-color:rgba(155,125,219,0.3)">
       <div class="section-label" style="margin-bottom:10px">Prochain cours</div>
       <div id="next-cours-content"><div class="loading"><div class="spinner"></div></div></div>
     </div>
@@ -1729,7 +1765,7 @@ async function loadProfil() {
     </div>
 
     ${credits?.length ? `
-    <div class="card card-sm" style="margin-bottom:12px;background:linear-gradient(135deg,#2a1f4e,#1a1530);border-color:rgba(155,125,219,0.3)">
+    <div class="card card-sm" style="margin-bottom:12px;background:linear-gradient(135deg,#2a1f4e,#17141f);border-color:rgba(155,125,219,0.3)">
       <div style="font-size:10px;color:var(--violet-light);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">Mes crédits</div>
       ${credits.map(c => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(155,125,219,0.15)">
