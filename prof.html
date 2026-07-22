@@ -37,7 +37,8 @@
   .main { margin-left:220px; padding:32px; min-height:100vh; }
 
   /* MOBILE */
-  .mobile-top { display:none; position:fixed; top:0; left:0; right:0; background:var(--bg2); border-bottom:1px solid var(--border); padding:10px 16px; z-index:10; align-items:center; justify-content:space-between; }
+  .mobile-top { display:none; position:fixed; top:0; left:0; right:0; background:var(--bg2); border-bottom:1px solid var(--border); padding:10px 16px; z-index:10; align-items:center; justify-content:space-between; gap:12px; }
+  .mob-avatar { width:32px; height:32px; border-radius:50%; background:var(--accent); opacity:0.25; border:1.5px solid var(--accent); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; color:#fff; font-weight:600; flex-shrink:0; }
   .mobile-bar { display:none; position:fixed; bottom:0; left:0; right:0; background:var(--bg2); border-top:1px solid var(--border); padding:8px 0; z-index:10; }
   .mobile-tabs { display:flex; }
   .mobile-tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px; border:none; background:transparent; color:var(--text3); cursor:pointer; font-size:10px; }
@@ -154,7 +155,9 @@
   </div>
 
   <div class="mobile-top">
-    <img src="https://yelyana.github.io/Yelyintheair/yely-images/logo.svg" style="height:38px;width:auto;filter:brightness(0) invert(1);opacity:0.9">
+    <img src="https://yelyana.github.io/Yelyintheair/yely-images/logo.svg" style="height:36px;width:auto;filter:brightness(0) invert(1);opacity:0.9;flex-shrink:0">
+    <div id="mob-page-title" class="serif" style="font-size:20px;font-weight:300;color:var(--text);flex:1;text-align:center">Planning</div>
+    <div class="mob-avatar" id="mob-avatar" onclick="showPage('profil')">?</div>
   </div>
 
   <div class="mobile-bar">
@@ -243,6 +246,13 @@ async function initProf(user) {
   }
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  const initials = currentProf.full_name?.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) || '?';
+  const mobAvatar = document.getElementById('mob-avatar');
+  if (mobAvatar) {
+    mobAvatar.style.opacity = '1';
+    if (currentProf.avatar_url) mobAvatar.innerHTML = `<img src="${currentProf.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    else mobAvatar.textContent = initials;
+  }
   showPage('planning');
 }
 
@@ -273,6 +283,8 @@ db.auth.onAuthStateChange(async (event, session) => {
 });
 
 // ── NAVIGATION ────────────────────────────────────────────
+const PAGE_TITLES = { planning: 'Planning', eleves: 'Mes élèves', communaute: 'Communauté', stats: 'Mes stats', profil: 'Mon profil' };
+
 function showPage(page) {
   ['planning','eleves','communaute','stats','profil'].forEach(p => {
     document.getElementById('nav-'+p)?.classList.remove('active');
@@ -280,6 +292,8 @@ function showPage(page) {
   });
   document.getElementById('nav-'+page)?.classList.add('active');
   document.getElementById('mob-'+page)?.classList.add('active');
+  const titleEl = document.getElementById('mob-page-title');
+  if (titleEl) titleEl.textContent = PAGE_TITLES[page] || '';
   const pages = { planning: loadPlanning, eleves: loadEleves, communaute: loadCommunaute, stats: loadStats, profil: loadProfil };
   if (pages[page]) pages[page]();
 }

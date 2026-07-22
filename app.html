@@ -52,7 +52,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .status-bar { height: env(safe-area-inset-top, 24px); background: var(--bg); flex-shrink: 0; }
 
 /* ── TOP BAR ── */
-.top-bar { padding: 16px 20px 8px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.top-bar { padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; position: sticky; top: 0; z-index: 5; background: var(--bg); backdrop-filter: blur(12px); }
 .top-bar-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 300; color: var(--ivoire); }
 .avatar-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--violet-dark); border: 1.5px solid var(--violet); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; color: var(--violet-light); font-weight: 500; flex-shrink: 0; }
 
