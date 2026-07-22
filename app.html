@@ -1501,13 +1501,13 @@ async function loadBoutique() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px">
       <button onclick="_boutiqueTab='cours';loadBoutique()" style="padding:14px 10px;border-radius:14px;cursor:pointer;text-align:center;border:2px solid ${_boutiqueTab==='cours'?'var(--violet)':'var(--border)'};background:${_boutiqueTab==='cours'?'rgba(155,125,219,0.12)':'var(--card)'};transition:all 0.15s">
         <div style="font-size:22px;margin-bottom:4px">🦇</div>
-        <div style="font-size:13px;font-weight:600;color:${_boutiqueTab==='cours'?'var(--violet-light)':'var(--text1)'}">Cours & Abos</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">Forfaits & abonnements</div>
+        <div style="font-size:13px;font-weight:600;color:${_boutiqueTab==='cours'?'var(--violet-light)':'#fff'}">Cours & Abos</div>
+        <div style="font-size:10px;color:${_boutiqueTab==='cours'?'var(--text3)':'rgba(255,255,255,0.6)'};margin-top:2px">Forfaits & abonnements</div>
       </button>
       <button onclick="_boutiqueTab='merch';loadBoutique()" style="padding:14px 10px;border-radius:14px;cursor:pointer;text-align:center;border:2px solid ${_boutiqueTab==='merch'?'var(--violet)':'var(--border)'};background:${_boutiqueTab==='merch'?'rgba(155,125,219,0.12)':'var(--card)'};transition:all 0.15s">
         <div style="font-size:22px;margin-bottom:4px">👕</div>
-        <div style="font-size:13px;font-weight:600;color:${_boutiqueTab==='merch'?'var(--violet-light)':'var(--text1)'}">Merch</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">Vêtements & accessoires</div>
+        <div style="font-size:13px;font-weight:600;color:${_boutiqueTab==='merch'?'var(--violet-light)':'#fff'}">Merch</div>
+        <div style="font-size:10px;color:${_boutiqueTab==='merch'?'var(--text3)':'rgba(255,255,255,0.6)'};margin-top:2px">Vêtements & accessoires</div>
       </button>
     </div>`;
 
