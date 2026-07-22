@@ -294,6 +294,10 @@ select option { background: var(--card); }
       <div class="form-group"><label>Email</label><input type="email" id="signup-email" placeholder="ton@email.com" autocomplete="email"></div>
       <div class="form-group"><label>Téléphone</label><input type="tel" id="signup-phone" placeholder="06 00 00 00 00"></div>
       <div class="form-group"><label>Mot de passe</label><input type="password" id="signup-password" placeholder="8 caractères minimum" autocomplete="new-password"></div>
+      <div class="form-group">
+        <label>Code parrainage <span style="color:var(--text3);font-size:10px;letter-spacing:0">(optionnel)</span></label>
+        <input type="text" id="signup-referral" placeholder="YELY…" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+      </div>
       <button type="submit" class="btn btn-primary" onclick="signup()">Créer mon compte</button>
     </form>
   </div>
@@ -535,8 +539,14 @@ async function signup() {
   const email = document.getElementById('signup-email').value.trim();
   const phone = document.getElementById('signup-phone').value.trim();
   const password = document.getElementById('signup-password').value;
+  const referralCode = document.getElementById('signup-referral').value.trim().toUpperCase();
   if (!name || !email || !password) return showToast('Remplis tous les champs', true);
   if (password.length < 8) return showToast('Mot de passe trop court', true);
+  if (referralCode) {
+    const { data: refProfile } = await db.from('profiles').select('id').eq('referral_code', referralCode).single();
+    if (!refProfile) return showToast('Code parrainage invalide', true);
+    localStorage.setItem('yely-referral-code', referralCode);
+  }
   const { error } = await db.auth.signUp({ email, password, options: { data: { full_name: name, phone } } });
   if (error) return showToast(error.message || 'Erreur de connexion', true);
   showToast('Vérifie ta boîte mail pour confirmer ton compte !');
@@ -1120,14 +1130,14 @@ async function buyAndBook(instanceId, productId) {
   await redirectToStripe(productId, false);
 }
 
-async function redirectToStripe(productId, engagement) {
+async function redirectToStripe(productId, engagement, applyReferralDiscount = false) {
   showToast('Redirection vers le paiement…');
   try {
     const { data: { session } } = await db.auth.getSession();
     const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ product_id: productId, engagement }),
+      body: JSON.stringify({ product_id: productId, engagement, apply_referral_discount: applyReferralDiscount }),
     });
     const { url, error } = await res.json();
     if (error) return showToast('Erreur : ' + error, true);
@@ -1753,16 +1763,25 @@ function confirmAndPay(productId, engagement) {
   const isAbo = ['abo_illimite', 'abo_mensuel'].includes(p.type);
   const label = engagement ? `${p.name} — Engagement ${p.engagement_months} mois` : p.name;
   const engagementMention = engagement ? `<div style="font-size:12px;color:var(--text3);margin-top:4px">Engagement ${p.engagement_months} mois · pause juillet-août · reconduction automatique</div>` : '';
+  const hasDiscount = !!currentProfile?.referral_discount_available;
+  const discountedPrice = Math.round(price * 0.9);
+  const discountBadge = hasDiscount ? `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="text-decoration:line-through;color:var(--text3);font-size:16px">${(price/100).toFixed(0)}€</span>
+      <span style="background:rgba(125,191,155,0.2);color:var(--green);font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px">-10% parrainage 🎁</span>
+    </div>` : '';
+  const displayPrice = hasDiscount ? discountedPrice : price;
   document.getElementById('modal-content').innerHTML = `
     <div style="font-size:18px;font-weight:500;margin-bottom:4px">${label}</div>
-    <div style="font-size:22px;color:var(--violet-light);font-weight:600;margin-bottom:4px">${(price/100).toFixed(0)}€${isAbo ? '/mois' : ''}</div>
+    ${discountBadge}
+    <div style="font-size:22px;color:var(--violet-light);font-weight:600;margin-bottom:4px">${(displayPrice/100).toFixed(0)}€${isAbo ? '/mois' : ''}</div>
     ${engagementMention}
     <div style="margin:16px 0;padding:12px;background:rgba(255,255,255,0.04);border-radius:10px;font-size:12px;color:var(--text3);line-height:1.6">
       En procédant au paiement, j'accepte les <a href="https://yelyintheair.com/cgv" target="_blank" style="color:var(--violet-light)">Conditions Générales de Vente</a> de Yely in the Air.
       ${engagement ? '<br><br>• Engagement de 12 mois calendaires glissants à partir de la date de souscription<br>• Pause automatique et gratuite en juillet-août<br>• Reconduction automatique, résiliable avant la date anniversaire' : ''}
     </div>
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="btn btn-primary" style="flex:1" onclick="redirectToStripe(${productId}, ${engagement})">Payer en sécurité →</button>
+      <button class="btn btn-primary" style="flex:1" onclick="redirectToStripe(${productId}, ${engagement}, ${hasDiscount})">Payer en sécurité →</button>
       <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
     </div>
   `;
@@ -1887,6 +1906,23 @@ async function loadProfil() {
         </div>`;
       }).join('')}
     </div>` : ''}
+
+    ${await (async () => {
+      const { count: filleuls } = await db.from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by', currentProfile.referral_code || '');
+      const code = currentProfile.referral_code || '—';
+      return `<div class="card card-sm" style="margin-bottom:12px;background:linear-gradient(135deg,#2a1f4e,#17141f);border-color:rgba(155,125,219,0.3)">
+        <div style="font-size:10px;color:var(--violet-light);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">🤝 Parrainage</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Mon code</div>
+            <div style="font-size:22px;font-weight:600;color:var(--violet-light);letter-spacing:3px">${code}</div>
+          </div>
+          <button onclick="navigator.clipboard.writeText('${code}').then(()=>showToast('Code copié !'))" style="background:var(--violet);border:none;border-radius:10px;padding:10px 16px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Copier</button>
+        </div>
+        <div style="font-size:12px;color:var(--text3)">${filleuls || 0} filleul${(filleuls||0) > 1 ? 's' : ''} parrainé${(filleuls||0) > 1 ? 's' : ''}</div>
+        ${currentProfile.referred_by ? `<div style="font-size:11px;color:var(--text3);margin-top:6px;border-top:1px solid rgba(155,125,219,0.2);padding-top:6px">Parrainé·e avec le code <span style="color:var(--violet-light)">${currentProfile.referred_by}</span></div>` : ''}
+      </div>`;
+    })()}
 
     <div class="card card-sm" style="margin-bottom:12px">
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px;letter-spacing:0.5px;text-transform:uppercase">Paramètres</div>
@@ -2187,6 +2223,19 @@ async function loadUserProfile(user) {
   try {
     const { data } = await db.from('profiles').select('*').eq('id', user.id).single();
     currentProfile = data || { id: user.id, email: user.email, full_name: user.email, role: 'student' };
+    // Appliquer le code parrainage stocké lors de l'inscription
+    const pendingCode = localStorage.getItem('yely-referral-code');
+    if (pendingCode && currentProfile && !currentProfile.referred_by) {
+      // Récupérer le parrain pour lui activer aussi le discount
+      const { data: parrain } = await db.from('profiles').select('id').eq('referral_code', pendingCode).single();
+      const { error } = await db.from('profiles').update({ referred_by: pendingCode, referral_discount_available: true }).eq('id', user.id);
+      if (!error) {
+        currentProfile.referred_by = pendingCode;
+        currentProfile.referral_discount_available = true;
+        localStorage.removeItem('yely-referral-code');
+        if (parrain) await db.from('profiles').update({ referral_discount_available: true }).eq('id', parrain.id);
+      }
+    }
   } catch(e) {
     currentProfile = { id: user.id, email: user.email, full_name: user.email, role: 'student' };
   }
