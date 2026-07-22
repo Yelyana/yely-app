@@ -171,40 +171,58 @@ select option { background: var(--card); }
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 0; }
 
-/* ── RESPONSIVE DESKTOP ── */
+/* ── DESKTOP SIDEBAR ── */
+.desktop-sidebar {
+  display: none;
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  flex-direction: column;
+  padding: 24px 16px;
+  gap: 2px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow-y: auto;
+}
+.desk-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  width: 100%;
+  text-align: left;
+  transition: all 0.15s;
+}
+.desk-nav-item:hover { background: rgba(155,125,219,0.08); color: var(--text); }
+.desk-nav-item.active { background: rgba(155,125,219,0.15); color: var(--violet); }
+.desk-nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* ── DESKTOP LAYOUT ── */
 @media (min-width: 768px) {
-  html, body {
-    overflow: hidden;
-    background: #080610;
-  }
-  body {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-  }
-  #app {
-    width: 430px;
-    flex-shrink: 0;
-    box-shadow: 0 0 0 1px var(--border), 0 40px 120px rgba(0,0,0,0.9), 0 0 60px rgba(155,125,219,0.08);
-    position: relative;
-  }
-  .screen { padding-left: 24px; padding-right: 24px; }
-  .screen-auth { padding: 40px 32px; }
-  .stat-row { gap: 12px; }
+  html, body { overflow: hidden; }
+  #app { flex-direction: row; }
+  .desktop-sidebar { display: flex; }
+  .status-bar { display: none; }
+  .bottom-nav { display: none !important; }
+  .screen { padding: 0 32px 24px; }
+  .screen-auth.active { padding: 48px 40px; justify-content: center; }
   .feeling-grid { grid-template-columns: repeat(3, 1fr); }
+  .stat-row { gap: 14px; }
+  #home-logo-img { display: none !important; }
 }
 
 @media (min-width: 1100px) {
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(ellipse 60% 50% at 20% 50%, rgba(155,125,219,0.04) 0%, transparent 70%),
-                radial-gradient(ellipse 60% 50% at 80% 50%, rgba(155,125,219,0.04) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
-  #app { z-index: 1; }
+  .desktop-sidebar { width: 240px; }
+  .screen { padding: 0 40px 24px; }
 }
 </style>
 </head>
@@ -212,6 +230,48 @@ select option { background: var(--card); }
 
 <div id="app">
   <div class="status-bar"></div>
+
+  <!-- SIDEBAR DESKTOP -->
+  <nav class="desktop-sidebar" id="desktop-sidebar">
+    <div style="padding:0 8px;margin-bottom:28px">
+      <img class="topbar-logo" style="height:76px;width:auto;filter:brightness(0) invert(1);opacity:0.9;display:block">
+      <div style="font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-top:6px;padding-left:2px">Espace élève</div>
+    </div>
+    <button class="desk-nav-item active" onclick="navigate('home')" id="desk-nav-home">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.5 1.5 0 012.092 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+      Accueil
+    </button>
+    <button class="desk-nav-item" onclick="navigate('reserver')" id="desk-nav-reserver">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+      Réserver
+    </button>
+    <button class="desk-nav-item" onclick="navigate('journal')" id="desk-nav-journal">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.966 8.966 0 00-6 2.292m0-14.25v14.25"/></svg>
+      Journal
+    </button>
+    <button class="desk-nav-item" onclick="navigate('communaute')" id="desk-nav-communaute">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
+      Communauté
+    </button>
+    <button class="desk-nav-item" onclick="navigate('boutique')" id="desk-nav-boutique">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
+      Boutique
+    </button>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:8px">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background 0.15s" onclick="navigate('notifications')" onmouseover="this.style.background='rgba(155,125,219,0.08)'" onmouseout="this.style.background='transparent'">
+        <div style="position:relative">
+          <span style="font-size:18px">🔔</span>
+          <div id="desk-notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#e87a7a;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center"></div>
+        </div>
+        <span style="font-size:13px;color:var(--text2)">Notifications</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background 0.15s" onclick="navigate('profil')" onmouseover="this.style.background='rgba(155,125,219,0.08)'" onmouseout="this.style.background='transparent'">
+        <div class="avatar-btn" id="desk-avatar" style="width:30px;height:30px;font-size:12px">?</div>
+        <span style="font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="desk-name">Mon profil</span>
+      </div>
+    </div>
+  </nav>
 
   <!-- AUTH SCREENS -->
   <div id="screen-auth" class="screen-auth active">
@@ -241,19 +301,19 @@ select option { background: var(--card); }
   <!-- MAIN APP -->
   <div id="screen-home" class="screen" style="padding-top:0">
     <div style="padding:20px 20px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-      <div style="display:flex;flex-direction:column;gap:2px">
-        <div style="font-size:11px;color:var(--text3);letter-spacing:0.5px" id="home-greeting">Bonjour,</div>
-        <div class="serif" style="font-size:26px;font-weight:300;color:var(--ivoire)" id="home-name">chargement…</div>
-      </div>
       <div style="display:flex;align-items:center;gap:12px">
-        <img id="home-logo-img" class="topbar-logo" style="height:52px;width:auto;filter:brightness(0) invert(1);opacity:0.92">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="position:relative;cursor:pointer" onclick="navigate('notifications')">
-            <div style="font-size:22px;line-height:1">🔔</div>
-            <div id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#e87a7a;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center"></div>
-          </div>
-          <div class="avatar-btn" id="home-avatar" onclick="navigate('profil')">?</div>
+        <img id="home-logo-img" class="topbar-logo" style="height:52px;width:auto;filter:brightness(0) invert(1);opacity:0.9">
+        <div>
+          <div style="font-size:11px;color:var(--text3);letter-spacing:0.5px" id="home-greeting">Bonjour,</div>
+          <div class="serif" style="font-size:26px;font-weight:300;color:var(--ivoire)" id="home-name">chargement…</div>
         </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="position:relative;cursor:pointer" onclick="navigate('notifications')">
+          <div style="font-size:22px;line-height:1">🔔</div>
+          <div id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#e87a7a;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center"></div>
+        </div>
+        <div class="avatar-btn" id="home-avatar" onclick="navigate('profil')">?</div>
       </div>
     </div>
 
@@ -304,7 +364,7 @@ select option { background: var(--card); }
   <!-- RÉSERVER -->
   <div id="screen-reserver" class="screen" style="padding-top:0">
     <div class="top-bar">
-      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:0.8;margin-right:8px;vertical-align:middle"><div class="top-bar-title">Réserver</div></div>
+      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Réserver</div></div>
     </div>
     <!-- Week navigation -->
     <div class="week-nav">
@@ -319,7 +379,7 @@ select option { background: var(--card); }
   <!-- JOURNAL -->
   <div id="screen-journal" class="screen" style="padding-top:0">
     <div class="top-bar">
-      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:0.8;margin-right:8px;vertical-align:middle"><div class="top-bar-title">Journal d'envol</div></div>
+      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Journal d'envol</div></div>
     </div>
     <div id="journal-content"><div class="loading"><div class="spinner"></div></div></div>
   </div>
@@ -327,7 +387,7 @@ select option { background: var(--card); }
   <!-- PROGRESSION -->
   <div id="screen-progression" class="screen" style="padding-top:0">
     <div class="top-bar">
-      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:0.8;margin-right:8px;vertical-align:middle"><div class="top-bar-title">Ma progression</div></div>
+      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Ma progression</div></div>
     </div>
     <div id="progression-content"><div class="loading"><div class="spinner"></div></div></div>
   </div>
@@ -335,7 +395,7 @@ select option { background: var(--card); }
   <!-- BOUTIQUE -->
   <div id="screen-boutique" class="screen" style="padding-top:0">
     <div class="top-bar">
-      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:0.8;margin-right:8px;vertical-align:middle"><div class="top-bar-title">Boutique</div></div>
+      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Boutique</div></div>
       <div class="avatar-btn" onclick="navigate('profil')" id="boutique-avatar">?</div>
     </div>
     <div id="boutique-content"><div class="loading"><div class="spinner"></div></div></div>
@@ -344,7 +404,7 @@ select option { background: var(--card); }
   <!-- COMMUNAUTÉ -->
   <div id="screen-communaute" class="screen" style="padding-top:0">
     <div class="top-bar">
-      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:0.8;margin-right:8px;vertical-align:middle"><div class="top-bar-title">Communauté</div></div>
+      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Communauté</div></div>
       <button onclick="openNewPost()" style="background:var(--violet);border:none;border-radius:50%;width:36px;height:36px;color:white;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
     </div>
     <div id="communaute-content"><div class="loading"><div class="spinner"></div></div></div>
@@ -353,7 +413,7 @@ select option { background: var(--card); }
   <!-- PROFIL -->
   <div id="screen-profil" class="screen" style="padding-top:0">
     <div class="top-bar">
-      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:0.8;margin-right:8px;vertical-align:middle"><div class="top-bar-title">Mon profil</div></div>
+      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Mon profil</div></div>
     </div>
     <div id="profil-content"><div class="loading"><div class="spinner"></div></div></div>
   </div>
@@ -361,7 +421,7 @@ select option { background: var(--card); }
   <!-- NOTIFICATIONS -->
   <div id="screen-notifications" class="screen" style="padding-top:0">
     <div class="top-bar">
-      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:0.8;margin-right:8px;vertical-align:middle"><div class="top-bar-title">Notifications</div></div>
+      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Notifications</div></div>
       <button onclick="navigate('home')" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer">Fermer</button>
     </div>
     <div id="notif-content"><div class="loading"><div class="spinner"></div></div></div>
@@ -500,10 +560,13 @@ async function logout() {
 function navigate(screen) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.desk-nav-item').forEach(n => n.classList.remove('active'));
   const el = document.getElementById('screen-' + screen);
   if (el) { el.classList.add('active'); el.scrollTop = 0; }
   const nav = document.getElementById('nav-' + screen);
   if (nav) nav.classList.add('active');
+  const deskNav = document.getElementById('desk-nav-' + screen);
+  if (deskNav) deskNav.classList.add('active');
   currentScreen = screen;
   if (screen === 'home') loadHome();
   if (screen === 'reserver') loadReserver();
@@ -567,14 +630,12 @@ async function updateNotifBadge() {
   const { count } = await db.from('notifications')
     .select('*', { count: 'exact', head: true })
     .eq('student_id', currentUser.id).eq('read', false);
-  const badge = document.getElementById('notif-badge');
-  if (!badge) return;
-  if (count > 0) {
-    badge.style.display = 'flex';
-    badge.textContent = count > 9 ? '9+' : count;
-  } else {
-    badge.style.display = 'none';
-  }
+  ['notif-badge','desk-notif-badge'].forEach(id => {
+    const badge = document.getElementById(id);
+    if (!badge) return;
+    if (count > 0) { badge.style.display = 'flex'; badge.textContent = count > 9 ? '9+' : count; }
+    else { badge.style.display = 'none'; }
+  });
 }
 
 async function loadHome() {
@@ -1928,7 +1989,7 @@ async function selectChildForBooking(instanceId, bookingFn) {
 }
 
 function updateAvatarBtns(avatarUrl, initials) {
-  ['home-avatar','boutique-avatar'].forEach(id => {
+  ['home-avatar','boutique-avatar','desk-avatar'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     if (avatarUrl) {
@@ -1937,6 +1998,8 @@ function updateAvatarBtns(avatarUrl, initials) {
       el.textContent = initials;
     }
   });
+  const deskName = document.getElementById('desk-name');
+  if (deskName && currentProfile) deskName.textContent = currentProfile.full_name.split(' ')[0];
 }
 
 async function uploadAvatar(input) {
