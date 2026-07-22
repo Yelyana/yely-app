@@ -37,6 +37,7 @@
   .main { margin-left:220px; padding:32px; min-height:100vh; }
 
   /* MOBILE */
+  .mobile-top { display:none; position:fixed; top:0; left:0; right:0; background:var(--bg2); border-bottom:1px solid var(--border); padding:10px 16px; z-index:10; align-items:center; justify-content:space-between; }
   .mobile-bar { display:none; position:fixed; bottom:0; left:0; right:0; background:var(--bg2); border-top:1px solid var(--border); padding:8px 0; z-index:10; }
   .mobile-tabs { display:flex; }
   .mobile-tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px; border:none; background:transparent; color:var(--text3); cursor:pointer; font-size:10px; }
@@ -52,8 +53,9 @@
 
   @media(max-width:768px) {
     .sidebar { display:none; }
+    .mobile-top { display:flex; }
     .mobile-bar { display:block; }
-    .main { margin-left:0; padding:16px; padding-bottom:80px; }
+    .main { margin-left:0; padding:16px; padding-top:70px; padding-bottom:80px; }
   }
 
   /* Large écran — grilles plus larges */
@@ -149,6 +151,11 @@
     <button class="nav-link" id="nav-profil" onclick="showPage('profil')">⚙️ Mon profil</button>
     <div style="flex:1"></div>
     <button class="nav-link" onclick="profLogout()" style="color:var(--text3)">← Déconnexion</button>
+  </div>
+
+  <div class="mobile-top">
+    <img src="https://yelyana.github.io/Yelyintheair/yely-images/logo.svg" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9">
+    <div style="font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase">Espace Prof</div>
   </div>
 
   <div class="mobile-bar">
