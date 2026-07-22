@@ -1525,7 +1525,7 @@ async function loadBoutique() {
   const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.kids_only);
   const abos = (products || []).filter(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') && !p.kids_only);
   const kidsAll = (products || []).filter(p => p.kids_only);
-  const isParentEnfant = p => /parent[\s-]?enfant/i.test(p.name + ' ' + (p.description || ''));
+  const isParentEnfant = p => { const n = (p.name + ' ' + (p.description || '')).toLowerCase(); return n.includes('parent') && n.includes('enfant'); };
   const kidsOnly = kidsAll.filter(p => !isParentEnfant(p));
   const parentEnfant = kidsAll.filter(p => isParentEnfant(p));
   const sortKids = arr => {
