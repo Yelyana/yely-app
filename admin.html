@@ -840,6 +840,10 @@ function openCourseModal(course, disciplines, teachers) {
       <label>Description (visible par les élèves)</label>
       <textarea id="m-description" rows="3" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text1);font-family:inherit;font-size:0.9rem;resize:vertical">${course?.description || ''}</textarea>
     </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-top:4px">
+      <input type="checkbox" id="m-kids-course" ${course?.is_kids_course ? 'checked' : ''} style="width:auto">
+      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">👧 Cours Pole Kids / parent-enfant</label>
+    </div>
     <div style="display:flex;gap:10px;margin-top:4px">
       <button class="btn btn-primary" onclick="saveCourse(${course?.id || 'null'})" style="flex:1">${isNew ? 'Créer le cours' : 'Enregistrer'}</button>
       ${!isNew ? `<button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : ''}
@@ -874,6 +878,7 @@ async function saveCourse(id) {
     day_of_week: isUnique ? null : parseInt(document.getElementById('m-day').value),
     event_date: isUnique ? document.getElementById('m-date').value || null : null,
     description: document.getElementById('m-description').value || null,
+    is_kids_course: document.getElementById('m-kids-course').checked,
   };
 
   let courseId = id;
@@ -1643,6 +1648,10 @@ function openProductModal(p) {
       <input type="checkbox" id="p-onetime" ${p?.one_time_only ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">Usage unique (ex: Pack découverte — ne peut être acheté qu'une seule fois)</label>
     </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="p-kids-only" ${p?.kids_only ? 'checked' : ''} style="width:auto">
+      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">👧 Réservé aux cours Pole Kids / parent-enfant uniquement</label>
+    </div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-primary" onclick="saveProduct(${p?.id || 'null'})" style="flex:1">Enregistrer</button>
       ${p?.id ? `<button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Supprimer</button>` : ''}
@@ -1678,6 +1687,7 @@ async function saveProduct(id) {
     description: document.getElementById('p-desc').value || null,
     is_active: document.getElementById('p-active').checked,
     one_time_only: document.getElementById('p-onetime').checked,
+    kids_only: document.getElementById('p-kids-only').checked,
     engagement_price_cents: document.getElementById('p-eng-price')?.value ? Math.round(parseFloat(document.getElementById('p-eng-price').value) * 100) : null,
     engagement_months: parseInt(document.getElementById('p-eng-months')?.value) || 0,
   };
