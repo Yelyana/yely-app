@@ -797,15 +797,25 @@ async function renderCommTab() {
     const likeCount = p.community_reactions?.length || 0;
     const commentCount = p.community_comments?.length || 0;
     const ago = (() => { const s=(Date.now()-new Date(p.created_at))/1000; return s<60?'À l\'instant':s<3600?Math.floor(s/60)+'min':s<86400?Math.floor(s/3600)+'h':Math.floor(s/86400)+'j'; })();
+    const isOwn = p.author_id === currentUser.id || currentProf?.role === 'admin';
+    const postMenu = isOwn ? `
+      <div style="position:relative;display:inline-block">
+        <button onclick="togglePostMenu(${p.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px">⋯</button>
+        <div id="pmenu-${p.id}" style="display:none;position:absolute;right:0;top:24px;background:var(--bg3,#231e30);border:1px solid var(--border);border-radius:10px;z-index:20;min-width:130px;box-shadow:0 4px 20px rgba(0,0,0,0.4)">
+          <button onclick="editProfPost(${p.id},\`${p.content.replace(/`/g,'\\`')}\`)" style="display:block;width:100%;padding:10px 14px;background:none;border:none;color:var(--text);font-size:13px;text-align:left;cursor:pointer">✏️ Modifier</button>
+          <button onclick="deleteProfPost(${p.id})" style="display:block;width:100%;padding:10px 14px;background:none;border:none;color:var(--red);font-size:13px;text-align:left;cursor:pointer">🗑 Supprimer</button>
+        </div>
+      </div>` : '';
     return `<div style="background:var(--bg2);border-radius:14px;padding:14px;margin-bottom:10px${p.is_pinned?';border:1px solid var(--accent)33':''}">
       <div style="display:flex;gap:10px;align-items:flex-start">
         ${avatar}
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;margin-bottom:6px">
             <span style="font-size:13px;font-weight:500">${p.profiles?.full_name || '?'}</span>${badge}
-            <span style="font-size:10px;color:var(--text3);margin-left:auto">${ago}</span>
+            <span style="font-size:10px;color:var(--text3);margin-left:auto;margin-right:6px">${ago}</span>
+            ${postMenu}
           </div>
-          <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px">${p.content}</div>
+          <div id="pcontent-${p.id}" style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px">${p.content}</div>
           <div id="comments-${p.id}" style="display:none;margin-bottom:10px"></div>
           <div style="display:flex;gap:16px">
             <button onclick="profToggleLike(${p.id},this)" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;color:${liked?'#e87a7a':'var(--text3)'};font-size:13px">${liked?'❤️':'🤍'} <span>${likeCount}</span></button>
@@ -816,11 +826,16 @@ async function renderCommTab() {
     </div>`;
   }).join('') || `<div style="text-align:center;padding:40px 20px;color:var(--text3)">Aucun post pour l'instant</div>`;
 
+  const audienceColor = isProfs ? '#f59e0b' : 'var(--accent)';
+  const audienceLabel = isProfs
+    ? '🔒 Visible uniquement par les profs'
+    : '👩‍🎓 Visible par tous les élèves';
   el.innerHTML = `
-    <div style="background:var(--bg2);border-radius:14px;padding:14px;margin-bottom:16px">
-      <textarea id="comm-text" placeholder="${isProfs ? 'Écris un message aux profs…' : 'Écris un message aux élèves…'}" style="width:100%;background:transparent;border:none;color:var(--text);font-size:14px;resize:none;outline:none;min-height:70px;font-family:inherit"></textarea>
+    <div style="background:var(--bg2);border-radius:14px;padding:14px;margin-bottom:16px;border:2px solid ${isProfs ? 'rgba(245,158,11,0.4)' : 'var(--border)'}">
+      <div style="font-size:11px;font-weight:600;color:${audienceColor};letter-spacing:0.5px;margin-bottom:10px;padding:5px 10px;background:${isProfs ? 'rgba(245,158,11,0.1)' : 'rgba(155,125,219,0.08)'};border-radius:8px;display:inline-block">${audienceLabel}</div>
+      <textarea id="comm-text" placeholder="${isProfs ? 'Message entre profs…' : 'Message aux élèves…'}" style="width:100%;background:transparent;border:none;color:var(--text);font-size:14px;resize:none;outline:none;min-height:70px;font-family:inherit"></textarea>
       <div style="display:flex;justify-content:flex-end;margin-top:8px">
-        <button onclick="profPostComm()" style="padding:8px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:500">Publier</button>
+        <button onclick="profPostComm()" style="padding:8px 20px;border-radius:10px;border:none;background:${audienceColor};color:#fff;cursor:pointer;font-size:13px;font-weight:500">Publier</button>
       </div>
     </div>
     ${postHtml}
@@ -835,6 +850,37 @@ async function profPostComm() {
   if (error) return showToast(error.message, true);
   showToast('Publié !');
   await renderCommTab();
+}
+
+function togglePostMenu(postId) {
+  document.querySelectorAll('[id^="pmenu-"]').forEach(m => { if (m.id !== `pmenu-${postId}`) m.style.display = 'none'; });
+  const m = document.getElementById(`pmenu-${postId}`);
+  if (m) m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', e => { if (!e.target.closest('[id^="pmenu-"]') && !e.target.closest('button[onclick^="togglePostMenu"]')) document.querySelectorAll('[id^="pmenu-"]').forEach(m => m.style.display = 'none'); });
+
+async function deleteProfPost(postId) {
+  if (!confirm('Supprimer ce post ?')) return;
+  await db.from('community_posts').delete().eq('id', postId);
+  showToast('Post supprimé'); renderCommTab();
+}
+
+async function editProfPost(postId, currentContent) {
+  const el = document.getElementById(`pcontent-${postId}`);
+  if (!el) return;
+  el.innerHTML = `
+    <textarea id="edit-text-${postId}" style="width:100%;background:var(--bg3,#231e30);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:8px;resize:none;font-family:inherit;min-height:60px">${currentContent}</textarea>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button onclick="saveProfPost(${postId})" style="padding:6px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:12px;cursor:pointer">Sauvegarder</button>
+      <button onclick="renderCommTab()" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text2);font-size:12px;cursor:pointer">Annuler</button>
+    </div>`;
+}
+
+async function saveProfPost(postId) {
+  const content = document.getElementById(`edit-text-${postId}`)?.value.trim();
+  if (!content) return showToast('Le message ne peut pas être vide', true);
+  await db.from('community_posts').update({ content }).eq('id', postId);
+  showToast('Modifié !'); renderCommTab();
 }
 
 async function toggleProfComments(postId) {
