@@ -251,7 +251,7 @@ select option { background: var(--card); }
     </div>
 
     <!-- Mini progression widget -->
-    <div class="card" onclick="navigate('progression')" style="cursor:pointer;background:linear-gradient(135deg,#1a2820,#0f1a14);border-color:rgba(125,191,155,0.2);padding:16px">
+    <div class="card" onclick="navigate('journal')" style="cursor:pointer;background:linear-gradient(135deg,#1a2820,#0f1a14);border-color:rgba(125,191,155,0.2);padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div class="section-label" style="color:#7dbf9b;margin:0">Ma progression</div>
         <span style="font-size:12px;color:var(--text3)">Voir tout ›</span>
@@ -1088,12 +1088,51 @@ async function confirmCancel(bookingId) {
 // ── JOURNAL ──────────────────────────────────────────────
 async function loadJournal() {
   const el = document.getElementById('journal-content');
-  const [{ data: entries }, { data: victories }] = await Promise.all([
+  const [{ data: entries }, { data: victories }, { data: bookings }] = await Promise.all([
     db.from('journal_entries').select('*, course_instances(date, courses(disciplines(name)))').eq('student_id', currentUser.id).order('created_at', { ascending: false }).limit(20),
     db.from('victories').select('*').eq('student_id', currentUser.id).order('created_at', { ascending: false }).limit(10),
+    db.from('bookings').select('*, course_instances(date, courses(disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').order('course_instances.date', { ascending: false }),
   ]);
+
   const FEELINGS = { fier: '💪 Fier·e', motive: '🔥 Motivé·e', fatigue: '😮‍💨 Fatigué·e', frustre: '😤 Frustré·e' };
+
+  const total = bookings?.length || 0;
+  const last30 = (bookings || []).filter(b => new Date(b.course_instances?.date) >= new Date(Date.now() - 30 * 86400000)).length;
+  const byDiscipline = {};
+  (bookings || []).forEach(b => {
+    const n = b.course_instances?.courses?.disciplines?.name;
+    if (n) byDiscipline[n] = (byDiscipline[n] || 0) + 1;
+  });
+  const feelingCounts = { fier: 0, motive: 0, fatigue: 0, frustre: 0 };
+  (entries || []).forEach(e => { if (feelingCounts[e.feeling] !== undefined) feelingCounts[e.feeling]++; });
+  const topFeeling = Object.entries(feelingCounts).sort((a, b) => b[1] - a[1])[0];
+  const feelingLabels = { fier: '💪 Fier·e', motive: '🔥 Motivé·e', fatigue: '😮‍💨 Fatigué·e', frustre: '😤 Frustré·e' };
+
+  const chartHTML = buildChart(bookings, victories);
+
   el.innerHTML = `
+    <div class="section-label">Activité — 8 dernières semaines</div>
+    <div class="card card-sm" style="margin-bottom:12px">${chartHTML}
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">✨ = victoire cette semaine</div>
+    </div>
+    <div class="stat-row" style="margin-bottom:16px">
+      <div class="stat-box"><div class="stat-val">${total}</div><div class="stat-lbl">Cours totaux</div></div>
+      <div class="stat-box"><div class="stat-val">${last30}</div><div class="stat-lbl">Ce mois</div></div>
+      <div class="stat-box"><div class="stat-val">${victories?.length || 0}</div><div class="stat-lbl">Victoires</div></div>
+    </div>
+
+    ${Object.keys(byDiscipline).length ? `
+    <div class="section-label">Par discipline</div>
+    <div class="card card-sm" style="margin-bottom:12px">
+      ${Object.entries(byDiscipline).sort((a,b) => b[1]-a[1]).map(([name, count]) => `
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+            <span>${name}</span><span style="color:var(--text3)">${count} cours</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100, count / total * 100)}%"></div></div>
+        </div>`).join('')}
+    </div>` : ''}
+
     <div class="section-label">Petites victoires</div>
     <div class="card card-sm" style="margin-bottom:12px">
       <div id="victories-list">
@@ -1105,6 +1144,14 @@ async function loadJournal() {
       </div>
       <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="addVictory()">+ Ajouter une victoire</button>
     </div>
+
+    ${topFeeling?.[1] > 0 ? `
+    <div class="section-label">Ressenti global</div>
+    <div class="card card-sm" style="margin-bottom:12px">
+      <div style="font-size:13px;color:var(--text2)">Ton feeling le plus fréquent après les cours :</div>
+      <div style="font-size:22px;margin-top:8px">${feelingLabels[topFeeling[0]] || topFeeling[0]}</div>
+    </div>` : ''}
+
     <div class="section-label">Mon ressenti</div>
     ${entries?.length ? entries.map(e => `
       <div class="card card-sm" style="margin-bottom:8px">
