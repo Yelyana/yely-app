@@ -1486,6 +1486,8 @@ async function submitComment(postId) {
   openComments(postId);
 }
 
+let _boutiqueTab = 'cours';
+
 async function loadBoutique() {
   const el = document.getElementById('boutique-content');
   if (currentProfile?.full_name) {
@@ -1494,15 +1496,32 @@ async function loadBoutique() {
   const { data: products } = await db.from('products').select('*').eq('is_active', true).order('sort_order');
   window._boutiqueProducts = {};
   (products || []).forEach(p => window._boutiqueProducts[p.id] = p);
-  const forfaits = (products || []).filter(p => p.type === 'carte' || p.type === 'unite');
-  const abos = (products || []).filter(p => p.type === 'abo_illimite' || p.type === 'abo_mensuel');
 
-  el.innerHTML = `
-    <div class="section-label">Cartes & unités</div>
-    ${forfaits.map(p => {
-      const isUnite = p.type === 'unite';
-      const pricePerCourse = (!isUnite && p.sessions_count) ? (p.price_cents / p.sessions_count / 100).toFixed(2).replace('.',',') : null;
-      return `
+  const tabs = `
+    <div style="display:flex;background:var(--bg2);border-radius:12px;padding:4px;gap:2px;margin-bottom:20px">
+      <button onclick="_boutiqueTab='cours';loadBoutique()" style="flex:1;padding:8px;border:none;border-radius:9px;cursor:pointer;font-size:13px;font-weight:${_boutiqueTab==='cours'?'600':'400'};background:${_boutiqueTab==='cours'?'var(--accent)':'transparent'};color:${_boutiqueTab==='cours'?'#fff':'var(--text2)'}">Cours & Abos</button>
+      <button onclick="_boutiqueTab='merch';loadBoutique()" style="flex:1;padding:8px;border:none;border-radius:9px;cursor:pointer;font-size:13px;font-weight:${_boutiqueTab==='merch'?'600':'400'};background:${_boutiqueTab==='merch'?'var(--accent)':'transparent'};color:${_boutiqueTab==='merch'?'#fff':'var(--text2)'}">Merch 🛍</button>
+    </div>`;
+
+  if (_boutiqueTab === 'merch') {
+    el.innerHTML = tabs + `
+      <div class="card card-sm" style="text-align:center;padding:32px 16px">
+        <div style="font-size:36px;margin-bottom:10px">👕</div>
+        <div style="font-size:16px;font-weight:500;margin-bottom:8px">Bientôt disponible</div>
+        <div style="font-size:13px;color:var(--text3);line-height:1.6">Leggings, crop tops, tote bags…<br>La collection Yely arrive !</div>
+      </div>
+      <div style="height:8px"></div>`;
+    return;
+  }
+
+  const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.kids_only);
+  const abos = (products || []).filter(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') && !p.kids_only);
+  const kids = (products || []).filter(p => p.kids_only);
+
+  const renderForfait = p => {
+    const isUnite = p.type === 'unite';
+    const pricePerCourse = (!isUnite && p.sessions_count) ? (p.price_cents / p.sessions_count / 100).toFixed(2).replace('.',',') : null;
+    return `
     <div class="card card-sm" style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px">
       <div>
         <div style="font-size:15px;font-weight:500">${p.name}</div>
@@ -1513,18 +1532,18 @@ async function loadBoutique() {
         <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€</div>
         <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="confirmAndPay(${p.id}, false)">Acheter</button>
       </div>
-    </div>`;}).join('')}
+    </div>`;
+  };
 
-    <div class="section-label" style="margin-top:16px">Abonnements</div>
-    ${abos.map(p => {
-      const nameLower = (p.name + ' ' + (p.description || '')).toLowerCase();
-      const isIllimite = p.type === 'abo_illimite';
-      const is2x = !isIllimite && /2x|x2|2 fois|deux fois|2\/semaine/.test(nameLower);
-      const coursesPerMonth = is2x ? 8 : 4;
-      const freq = is2x ? '2 cours/semaine' : '1 cours/semaine';
-      const pricePerCourse = isIllimite ? null : (p.price_cents / coursesPerMonth / 100).toFixed(2).replace('.',',');
-      const engPricePerCourse = (isIllimite || !p.engagement_price_cents) ? null : (p.engagement_price_cents / coursesPerMonth / 100).toFixed(2).replace('.',',');
-      return `
+  const renderAbo = p => {
+    const nameLower = (p.name + ' ' + (p.description || '')).toLowerCase();
+    const isIllimite = p.type === 'abo_illimite';
+    const is2x = !isIllimite && /2x|x2|2 fois|deux fois|2\/semaine/.test(nameLower);
+    const coursesPerMonth = is2x ? 8 : 4;
+    const freq = is2x ? '2 cours/semaine' : '1 cours/semaine';
+    const pricePerCourse = isIllimite ? null : (p.price_cents / coursesPerMonth / 100).toFixed(2).replace('.',',');
+    const engPricePerCourse = (isIllimite || !p.engagement_price_cents) ? null : (p.engagement_price_cents / coursesPerMonth / 100).toFixed(2).replace('.',',');
+    return `
     <div class="card card-sm" style="margin-bottom:12px">
       <div style="margin-bottom:10px">
         <div style="font-size:15px;font-weight:500">${p.name}</div>
@@ -1543,16 +1562,17 @@ async function loadBoutique() {
           <span style="font-size:10px;opacity:0.7">pause juil-août incluse 🌴</span>
         </button>` : ''}
       </div>
-    </div>`;}).join('')}
+    </div>`;
+  };
 
-    <div class="section-label" style="margin-top:16px">Merch</div>
-    <div class="card card-sm" style="text-align:center;padding:24px 16px">
-      <div style="font-size:28px;margin-bottom:8px">👕</div>
-      <div style="font-size:15px;margin-bottom:6px">La boutique Yely arrive bientôt</div>
-      <div style="font-size:12px;color:var(--text3)">Leggings, crop tops, tote bags… restez connectées !</div>
-    </div>
-    <div style="height:8px"></div>
-  `;
+  el.innerHTML = tabs +
+    (forfaits.length ? `<div class="section-label">Cartes & unités</div>${forfaits.map(renderForfait).join('')}` : '') +
+    (abos.length ? `<div class="section-label" style="margin-top:16px">Abonnements</div>${abos.map(renderAbo).join('')}` : '') +
+    (kids.length ? `
+      <div class="section-label" style="margin-top:16px">👧 Pole Kids & Parent-enfant</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;margin-top:-6px">Ces forfaits sont utilisables uniquement dans les cours Pole Kids et Parent-enfant.</div>
+      ${kids.map(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') ? renderAbo(p) : renderForfait(p)).join('')}` : '') +
+    `<div style="height:8px"></div>`;
 }
 
 function confirmAndPay(productId, engagement) {
