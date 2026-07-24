@@ -897,8 +897,8 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
             <div class="cours-time">${formatTime(ci.start_time)}</div>
             <div class="spots-pill ${spotsClass}">${spotsText}</div>
           </div>
-          <div class="cours-name">${ci.discipline_name} <span style="color:var(--text3);font-size:12px">· ${ci.level}</span></div>
-          <div class="cours-meta">${ci.duration_minutes} min · ${ci.teacher_name || 'Ana'} · ${ci.salle === 'pole' ? 'Salle Pole Dance' : 'Salle Multi'}</div>
+          <div class="cours-name">${ci.custom_name || ci.discipline_name || 'Cours'} <span style="color:var(--text3);font-size:12px">· ${ci.level}</span></div>
+          <div class="cours-meta">${ci.duration_minutes} min · ${ci.teacher_name || 'Ana'} · ${{ air: '🦇 Salle Air', terre: '🌿 Salle Terre' }[ci.salle] || ci.salle || 'Salle'}</div>
           ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${ci.description}</div>` : ''}
           ${isBooked ? '<div style="font-size:11px;color:var(--violet);margin-top:4px">✓ Réservé</div>' : ''}
           ${isWaiting ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">⏳ Liste d'attente${waitlistPos ? ' · position ' + waitlistPos : ''}</div>` : ''}
@@ -993,7 +993,7 @@ async function loadBookingForm(ci) {
     .filter(p => isKids || !p.kids_only);
 
   let html = `
-    <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">${ci.discipline_name}</h3>
+    <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">${name}</h3>
     <p style="color:var(--text3);font-size:13px;margin-bottom:${ci.description ? '8px' : '20px'}">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${ci.teacher_name || 'Ana'}</p>
     ${ci.description ? `<p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">${ci.description}</p>` : ''}
     ${isKids ? `<div style="background:rgba(155,125,219,0.1);border:1px solid rgba(155,125,219,0.3);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--violet-light)">👧 Cours Pole Kids · une carte dédiée peut être utilisée ici</div>` : ''}
@@ -1026,34 +1026,24 @@ async function loadBookingForm(ci) {
   }
 
   html += `<div class="section-label" style="margin-top:8px">Acheter</div>`;
-  const forfaitsAcheter = (availableProducts || []).filter(p => p.type === 'carte' || p.type === 'unite');
-  const abosAcheter = (availableProducts || []).filter(p => p.type === 'abo_illimite' || p.type === 'abo_mensuel');
-  forfaitsAcheter.forEach(p => {
+  (availableProducts || []).forEach(p => {
+    const isAbo = p.type === 'abo_illimite' || p.type === 'abo_mensuel';
+    const isIllimite = p.type === 'abo_illimite';
     const kidsTag = p.kids_only ? `<span style="font-size:10px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:1px 6px;border-radius:4px;margin-left:6px">Pole Kids</span>` : '';
-    html += `<button class="cours-card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px" onclick="buyAndBook(${ci.id}, ${p.id})">
+    const sub = isAbo ? `<span style="font-size:11px;font-weight:400;color:var(--text3)">/mois</span>` : '';
+    const engagementLine = isAbo && p.engagement_price_cents ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${formatPrice(p.engagement_price_cents)}/mois avec engagement</div>` : '';
+    const desc = isIllimite ? '+ practice libre ✨' : (p.description || '') + (p.sessions_count && p.type !== 'unite' ? ' · ' + p.sessions_count + ' cours' : '');
+    html += `<button class="cours-card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px" onclick="${isAbo ? `confirmAndPay(${p.id}, false)` : `buyAndBook(${ci.id}, ${p.id})`}">
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${p.name}${kidsTag}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.description || ''}${p.sessions_count && p.type !== 'unite' ? ' · ' + p.sessions_count + ' cours' : ''}</div>
+        ${desc ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${desc}</div>` : ''}
       </div>
-      <div style="flex-shrink:0;font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}</div>
+      <div style="flex-shrink:0;text-align:right">
+        <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}${sub}</div>
+        ${engagementLine}
+      </div>
     </button>`;
   });
-  if (abosAcheter.length) {
-    html += `<div class="section-label" style="margin-top:8px">Abonnements</div>`;
-    abosAcheter.forEach(p => {
-      const isIllimite = p.type === 'abo_illimite';
-      html += `<button class="cours-card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px" onclick="confirmAndPay(${p.id}, false)">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${p.name}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">${isIllimite ? '+ practice libre ✨' : (p.description || '')}</div>
-        </div>
-        <div style="flex-shrink:0;text-align:right">
-          <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}<span style="font-size:11px;font-weight:400">/mois</span></div>
-          ${p.engagement_price_cents ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${formatPrice(p.engagement_price_cents)}/mois avec engagement</div>` : ''}
-        </div>
-      </button>`;
-    });
-  }
 
   html += `<button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Annuler</button>`;
   document.getElementById('modal-content').innerHTML = html;
