@@ -905,15 +905,16 @@ async function saveCourse(id) {
       const dayOfWeek = parseInt(document.getElementById('m-day').value); // 1=Lundi
       const step = freq === 'biweekly' ? 14 : freq === 'monthly' ? 28 : 7;
 
-      // Trouver la première occurrence à partir d'aujourd'hui
-      let d = new Date(today);
-      const todayDow = d.getDay() === 0 ? 7 : d.getDay(); // 1=Lundi, 7=Dimanche
-      let diff = dayOfWeek - todayDow;
+      // Trouver la première occurrence à partir du 7 sept 2026 (ouverture studio)
+      const startFrom = new Date(Math.max(today.getTime(), new Date('2026-09-07T00:00:00').getTime()));
+      let d = new Date(startFrom);
+      const startDow = d.getDay() === 0 ? 7 : d.getDay();
+      let diff = dayOfWeek - startDow;
       if (diff < 0) diff += 7;
       d.setDate(d.getDate() + diff);
 
-      const maxDate = new Date(today);
-      maxDate.setDate(today.getDate() + weeks * 7);
+      const maxDate = new Date(startFrom);
+      maxDate.setDate(startFrom.getDate() + weeks * 7);
 
       while (d <= maxDate) {
         const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
