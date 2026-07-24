@@ -563,7 +563,7 @@ async function renderPlanning() {
     title = rangeStart.toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
   }
 
-  const fmt = d => d.toISOString().slice(0,10);
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const { data: instances } = await db.from('course_instances')
     .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, discipline_id, disciplines(name,color), profiles(full_name))')
     .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
@@ -916,7 +916,8 @@ async function saveCourse(id) {
       maxDate.setDate(today.getDate() + weeks * 7);
 
       while (d <= maxDate) {
-        instances.push({ course_id: courseId, date: d.toISOString().slice(0,10), teacher_id: teacherId, status: 'active' });
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        instances.push({ course_id: courseId, date: dateStr, teacher_id: teacherId, status: 'active' });
         d.setDate(d.getDate() + step);
       }
     }
