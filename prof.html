@@ -758,6 +758,7 @@ async function saveObjectives(studentId) {
 
 // ── COMMUNAUTÉ ────────────────────────────────────────────
 let commTab = 'eleves';
+let commPollMode = false;
 
 async function loadCommunaute() {
   const el = document.getElementById('main-content');
@@ -779,7 +780,7 @@ async function renderCommTab() {
   const audience = isProfs ? 'teachers' : 'all';
 
   const { data: posts } = await db.from('community_posts')
-    .select('*, profiles(full_name, avatar_url, role), community_reactions(emoji, user_id), community_comments(id)')
+    .select('*, profiles(full_name, avatar_url, role), community_reactions(emoji, user_id), community_comments(id), community_poll_votes(option_index, user_id)')
     .eq('audience', audience)
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false })
@@ -815,7 +816,28 @@ async function renderCommTab() {
             <span style="font-size:10px;color:var(--text3);margin-left:auto;margin-right:6px">${ago}</span>
             ${postMenu}
           </div>
-          <div id="pcontent-${p.id}" style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px">${p.content}</div>
+          ${p.post_type === 'poll' && p.poll_options ? (() => {
+            const votes = p.community_poll_votes || [];
+            const total = votes.length;
+            const bars = p.poll_options.map((opt, i) => {
+              const count = votes.filter(v => v.option_index === i).length;
+              const pct = total > 0 ? Math.round(count / total * 100) : 0;
+              return `<div style="margin-bottom:8px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+                  <span style="color:var(--text2)">${opt}</span>
+                  <span style="color:var(--text3)">${count} vote${count!==1?'s':''} · ${pct}%</span>
+                </div>
+                <div style="height:6px;border-radius:3px;background:var(--bg,#0f0d14);overflow:hidden">
+                  <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:3px"></div>
+                </div>
+              </div>`;
+            }).join('');
+            return `<div style="margin-bottom:10px">
+              <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px">📊 ${p.content}</div>
+              ${bars}
+              <div style="font-size:11px;color:var(--text3);margin-top:4px">${total} réponse${total!==1?'s':''} au total</div>
+            </div>`;
+          })() : `<div id="pcontent-${p.id}" style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px">${p.content}</div>`}
           <div id="comments-${p.id}" style="display:none;margin-bottom:10px"></div>
           <div style="display:flex;gap:16px">
             <button onclick="profToggleLike(${p.id},this)" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;color:${liked?'#e87a7a':'var(--text3)'};font-size:13px">${liked?'❤️':'🤍'} <span>${likeCount}</span></button>
@@ -830,10 +852,27 @@ async function renderCommTab() {
   const audienceLabel = isProfs
     ? '🔒 Visible uniquement par les profs'
     : '👩‍🎓 Visible par tous les élèves';
+
+  const pollToggleHtml = !isProfs ? `
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button onclick="switchCommMode('text')" id="mode-text" style="padding:5px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;background:${!commPollMode?'var(--accent)':'var(--bg3,#231e30)'};color:${!commPollMode?'#fff':'var(--text2)'}">✍️ Message</button>
+      <button onclick="switchCommMode('poll')" id="mode-poll" style="padding:5px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;background:${commPollMode?'var(--accent)':'var(--bg3,#231e30)'};color:${commPollMode?'#fff':'var(--text2)'}">📊 Sondage</button>
+    </div>` : '';
+
+  const composeInner = commPollMode && !isProfs ? `
+    <input id="poll-q" placeholder="Ta question pour les élèves…" style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:14px;outline:none;padding-bottom:8px;margin-bottom:10px;font-family:inherit">
+    <div id="poll-opts-list" style="display:flex;flex-direction:column;gap:6px">
+      <input class="poll-opt" placeholder="Option 1" style="background:var(--bg3,#231e30);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:7px 10px;font-family:inherit">
+      <input class="poll-opt" placeholder="Option 2" style="background:var(--bg3,#231e30);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:7px 10px;font-family:inherit">
+    </div>
+    <button onclick="addPollOption()" id="add-opt-btn" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;padding:6px 0 0;text-align:left">+ Ajouter une option</button>` : `
+    <textarea id="comm-text" placeholder="${isProfs ? 'Message entre profs…' : 'Message aux élèves…'}" style="width:100%;background:transparent;border:none;color:var(--text);font-size:14px;resize:none;outline:none;min-height:70px;font-family:inherit"></textarea>`;
+
   el.innerHTML = `
     <div style="background:var(--bg2);border-radius:14px;padding:14px;margin-bottom:16px;border:2px solid ${isProfs ? 'rgba(245,158,11,0.4)' : 'var(--border)'}">
       <div style="font-size:11px;font-weight:600;color:${audienceColor};letter-spacing:0.5px;margin-bottom:10px;padding:5px 10px;background:${isProfs ? 'rgba(245,158,11,0.1)' : 'rgba(155,125,219,0.08)'};border-radius:8px;display:inline-block">${audienceLabel}</div>
-      <textarea id="comm-text" placeholder="${isProfs ? 'Message entre profs…' : 'Message aux élèves…'}" style="width:100%;background:transparent;border:none;color:var(--text);font-size:14px;resize:none;outline:none;min-height:70px;font-family:inherit"></textarea>
+      ${pollToggleHtml}
+      ${composeInner}
       <div style="display:flex;justify-content:flex-end;margin-top:8px">
         <button onclick="profPostComm()" style="padding:8px 20px;border-radius:10px;border:none;background:${audienceColor};color:#fff;cursor:pointer;font-size:13px;font-weight:500">Publier</button>
       </div>
@@ -842,10 +881,39 @@ async function renderCommTab() {
   `;
 }
 
+function switchCommMode(mode) {
+  commPollMode = mode === 'poll';
+  renderCommTab();
+}
+
+function addPollOption() {
+  const list = document.getElementById('poll-opts-list');
+  if (!list) return;
+  const count = list.querySelectorAll('.poll-opt').length;
+  if (count >= 4) return;
+  const inp = document.createElement('input');
+  inp.className = 'poll-opt';
+  inp.placeholder = `Option ${count + 1}`;
+  inp.style.cssText = 'background:var(--bg3,#231e30);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:7px 10px;font-family:inherit';
+  list.appendChild(inp);
+  if (count + 1 >= 4) { const btn = document.getElementById('add-opt-btn'); if (btn) btn.style.display = 'none'; }
+}
+
 async function profPostComm() {
+  const audience = commTab === 'profs' ? 'teachers' : 'all';
+  if (commPollMode) {
+    const question = document.getElementById('poll-q')?.value.trim();
+    if (!question) return showToast('Écris la question', true);
+    const opts = [...document.querySelectorAll('.poll-opt')].map(i => i.value.trim()).filter(Boolean);
+    if (opts.length < 2) return showToast('Au moins 2 options requises', true);
+    const { error } = await db.from('community_posts').insert({ author_id: currentUser.id, content: question, audience, post_type: 'poll', poll_options: opts });
+    if (error) return showToast(error.message, true);
+    commPollMode = false;
+    showToast('Sondage publié ! 📊');
+    return renderCommTab();
+  }
   const content = document.getElementById('comm-text').value.trim();
   if (!content) return showToast('Écris quelque chose d\'abord', true);
-  const audience = commTab === 'profs' ? 'teachers' : 'all';
   const { error } = await db.from('community_posts').insert({ author_id: currentUser.id, content, audience });
   if (error) return showToast(error.message, true);
   showToast('Publié !');
