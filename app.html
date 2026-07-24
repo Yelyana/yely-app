@@ -993,7 +993,7 @@ async function loadBookingForm(ci) {
   const alreadyBoughtIds = new Set((pastOrders || []).map(o => o.product_id));
   const availableProducts = (products || [])
     .filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id))
-    .filter(p => isKids || !p.kids_only);
+    .filter(p => isKids ? p.kids_only : !p.kids_only);
 
   let html = `
     <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">${name}</h3>
