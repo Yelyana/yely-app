@@ -899,7 +899,7 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
             <div class="cours-time">${formatTime(ci.start_time)}</div>
-            ${ci.level && ci.level !== 'Tous niveaux' ? `<span style="font-size:10px;background:rgba(155,125,219,0.15);color:var(--violet-light);padding:2px 7px;border-radius:6px">${ci.level}</span>` : ''}
+            ${ci.level ? `<span style="font-size:10px;background:rgba(155,125,219,0.15);color:var(--violet-light);padding:2px 7px;border-radius:6px">${ci.level}</span>` : ''}
           </div>
           <div class="cours-meta">${ci.duration_minutes} min · ${ci.teacher_name || 'Ana'} · ${{ air: '🦇 Salle Air', terre: '🌿 Salle Terre' }[ci.salle] || ci.salle || 'Salle'}</div>
           ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${ci.description}</div>` : ''}
