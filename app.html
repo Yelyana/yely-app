@@ -502,6 +502,15 @@ let currentProfile = null;
 let currentScreen = 'auth';
 let selectedWeekOffset = 0;
 let selectedDay = null;
+const STUDIO_OPENS = new Date('2026-09-07');
+
+function getMondayOf(date) {
+  const d = new Date(date);
+  const dow = d.getDay() || 7;
+  d.setDate(d.getDate() - dow + 1);
+  d.setHours(0,0,0,0);
+  return d;
+}
 
 const PHRASES = [
   '"Le corps se souvient de chaque effort."',
@@ -787,8 +796,18 @@ async function saveQuickVictory() {
 
 // ── RÉSERVER ─────────────────────────────────────────────
 async function loadReserver() {
+  if (!selectedDay) {
+    const today = new Date();
+    if (today < STUDIO_OPENS) {
+      selectedDay = new Date(STUDIO_OPENS);
+      const todayMon = getMondayOf(new Date());
+      const opensMon = getMondayOf(STUDIO_OPENS);
+      selectedWeekOffset = Math.round((opensMon - todayMon) / 604800000);
+    } else {
+      selectedDay = today;
+    }
+  }
   renderWeekDays();
-  if (!selectedDay) { selectedDay = new Date(); }
   await loadCoursesForDay(selectedDay);
 }
 
@@ -805,12 +824,13 @@ function renderWeekDays() {
   const dates = getWeekDates();
   const today = new Date();
   document.getElementById('week-label').textContent = formatMonthRange(dates[0], dates[6]);
-  document.getElementById('week-days').innerHTML = dates.map((d, i) => `
-    <button class="day-btn ${isSameDay(d, selectedDay || today) ? 'active' : ''}" onclick="selectDay(${i})">
+  document.getElementById('week-days').innerHTML = dates.map((d, i) => {
+    const isPast = d < STUDIO_OPENS;
+    return `<button class="day-btn ${isSameDay(d, selectedDay || today) ? 'active' : ''}" onclick="${isPast ? '' : `selectDay(${i})`}" style="${isPast ? 'opacity:0.3;cursor:not-allowed' : ''}">
       <span class="day-letter">${JOURS[i]}</span>
       <span class="day-num">${d.getDate()}</span>
-    </button>
-  `).join('');
+    </button>`;
+  }).join('');
 }
 
 async function selectDay(idx) {
@@ -821,6 +841,11 @@ async function selectDay(idx) {
 }
 
 function changeWeek(dir) {
+  if (dir < 0) {
+    const newMon = getMondayOf(new Date());
+    newMon.setDate(newMon.getDate() + (selectedWeekOffset + dir) * 7);
+    if (newMon < getMondayOf(STUDIO_OPENS)) return;
+  }
   selectedWeekOffset += dir;
   selectedDay = getWeekDates()[0];
   renderWeekDays();
