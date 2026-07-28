@@ -1654,6 +1654,11 @@ function openProductModal(p) {
       <input type="checkbox" id="p-kids-only" ${p?.kids_only ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">👧 Réservé aux cours Pole Kids / parent-enfant uniquement</label>
     </div>
+    <div class="form-group">
+      <label>Max Pilates Reformer inclus (laisser vide = illimité)</label>
+      <input type="number" id="p-max-reformer" value="${p?.max_reformer_sessions ?? ''}" placeholder="Ex: 1" min="0">
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Pour le pack découverte : 1 seul cours Reformer autorisé sur les 5 séances.</div>
+    </div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-primary" onclick="saveProduct(${p?.id || 'null'})" style="flex:1">Enregistrer</button>
       ${p?.id ? `<button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Supprimer</button>` : ''}
@@ -1692,6 +1697,7 @@ async function saveProduct(id) {
     kids_only: document.getElementById('p-kids-only').checked,
     engagement_price_cents: document.getElementById('p-eng-price')?.value ? Math.round(parseFloat(document.getElementById('p-eng-price').value) * 100) : null,
     engagement_months: parseInt(document.getElementById('p-eng-months')?.value) || 0,
+    max_reformer_sessions: document.getElementById('p-max-reformer').value !== '' ? parseInt(document.getElementById('p-max-reformer').value) : null,
   };
   let error;
   if (id) { ({ error } = await db.from('products').update(data).eq('id', id)); }

@@ -1135,8 +1135,34 @@ async function bookWithCredit(instanceId, creditId) {
 }
 
 async function _doBookWithCredit(instanceId, creditId, childId) {
-  const { data: credit } = await db.from('student_credits').select('*').eq('id', creditId).single();
+  const { data: credit } = await db.from('student_credits').select('*, products(*)').eq('id', creditId).single();
   if (credit.sessions_remaining <= 0) return showToast('Plus de séances disponibles', true);
+
+  // Vérifier la limite reformer du pack (ex: pack découverte = max 1 reformer)
+  const maxReformer = credit.products?.max_reformer_sessions;
+  if (maxReformer != null) {
+    const { data: ci } = await db.from('course_instances_with_availability').select('is_reformer').eq('id', instanceId).single();
+    if (ci?.is_reformer) {
+      // Récupérer les IDs des instances déjà réservées avec ce crédit
+      const { data: existingBookings } = await db.from('bookings')
+        .select('course_instance_id')
+        .eq('credit_id', creditId)
+        .eq('status', 'confirmed');
+      const instanceIds = (existingBookings || []).map(b => b.course_instance_id);
+      let reformerCount = 0;
+      if (instanceIds.length > 0) {
+        const { data: reformerInstances } = await db.from('course_instances_with_availability')
+          .select('id')
+          .in('id', instanceIds)
+          .eq('is_reformer', true);
+        reformerCount = reformerInstances?.length || 0;
+      }
+      if (reformerCount >= maxReformer) {
+        return showToast(`Ce pack inclut au maximum ${maxReformer} cours Pilates Reformer.`, true);
+      }
+    }
+  }
+
   const { error } = await db.from('bookings').insert({ student_id: currentUser.id, course_instance_id: instanceId, status: 'confirmed', payment_type: 'carte', credit_id: creditId, child_id: childId || null });
   if (error) return showToast(error.code === '23505' ? 'Déjà inscrite !' : error.message, true);
   await db.from('student_credits').update({ sessions_remaining: credit.sessions_remaining - 1 }).eq('id', creditId);
