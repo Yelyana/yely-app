@@ -229,7 +229,9 @@ async function loadAdminUser(user) {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
   document.getElementById('admin-name').textContent = currentProfile.full_name;
-  showPage('dashboard');
+  const hash = location.hash.replace('#', '') || 'dashboard';
+  const validPages = ['dashboard', 'planning', 'eleves', 'profs', 'revenus', 'forfaits'];
+  showPage(validPages.includes(hash) ? hash : 'dashboard');
 }
 
 (async () => {
