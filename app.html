@@ -1036,16 +1036,23 @@ async function loadBookingForm(ci) {
     const sub = isAbo ? `<span style="font-size:11px;font-weight:400;color:var(--text3)">/mois</span>` : '';
     const engagementLine = isAbo && p.engagement_price_cents ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${formatPrice(p.engagement_price_cents)}/mois avec engagement</div>` : '';
     const desc = isIllimite ? '+ practice libre ✨' : (p.description || '') + (p.sessions_count && p.type !== 'unite' ? ' · ' + p.sessions_count + ' cours' : '');
-    html += `<button class="cours-card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px" onclick="${isAbo ? `confirmAndPay(${p.id}, false)` : `buyAndBook(${ci.id}, ${p.id})`}">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${p.name}${kidsTag}</div>
-        ${desc ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${desc}</div>` : ''}
-      </div>
-      <div style="flex-shrink:0;text-align:right">
-        <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}${sub}</div>
-        ${engagementLine}
-      </div>
-    </button>`;
+    const installmentPrice = p.allow_installments ? Math.ceil(p.price_cents / 3) : null;
+    html += `<div class="cours-card" style="margin-bottom:8px;padding:0;overflow:hidden">
+      <button style="width:100%;background:none;border:none;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;text-align:left" onclick="${isAbo ? `confirmAndPay(${p.id}, false)` : `buyAndBook(${ci.id}, ${p.id})`}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${p.name}${kidsTag}</div>
+          ${desc ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${desc}</div>` : ''}
+        </div>
+        <div style="flex-shrink:0;text-align:right">
+          <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}${sub}</div>
+          ${engagementLine}
+        </div>
+      </button>
+      ${installmentPrice ? `<button style="width:100%;background:rgba(155,125,219,0.1);border:none;border-top:1px solid rgba(155,125,219,0.2);padding:8px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;color:var(--violet-light);font-size:12px" onclick="buyAndBookInstallments(${ci.id}, ${p.id})">
+        <span>Payer en 3 fois</span>
+        <span style="font-weight:600">${formatPrice(installmentPrice)}/mois × 3</span>
+      </button>` : ''}
+    </div>`;
   });
 
   html += `<button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Annuler</button>`;
@@ -1176,14 +1183,19 @@ async function buyAndBook(instanceId, productId) {
   await redirectToStripe(productId, false);
 }
 
-async function redirectToStripe(productId, engagement, applyReferralDiscount = false) {
+async function buyAndBookInstallments(instanceId, productId) {
+  window._pendingBookingInstanceId = instanceId;
+  await redirectToStripe(productId, false, false, true);
+}
+
+async function redirectToStripe(productId, engagement, applyReferralDiscount = false, installments = false) {
   showToast('Redirection vers le paiement…');
   try {
     const { data: { session } } = await db.auth.getSession();
     const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ product_id: productId, engagement, apply_referral_discount: applyReferralDiscount }),
+      body: JSON.stringify({ product_id: productId, engagement, apply_referral_discount: applyReferralDiscount, installments }),
     });
     const { url, error } = await res.json();
     if (error) return showToast('Erreur : ' + error, true);
