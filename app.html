@@ -1816,7 +1816,8 @@ async function loadBoutique() {
     return;
   }
 
-  const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.kids_only);
+  const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.kids_only)
+    .sort((a, b) => (a.sessions_count || 1) - (b.sessions_count || 1));
   const abos = (products || []).filter(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') && !p.kids_only);
   const kidsAll = (products || []).filter(p => p.kids_only);
   const isParentEnfant = p => { const n = (p.name + ' ' + (p.description || '')).toLowerCase(); return n.includes('parent') && n.includes('enfant'); };
