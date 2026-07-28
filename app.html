@@ -1208,14 +1208,14 @@ async function buyAndBookInstallments(instanceId, productId) {
   await redirectToStripe(productId, false, false, true);
 }
 
-async function redirectToStripe(productId, engagement, applyReferralDiscount = false, installments = false) {
+async function redirectToStripe(productId, engagement, applyReferralDiscount = false, installments = false, applyStudentDiscount = false) {
   showToast('Redirection vers le paiement…');
   try {
     const { data: { session } } = await db.auth.getSession();
     const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ product_id: productId, engagement, apply_referral_discount: applyReferralDiscount, installments }),
+      body: JSON.stringify({ product_id: productId, engagement, apply_referral_discount: applyReferralDiscount, installments, apply_student_discount: applyStudentDiscount }),
     });
     const { url, error } = await res.json();
     if (error) return showToast('Erreur : ' + error, true);
@@ -1848,10 +1848,12 @@ async function loadBoutique() {
     return [...arr].sort((a, b) => (order[a.type] ?? 4) - (order[b.type] ?? 4));
   };
 
+  const isStudent = currentProfile?.is_student === true;
   const renderForfait = p => {
     const isUnite = p.type === 'unite';
-    const pricePerCourse = (!isUnite && p.sessions_count) ? (p.price_cents / p.sessions_count / 100).toFixed(2).replace('.',',') : null;
-    const installmentPrice = p.allow_installments ? Math.ceil(p.price_cents / 3) : null;
+    const displayPrice = isStudent ? Math.floor(p.price_cents * 0.9) : p.price_cents;
+    const pricePerCourse = (!isUnite && p.sessions_count) ? (displayPrice / p.sessions_count / 100).toFixed(2).replace('.',',') : null;
+    const installmentPrice = p.allow_installments ? Math.ceil(displayPrice / 3) : null;
     return `
     <div class="card card-sm" style="margin-bottom:10px;padding:0;overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px">
@@ -1859,14 +1861,16 @@ async function loadBoutique() {
           <div style="font-size:15px;font-weight:500">${p.name}</div>
           <div style="font-size:12px;color:var(--text3);margin-top:3px">${p.description || ''}${p.sessions_count && !isUnite ? ' · ' + p.sessions_count + ' cours' : ''}</div>
           ${pricePerCourse ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">soit ${pricePerCourse}€/cours</div>` : ''}
+          ${isStudent ? `<div style="font-size:10px;color:var(--green);margin-top:3px;font-weight:600">🎓 Tarif étudiant -10%</div>` : ''}
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€</div>
-          <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="confirmAndPay(${p.id}, false)">Acheter</button>
+          ${isStudent ? `<div style="font-size:12px;color:var(--text3);text-decoration:line-through">${(p.price_cents/100).toFixed(0)}€</div>` : ''}
+          <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${(displayPrice/100).toFixed(0)}€</div>
+          <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="confirmAndPay(${p.id}, false, ${isStudent})">Acheter</button>
         </div>
       </div>
-      ${installmentPrice ? `<button style="width:100%;background:rgba(155,125,219,0.08);border:none;border-top:1px solid rgba(155,125,219,0.2);padding:9px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;color:var(--violet-light);font-size:12px" onclick="confirmAndPayInstallments(${p.id})">
-        <span>💳 Payer en 3 fois</span>
+      ${installmentPrice ? `<button style="width:100%;background:rgba(155,125,219,0.08);border:none;border-top:1px solid rgba(155,125,219,0.2);padding:9px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;color:var(--violet-light);font-size:12px" onclick="confirmAndPayInstallments(${p.id}, ${isStudent})">
+        <span>💳 Payer en 3 fois${isStudent ? ' 🎓' : ''}</span>
         <span style="font-weight:600">${formatPrice(installmentPrice)}/mois × 3</span>
       </button>` : ''}
     </div>`;
@@ -1924,41 +1928,49 @@ async function loadBoutique() {
     `<div style="height:8px"></div>`;
 }
 
-function confirmAndPayInstallments(productId) {
+function confirmAndPayInstallments(productId, applyStudentDiscount = false) {
   const p = window._boutiqueProducts[productId];
   if (!p) return;
-  const installmentPrice = Math.ceil(p.price_cents / 3);
+  const basePrice = applyStudentDiscount ? Math.floor(p.price_cents * 0.9) : p.price_cents;
+  const installmentPrice = Math.ceil(basePrice / 3);
   document.getElementById('modal-content').innerHTML = `
     <h3 class="serif" style="font-size:22px;font-weight:300;margin-bottom:8px;color:var(--ivoire)">Paiement en 3 fois</h3>
-    <p style="font-size:13px;color:var(--text3);margin-bottom:20px">${p.name}</p>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:4px">${p.name}</p>
+    ${applyStudentDiscount ? `<p style="font-size:11px;color:var(--green);margin-bottom:16px;font-weight:600">🎓 Tarif étudiant -10% appliqué</p>` : '<div style="margin-bottom:16px"></div>'}
     <div style="background:rgba(155,125,219,0.1);border-radius:12px;padding:14px 16px;margin-bottom:20px">
       <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px"><span style="color:var(--text3)">1er versement (aujourd'hui)</span><span style="color:var(--violet-light);font-weight:600">${formatPrice(installmentPrice)}</span></div>
       <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px"><span style="color:var(--text3)">2e versement (J+30)</span><span style="color:var(--violet-light);font-weight:600">${formatPrice(installmentPrice)}</span></div>
       <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--text3)">3e versement (J+60)</span><span style="color:var(--violet-light);font-weight:600">${formatPrice(installmentPrice)}</span></div>
-      <div style="border-top:1px solid rgba(155,125,219,0.2);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text3)">Total</span><span style="color:var(--ivoire)">${formatPrice(p.price_cents)}</span></div>
+      <div style="border-top:1px solid rgba(155,125,219,0.2);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text3)">Total</span><span style="color:var(--ivoire)">${formatPrice(basePrice)}</span></div>
     </div>
     <p style="font-size:11px;color:var(--text3);margin-bottom:20px;line-height:1.6">Tes séances sont disponibles dès le 1er paiement. Le prélèvement est automatique pendant 3 mois puis s'arrête.</p>
-    <button class="btn btn-primary" onclick="redirectToStripe(${productId}, false, false, true)">Payer ${formatPrice(installmentPrice)} maintenant →</button>
+    <button class="btn btn-primary" onclick="redirectToStripe(${productId}, false, false, true, ${applyStudentDiscount})">Payer ${formatPrice(installmentPrice)} maintenant →</button>
     <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Annuler</button>
   `;
   document.getElementById('booking-modal').classList.add('open');
 }
 
-function confirmAndPay(productId, engagement) {
+function confirmAndPay(productId, engagement, applyStudentDiscount = false) {
   const p = window._boutiqueProducts[productId];
   if (!p) return;
-  const price = engagement && p.engagement_price_cents ? p.engagement_price_cents : p.price_cents;
+  const basePrice = engagement && p.engagement_price_cents ? p.engagement_price_cents : p.price_cents;
   const isAbo = ['abo_illimite', 'abo_mensuel'].includes(p.type);
   const label = engagement ? `${p.name} — Engagement ${p.engagement_months} mois` : p.name;
   const engagementMention = engagement ? `<div style="font-size:12px;color:var(--text3);margin-top:4px">Engagement ${p.engagement_months} mois · pause juillet-août · reconduction automatique</div>` : '';
-  const hasDiscount = !!currentProfile?.referral_discount_available;
-  const discountedPrice = Math.round(price * 0.9);
-  const discountBadge = hasDiscount ? `
+  const hasReferral = !!currentProfile?.referral_discount_available;
+  // Appliquer un seul discount (parrainage prioritaire si les deux)
+  const applyReferral = hasReferral && !applyStudentDiscount;
+  const discountRate = (applyReferral || applyStudentDiscount) ? 0.9 : 1;
+  const displayPrice = Math.round(basePrice * discountRate);
+  const discountBadge = applyReferral ? `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <span style="text-decoration:line-through;color:var(--text3);font-size:16px">${(price/100).toFixed(0)}€</span>
+      <span style="text-decoration:line-through;color:var(--text3);font-size:16px">${(basePrice/100).toFixed(0)}€</span>
       <span style="background:rgba(125,191,155,0.2);color:var(--green);font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px">-10% parrainage 🎁</span>
+    </div>` : applyStudentDiscount ? `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="text-decoration:line-through;color:var(--text3);font-size:16px">${(basePrice/100).toFixed(0)}€</span>
+      <span style="background:rgba(125,191,155,0.2);color:var(--green);font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px">-10% étudiant 🎓</span>
     </div>` : '';
-  const displayPrice = hasDiscount ? discountedPrice : price;
   document.getElementById('modal-content').innerHTML = `
     <div style="font-size:18px;font-weight:500;margin-bottom:4px">${label}</div>
     ${discountBadge}
@@ -1969,7 +1981,7 @@ function confirmAndPay(productId, engagement) {
       ${engagement ? '<br><br>• Engagement de 12 mois calendaires glissants à partir de la date de souscription<br>• Pause automatique et gratuite en juillet-août<br>• Reconduction automatique, résiliable avant la date anniversaire' : ''}
     </div>
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="btn btn-primary" style="flex:1" onclick="redirectToStripe(${productId}, ${engagement}, ${hasDiscount})">Payer en sécurité →</button>
+      <button class="btn btn-primary" style="flex:1" onclick="redirectToStripe(${productId}, ${engagement}, ${applyReferral}, false, ${applyStudentDiscount})">Payer en sécurité →</button>
       <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
     </div>
   `;
@@ -2112,6 +2124,44 @@ async function loadProfil() {
       </div>`;
     })()}
 
+    ${(() => {
+      const status = currentProfile?.student_verification_status;
+      if (currentProfile?.is_student) return `
+        <div class="card card-sm" style="margin-bottom:12px;background:linear-gradient(135deg,#1a2820,#0f1a14);border-color:rgba(125,191,155,0.3)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:22px">🎓</span>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--green)">Tarif étudiant activé ✓</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">-10% sur tous les forfaits</div>
+            </div>
+          </div>
+        </div>`;
+      if (status === 'pending') return `
+        <div class="card card-sm" style="margin-bottom:12px;border-color:rgba(232,201,122,0.3)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:22px">⏳</span>
+            <div>
+              <div style="font-size:13px;font-weight:500">Demande en cours de vérification</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">On te confirmera ça très vite 🦇</div>
+            </div>
+          </div>
+        </div>`;
+      if (status === 'rejected') return `
+        <div class="card card-sm" style="margin-bottom:12px;border-color:rgba(232,122,122,0.3)">
+          <div style="font-size:13px;font-weight:500;color:var(--red);margin-bottom:6px">❌ Demande refusée</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Le justificatif n'a pas pu être validé. Tu peux en soumettre un nouveau.</div>
+          <input type="file" id="student-card-input" accept="image/*,application/pdf" style="display:none" onchange="uploadStudentCard(this)">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('student-card-input').click()">Renvoyer un justificatif</button>
+        </div>`;
+      return `
+        <div class="card card-sm" style="margin-bottom:12px">
+          <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">🎓 Tarif étudiant</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.5">-10% sur tous les forfaits sur présentation de ta carte étudiante.</div>
+          <input type="file" id="student-card-input" accept="image/*,application/pdf" style="display:none" onchange="uploadStudentCard(this)">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('student-card-input').click()">📎 Envoyer mon justificatif</button>
+        </div>`;
+    })()}
+
     <div class="card card-sm" style="margin-bottom:12px">
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px;letter-spacing:0.5px;text-transform:uppercase">Paramètres</div>
       <div class="settings-row" onclick="editProfile()">
@@ -2241,6 +2291,29 @@ async function uploadAvatar(input) {
   currentProfile.avatar_url = avatarUrl;
   updateAvatarBtns(avatarUrl, currentProfile.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2));
   showToast('Photo mise à jour ✨');
+  loadProfil();
+}
+
+async function uploadStudentCard(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) return showToast('Fichier trop grand (max 5 Mo)', true);
+  showToast('Envoi en cours…');
+  const ext = file.name.split('.').pop();
+  const path = `${currentUser.id}/student-card.${ext}`;
+  const { error } = await db.storage.from('student-cards').upload(path, file, { upsert: true });
+  if (error) return showToast('Erreur upload : ' + error.message, true);
+  const { data } = db.storage.from('student-cards').getPublicUrl(path);
+  await db.from('profiles').update({
+    student_card_url: data.publicUrl,
+    student_verification_status: 'pending',
+  }).eq('id', currentUser.id);
+  currentProfile.student_verification_status = 'pending';
+  // Notifier l'admin
+  await db.functions.invoke('notify-student-verification', {
+    body: { student_id: currentUser.id, student_name: currentProfile.full_name, card_url: data.publicUrl },
+  });
+  showToast('Justificatif envoyé ! On te confirme ça très vite 🦇');
   loadProfil();
 }
 

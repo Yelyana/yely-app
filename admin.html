@@ -1016,11 +1016,29 @@ function renderEleves() {
     background:${_elevesFilter===key?'var(--accent)':'var(--bg2)'};
     color:${_elevesFilter===key?'#fff':'var(--text2)'};">${label}</button>`;
 
+  const pendingStudents = _allStudentsData.filter(s => s.student_verification_status === 'pending');
+  const pendingBanner = pendingStudents.length ? `
+    <div style="background:rgba(232,201,122,0.1);border:1px solid rgba(232,201,122,0.3);border-radius:12px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;color:#e8c97a;margin-bottom:10px">🎓 ${pendingStudents.length} demande${pendingStudents.length>1?'s':''} tarif étudiant en attente</div>
+      ${pendingStudents.map(s => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(232,201,122,0.15)">
+          <div>
+            <div style="font-size:13px;font-weight:500">${s.full_name}</div>
+            ${s.student_card_url ? `<a href="${s.student_card_url}" target="_blank" style="font-size:11px;color:var(--text3)">Voir le justificatif →</a>` : ''}
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm" style="background:rgba(125,191,155,0.2);color:var(--green);border:1px solid rgba(125,191,155,0.3)" onclick="validateStudentDiscount('${s.id}', true)">✓ Valider</button>
+            <button class="btn btn-sm" style="background:rgba(232,122,122,0.1);color:var(--red);border:1px solid rgba(232,122,122,0.3)" onclick="validateStudentDiscount('${s.id}', false)">✗ Refuser</button>
+          </div>
+        </div>`).join('')}
+    </div>` : '';
+
   document.getElementById('main-content').innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
       <div><div class="page-title">Élèves</div><div class="page-sub">${_allStudentsData.length} inscrite${_allStudentsData.length>1?'s':''}</div></div>
       <button class="btn btn-primary btn-sm" onclick="openGroupMessage()">📣 Message groupé</button>
     </div>
+    ${pendingBanner}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
       ${filterBtn('all','Toutes')}
       ${filterBtn('actives','✅ Actives')}
@@ -1186,6 +1204,18 @@ async function saveStudentNotes(studentId) {
   const s = _allStudentsData.find(s => s.id === studentId);
   if (s) s.notes = notes;
   showToast('Note enregistrée !');
+}
+
+async function validateStudentDiscount(studentId, approve) {
+  const updates = approve
+    ? { is_student: true, student_verification_status: 'approved' }
+    : { is_student: false, student_verification_status: 'rejected' };
+  const { error } = await db.from('profiles').update(updates).eq('id', studentId);
+  if (error) return showToast(error.message, true);
+  const s = _allStudentsData.find(s => s.id === studentId);
+  if (s) { s.is_student = approve; s.student_verification_status = approve ? 'approved' : 'rejected'; }
+  showToast(approve ? '✅ Tarif étudiant activé !' : '❌ Demande refusée');
+  renderEleves();
 }
 
 async function toggleFondatrice(studentId, value) {
