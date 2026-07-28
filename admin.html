@@ -1124,6 +1124,16 @@ async function openStudentDetail(studentId, name) {
       </div>`;
     })()}
 
+    <div style="margin-bottom:16px;padding:12px;background:var(--bg);border-radius:10px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:13px;font-weight:500">⭐ Fondatrice</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Réservation Reformer 14 jours à l'avance</div>
+      </div>
+      <label style="display:flex;align-items:center;cursor:pointer;gap:8px">
+        <input type="checkbox" id="fondatrice-toggle" ${student.is_fondatrice ? 'checked' : ''} onchange="toggleFondatrice('${studentId}', this.checked)" style="width:18px;height:18px;cursor:pointer">
+      </label>
+    </div>
+
     <div style="margin-bottom:16px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Notes privées</div>
       <textarea id="student-notes" rows="3" placeholder="Notes visibles uniquement par toi..." style="width:100%;resize:vertical">${student.notes||''}</textarea>
@@ -1176,6 +1186,14 @@ async function saveStudentNotes(studentId) {
   const s = _allStudentsData.find(s => s.id === studentId);
   if (s) s.notes = notes;
   showToast('Note enregistrée !');
+}
+
+async function toggleFondatrice(studentId, value) {
+  const { error } = await db.from('profiles').update({ is_fondatrice: value }).eq('id', studentId);
+  if (error) return showToast(error.message, true);
+  const s = _allStudentsData.find(s => s.id === studentId);
+  if (s) s.is_fondatrice = value;
+  showToast(value ? '⭐ Fondatrice activée !' : 'Statut fondatrice retiré');
 }
 
 async function sendDirectMessage(studentId, name) {
