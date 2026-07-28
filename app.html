@@ -1907,7 +1907,7 @@ function confirmAndPayInstallments(productId) {
   const p = window._boutiqueProducts[productId];
   if (!p) return;
   const installmentPrice = Math.ceil(p.price_cents / 3);
-  showModal(`
+  document.getElementById('modal-content').innerHTML = `
     <h3 class="serif" style="font-size:22px;font-weight:300;margin-bottom:8px;color:var(--ivoire)">Paiement en 3 fois</h3>
     <p style="font-size:13px;color:var(--text3);margin-bottom:20px">${p.name}</p>
     <div style="background:rgba(155,125,219,0.1);border-radius:12px;padding:14px 16px;margin-bottom:20px">
@@ -1919,7 +1919,8 @@ function confirmAndPayInstallments(productId) {
     <p style="font-size:11px;color:var(--text3);margin-bottom:20px;line-height:1.6">Tes séances sont disponibles dès le 1er paiement. Le prélèvement est automatique pendant 3 mois puis s'arrête.</p>
     <button class="btn btn-primary" onclick="redirectToStripe(${productId}, false, false, true)">Payer ${formatPrice(installmentPrice)} maintenant →</button>
     <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Annuler</button>
-  `);
+  `;
+  document.getElementById('booking-modal').classList.add('open');
 }
 
 function confirmAndPay(productId, engagement) {
