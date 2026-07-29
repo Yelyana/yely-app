@@ -257,6 +257,10 @@ select option { background: var(--card); }
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
       Boutique
     </button>
+    <button class="desk-nav-item" onclick="navigate('historique')" id="desk-nav-historique">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Historique
+    </button>
     <div style="flex:1"></div>
     <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:8px">
       <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background 0.15s" onclick="navigate('notifications')" onmouseover="this.style.background='rgba(155,125,219,0.08)'" onmouseout="this.style.background='transparent'">
@@ -420,6 +424,15 @@ select option { background: var(--card); }
       <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Mon profil</div></div>
     </div>
     <div id="profil-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+
+  <!-- HISTORIQUE -->
+  <div id="screen-historique" class="screen" style="padding-top:0">
+    <div class="top-bar">
+      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Mon historique</div></div>
+      <button onclick="navigate('profil')" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer">← Retour</button>
+    </div>
+    <div id="historique-content"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 
   <!-- NOTIFICATIONS -->
@@ -595,6 +608,7 @@ function navigate(screen) {
   if (screen === 'boutique') loadBoutique();
   if (screen === 'communaute') loadCommunaute();
   if (screen === 'notifications') loadNotifications();
+  if (screen === 'historique') loadHistorique();
 }
 
 function showAuth() {
@@ -1092,11 +1106,12 @@ async function loadBookingForm(ci) {
 async function sendConfirmationEmail(instanceId) {
   try {
     const { data: ci } = await db.from('course_instances')
-      .select('date, courses(custom_name, start_time, disciplines(name))')
+      .select('date, courses(custom_name, start_time, description, disciplines(name))')
       .eq('id', instanceId).single();
     const courseName = ci?.courses?.custom_name || ci?.courses?.disciplines?.name || 'Cours';
     const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
     const time = ci?.courses?.start_time?.slice(0,5) || '';
+    const description = ci?.courses?.description || '';
     const { data: { session } } = await db.auth.getSession();
     await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/send-confirmation', {
       method: 'POST',
@@ -1104,7 +1119,7 @@ async function sendConfirmationEmail(instanceId) {
       body: JSON.stringify({
         studentEmail: currentProfile.email,
         studentName: currentProfile.full_name.split(' ')[0],
-        courseName, date, time
+        courseName, date, time, description
       })
     });
   } catch(e) {}
@@ -2040,6 +2055,74 @@ async function confirmAndPay(productId, engagement, applyStudentDiscount = false
 }
 
 
+async function loadHistorique() {
+  const el = document.getElementById('historique-content');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: bookings, error } = await db
+    .from('bookings')
+    .select('status, created_at, course_instances(date, start_time, courses(custom_name, disciplines(name, color)))')
+    .eq('student_id', currentUser.id)
+    .lt('course_instances.date', today)
+    .order('created_at', { ascending: false });
+
+  if (error) { el.innerHTML = '<p style="padding:24px;color:var(--text3)">Erreur de chargement.</p>'; return; }
+
+  const past = (bookings || []).filter(b => b.course_instances?.date && b.course_instances.date < today);
+
+  const total = past.filter(b => b.status === 'confirmed').length;
+  const cancelled = past.filter(b => b.status === 'cancelled').length;
+
+  let html = `
+    <div style="padding:20px 16px 8px">
+      <div style="display:flex;gap:12px;margin-bottom:24px">
+        <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--violet)">${total}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">cours suivis</div>
+        </div>
+        <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--text2)">${cancelled}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">annulés</div>
+        </div>
+      </div>`;
+
+  if (past.length === 0) {
+    html += `<div style="text-align:center;padding:40px 0;color:var(--text3)">Aucun cours passé pour l'instant 🦇</div>`;
+  } else {
+    let lastMonth = '';
+    for (const b of past) {
+      const ci = b.course_instances;
+      if (!ci) continue;
+      const date = new Date(ci.date);
+      const month = date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      const dateStr = date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+      const time = ci.start_time?.slice(0, 5) || '';
+      const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
+      const color = ci.courses?.disciplines?.color || 'var(--violet)';
+      const isCancelled = b.status === 'cancelled';
+
+      if (month !== lastMonth) {
+        html += `<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 8px">${month}</div>`;
+        lastMonth = month;
+      }
+
+      html += `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;opacity:${isCancelled ? '0.5' : '1'}">
+          <div style="width:4px;height:36px;border-radius:2px;background:${isCancelled ? 'var(--text3)' : color};flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">${dateStr} · ${time}</div>
+          </div>
+          ${isCancelled ? '<div style="font-size:11px;color:var(--text3);background:rgba(255,255,255,0.05);padding:3px 8px;border-radius:6px">Annulé</div>' : '<div style="font-size:16px">🦇</div>'}
+        </div>`;
+    }
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
 async function loadProfil() {
   const el = document.getElementById('profil-content');
   const [
@@ -2230,6 +2313,10 @@ async function loadProfil() {
       </div>
     </div>
 
+    <button class="btn" onclick="navigate('historique')" style="margin-bottom:12px;background:var(--card);border:1px solid var(--border);color:var(--text)">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:16px;height:16px;display:inline;vertical-align:-2px;margin-right:6px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Mon historique de cours
+    </button>
     <button class="btn btn-ghost" onclick="logout()" style="color:var(--red);border-color:rgba(232,122,122,0.3)">Se déconnecter</button>
     <div style="text-align:center;padding:16px 0;font-size:11px;color:var(--text3)">Yely in the Air · v1.0</div>
   `;
