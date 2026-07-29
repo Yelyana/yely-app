@@ -2567,6 +2567,16 @@ async function loadUserProfile(user) {
 db.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session?.user) {
     await loadUserProfile(session.user);
+    // Email de bienvenue à la toute première connexion
+    const createdAt = new Date(session.user.created_at);
+    const isNew = (Date.now() - createdAt.getTime()) < 5 * 60 * 1000;
+    if (isNew && currentProfile?.role === 'student') {
+      fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/send-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ email: session.user.email, full_name: currentProfile.full_name }),
+      }).catch(() => {});
+    }
     showApp();
   } else if (event === 'SIGNED_OUT') {
     currentUser = null;

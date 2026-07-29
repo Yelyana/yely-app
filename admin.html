@@ -1216,6 +1216,15 @@ async function validateStudentDiscount(studentId, approve) {
   if (error) return showToast(error.message, true);
   const s = _allStudentsData.find(s => s.id === studentId);
   if (s) { s.is_student = approve; s.student_verification_status = approve ? 'approved' : 'rejected'; }
+  // Notifier l'élève
+  if (s?.email) {
+    const { data: { session } } = await db.auth.getSession();
+    fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/notify-student-decision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ email: s.email, full_name: s.full_name, approved: approve }),
+    }).catch(() => {});
+  }
   showToast(approve ? '✅ Tarif étudiant activé !' : '❌ Demande refusée');
   renderEleves();
 }
