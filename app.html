@@ -1208,14 +1208,14 @@ async function buyAndBookInstallments(instanceId, productId) {
   await redirectToStripe(productId, false, false, true);
 }
 
-async function redirectToStripe(productId, engagement, applyReferralDiscount = false, installments = false, applyStudentDiscount = false) {
+async function redirectToStripe(productId, engagement, applyReferralDiscount = false, installments = false, applyStudentDiscount = false, applyDiscoveryDiscount = false) {
   showToast('Redirection vers le paiement…');
   try {
     const { data: { session } } = await db.auth.getSession();
     const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ product_id: productId, engagement, apply_referral_discount: applyReferralDiscount, installments, apply_student_discount: applyStudentDiscount }),
+      body: JSON.stringify({ product_id: productId, engagement, apply_referral_discount: applyReferralDiscount, installments, apply_student_discount: applyStudentDiscount, apply_discovery_discount: applyDiscoveryDiscount }),
     });
     const { url, error } = await res.json();
     if (error) return showToast('Erreur : ' + error, true);
@@ -1956,7 +1956,7 @@ function confirmAndPayInstallments(productId, applyStudentDiscount = false) {
   document.getElementById('booking-modal').classList.add('open');
 }
 
-function confirmAndPay(productId, engagement, applyStudentDiscount = false) {
+async function confirmAndPay(productId, engagement, applyStudentDiscount = false) {
   const p = window._boutiqueProducts[productId];
   if (!p) return;
   const basePrice = engagement && p.engagement_price_cents ? p.engagement_price_cents : p.price_cents;
@@ -1964,9 +1964,21 @@ function confirmAndPay(productId, engagement, applyStudentDiscount = false) {
   const label = engagement ? `${p.name} — Engagement ${p.engagement_months} mois` : p.name;
   const engagementMention = engagement ? `<div style="font-size:12px;color:var(--text3);margin-top:4px">Engagement ${p.engagement_months} mois · pause juillet-août · reconduction automatique</div>` : '';
   const hasReferral = !!currentProfile?.referral_discount_available;
-  // Appliquer un seul discount (parrainage prioritaire si les deux)
+
+  // Vérifier si l'élève a un pack découverte actif (pour -10% sur abonnement)
+  let hasDiscoveryPack = false;
+  if (isAbo) {
+    const { data: discoveryCredits } = await db.from('student_credits')
+      .select('id, products(max_reformer_sessions)')
+      .eq('student_id', currentUser.id)
+      .gt('sessions_remaining', 0);
+    hasDiscoveryPack = (discoveryCredits || []).some(c => c.products?.max_reformer_sessions != null);
+  }
+
+  // Priorité des discounts : parrainage > étudiant > pack découverte (un seul à la fois)
   const applyReferral = hasReferral && !applyStudentDiscount;
-  const discountRate = (applyReferral || applyStudentDiscount) ? 0.9 : 1;
+  const applyDiscovery = hasDiscoveryPack && !applyReferral && !applyStudentDiscount;
+  const discountRate = (applyReferral || applyStudentDiscount || applyDiscovery) ? 0.9 : 1;
   const displayPrice = Math.round(basePrice * discountRate);
   const discountBadge = applyReferral ? `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -1976,6 +1988,10 @@ function confirmAndPay(productId, engagement, applyStudentDiscount = false) {
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <span style="text-decoration:line-through;color:var(--text3);font-size:16px">${(basePrice/100).toFixed(0)}€</span>
       <span style="background:rgba(125,191,155,0.2);color:var(--green);font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px">-10% étudiant 🎓</span>
+    </div>` : applyDiscovery ? `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="text-decoration:line-through;color:var(--text3);font-size:16px">${(basePrice/100).toFixed(0)}€</span>
+      <span style="background:rgba(125,191,155,0.2);color:var(--green);font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px">-10% pack découverte 🦇</span>
     </div>` : '';
   document.getElementById('modal-content').innerHTML = `
     <div style="font-size:18px;font-weight:500;margin-bottom:4px">${label}</div>
@@ -1987,7 +2003,7 @@ function confirmAndPay(productId, engagement, applyStudentDiscount = false) {
       ${engagement ? '<br><br>• Engagement de 12 mois calendaires glissants à partir de la date de souscription<br>• Pause automatique et gratuite en juillet-août<br>• Reconduction automatique, résiliable avant la date anniversaire' : ''}
     </div>
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="btn btn-primary" style="flex:1" onclick="redirectToStripe(${productId}, ${engagement}, ${applyReferral}, false, ${applyStudentDiscount})">Payer en sécurité →</button>
+      <button class="btn btn-primary" style="flex:1" onclick="redirectToStripe(${productId}, ${engagement}, ${applyReferral}, false, ${applyStudentDiscount}, ${applyDiscovery})">Payer en sécurité →</button>
       <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
     </div>
   `;
