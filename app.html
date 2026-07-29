@@ -855,19 +855,32 @@ function changeWeek(dir) {
 async function loadCoursesForDay(date) {
   document.getElementById('cours-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const dateStr = date.toISOString().split('T')[0];
-  const { data, error } = await db.from('course_instances_with_availability').select('*').eq('date', dateStr).eq('status', 'active').order('start_time');
-  if (error || !data?.length) {
+  const [{ data, error }, { data: cancelledData }] = await Promise.all([
+    db.from('course_instances_with_availability').select('*').eq('date', dateStr).eq('status', 'active').order('start_time'),
+    db.from('course_instances_with_availability').select('*').eq('date', dateStr).eq('status', 'cancelled').order('start_time'),
+  ]);
+
+  // Récupérer mes réservations annulées pour voir quels cours annulés j'avais
+  const cancelledIds = (cancelledData || []).map(d => d.id);
+  const { data: myCancelledBookings } = cancelledIds.length
+    ? await db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).in('course_instance_id', cancelledIds).eq('status', 'cancelled')
+    : { data: [] };
+  const myCancelledSet = new Set((myCancelledBookings || []).map(b => b.course_instance_id));
+  const cancelledForMe = (cancelledData || []).filter(ci => myCancelledSet.has(ci.id));
+
+  if ((error || !data?.length) && !cancelledForMe.length) {
     document.getElementById('cours-list').innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
       <div style="font-size:28px;margin-bottom:8px">🌿</div>
       <div>Pas de cours ce jour</div>
     </div>`;
     return;
   }
+
   // Récupérer mes réservations et liste d'attente pour ce jour
-  const instanceIds = data.map(d => d.id);
+  const instanceIds = (data || []).map(d => d.id);
   const [{ data: myBookings }, { data: myWaitlist }] = await Promise.all([
-    db.from('bookings').select('course_instance_id, status').eq('student_id', currentUser.id).in('course_instance_id', instanceIds),
-    db.from('waitlist').select('course_instance_id, position').eq('student_id', currentUser.id).in('course_instance_id', instanceIds),
+    instanceIds.length ? db.from('bookings').select('course_instance_id, status').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
+    instanceIds.length ? db.from('waitlist').select('course_instance_id, position').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
   ]);
   const myBookingMap = {};
   (myBookings || []).forEach(b => myBookingMap[b.course_instance_id] = b.status);
@@ -875,9 +888,25 @@ async function loadCoursesForDay(date) {
   const myWaitlistPos = {};
   (myWaitlist || []).forEach(w => myWaitlistPos[w.course_instance_id] = w.position);
 
+  const cancelledCards = cancelledForMe.map(ci => `
+    <div class="cours-card" style="opacity:0.5;cursor:default;border-color:rgba(232,122,122,0.3);background:rgba(232,122,122,0.05)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="cours-bar" style="background:var(--red)"></div>
+          <div>
+            <div style="font-size:15px;font-weight:500">${ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours'}</div>
+            <div style="font-size:12px;color:var(--text3)">${ci.start_time?.slice(0,5) || ''}</div>
+          </div>
+        </div>
+        <span style="font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(232,122,122,0.15);color:var(--red);font-weight:600">Annulé</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Ta séance t'a été rendue automatiquement.</div>
+    </div>`).join('');
+
   document.getElementById('cours-list').innerHTML = `
     <div class="section-label">${JOURS_FULL[(date.getDay() || 7) - 1]} ${date.getDate()} ${date.toLocaleString('fr', { month: 'long' })}</div>
-    ${data.map(ci => renderCourseCard(ci, myBookingMap[ci.id], myWaitlistSet.has(ci.id), myWaitlistPos[ci.id])).join('')}
+    ${(data || []).map(ci => renderCourseCard(ci, myBookingMap[ci.id], myWaitlistSet.has(ci.id), myWaitlistPos[ci.id])).join('')}
+    ${cancelledCards}
   `;
 }
 
