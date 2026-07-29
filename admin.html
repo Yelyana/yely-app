@@ -1476,9 +1476,10 @@ async function doCreateTeacher() {
 
   // Email de bienvenue prof
   try {
+    const { data: { session: adminSession } } = await db.auth.getSession();
     const emailRes = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/send-welcome-teacher', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminSession.access_token}` },
       body: JSON.stringify({ email, full_name: name, temp_password: password }),
     });
     const emailText = await emailRes.text();
