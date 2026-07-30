@@ -584,10 +584,10 @@ async function renderPlanning() {
     const time = c.start_time?.slice(0,5) || '';
     const prof = c.profiles?.full_name?.split(' ')[0] || '';
     const tag = c.is_recurring ? '' : '<span style="font-size:9px;background:#f472b622;color:#f472b6;border-radius:4px;padding:1px 4px;margin-left:4px">⭐</span>';
-    const levelTag = c.level && c.level !== 'Tous niveaux' ? `<span style="font-size:9px;background:rgba(155,125,219,0.2);color:#c4b5fd;border-radius:4px;padding:1px 4px;margin-left:2px">${c.level}</span>` : '';
+    const levelTag = c.level ? `<span style="font-size:10px;font-weight:600;background:${color}33;color:${color};border-radius:4px;padding:2px 6px;margin-left:4px">${c.level}</span>` : '';
     return `<div class="cours-pill" style="background:${color}22;border-left:3px solid ${color};cursor:pointer" onclick="viewInstance('${ci.id}')">
       <div style="font-weight:500;font-size:12px">${time} ${tag}</div>
-      <div style="font-size:11px;color:var(--text2)">${name} ${levelTag}</div>
+      <div style="font-size:11px;color:var(--text2);display:flex;align-items:center;flex-wrap:wrap;gap:2px">${name}${levelTag}</div>
       ${prof ? `<div style="font-size:10px;color:var(--text3)">${prof} · ${c.max_students || ''}p</div>` : ''}
     </div>`;
   };
