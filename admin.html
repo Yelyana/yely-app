@@ -567,7 +567,7 @@ async function renderPlanning() {
 
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const { data: instances } = await db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, level, description, discipline_id, disciplines(name,color), profiles(full_name))')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name))')
     .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
     .neq('status', 'cancelled').order('date').order('courses(start_time)');
 
