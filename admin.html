@@ -734,6 +734,7 @@ async function viewInstance(id) {
     </div>` : ''}
     <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
       ${!isCancelled ? `<button class="btn btn-primary btn-sm" onclick="closeModal();openCourseModal(${JSON.stringify(c).replace(/"/g,'&quot;')}, ${JSON.stringify(window._planningDisciplines||[]).replace(/"/g,'&quot;')}, ${JSON.stringify(window._planningTeachers||[]).replace(/"/g,'&quot;')})">✏️ Modifier le cours</button>` : ''}
+      ${!isCancelled ? `<button class="btn btn-sm" style="background:rgba(125,191,155,0.15);border:1px solid rgba(125,191,155,0.3);color:#7dbf9b" onclick="openAddStudentModal('${ci.id}')">➕ Ajouter une élève</button>` : ''}
       ${!isCancelled ? `<button class="btn btn-danger btn-sm" onclick="cancelInstance('${ci.id}')">Annuler la séance</button>` : ''}
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">Fermer</button>
     </div>
@@ -757,6 +758,55 @@ async function cancelBookingAdmin(bookingId, instanceId) {
     await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id);
   }
   showToast('Réservation annulée, crédit restitué');
+  viewInstance(instanceId);
+}
+
+async function openAddStudentModal(instanceId) {
+  const { data: students } = await db.from('profiles').select('id, full_name').eq('role', 'student').order('full_name');
+  const { data: existing } = await db.from('bookings').select('student_id').eq('course_instance_id', instanceId).eq('status', 'confirmed');
+  const alreadyIn = new Set((existing || []).map(b => b.student_id));
+  const available = (students || []).filter(s => !alreadyIn.has(s.id));
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">Ajouter une élève</div>
+    <div class="form-group">
+      <input type="text" id="student-search" placeholder="Rechercher…" oninput="filterStudentList()" style="margin-bottom:12px">
+    </div>
+    <div id="student-list" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
+      ${available.map(s => `
+        <div class="student-row" data-name="${s.full_name.toLowerCase()}" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+          <span style="font-size:14px">${s.full_name}</span>
+          <button class="btn btn-primary btn-sm" onclick="addStudentToInstance('${instanceId}','${s.id}','${s.full_name.replace(/'/g,'\\\'}')}')">Inscrire</button>
+        </div>`).join('')}
+      ${available.length === 0 ? '<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">Toutes les élèves sont déjà inscrites</div>' : ''}
+    </div>
+    <button class="btn btn-ghost" onclick="viewInstance('${instanceId}')" style="margin-top:12px;width:100%">← Retour</button>
+  `;
+  window._addStudentInstanceId = instanceId;
+}
+
+function filterStudentList() {
+  const q = document.getElementById('student-search').value.toLowerCase();
+  document.querySelectorAll('.student-row').forEach(row => {
+    row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+  });
+}
+
+async function addStudentToInstance(instanceId, studentId, studentName) {
+  const { error } = await db.from('bookings').insert({
+    course_instance_id: instanceId,
+    student_id: studentId,
+    status: 'confirmed',
+    booked_at: new Date().toISOString(),
+  });
+  if (error) return showToast(error.message, true);
+  await db.from('notifications').insert({
+    student_id: studentId,
+    title: 'Inscription confirmée 🦇',
+    body: 'Tu as été inscrite à un cours par le studio. À très vite !',
+    type: 'booking',
+  });
+  showToast(`${studentName} inscrite !`);
   viewInstance(instanceId);
 }
 
