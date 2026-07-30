@@ -567,7 +567,7 @@ async function renderPlanning() {
 
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const { data: instances } = await db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, discipline_id, disciplines(name,color), profiles(full_name))')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, level, discipline_id, disciplines(name,color), profiles(full_name))')
     .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
     .neq('status', 'cancelled').order('date').order('courses(start_time)');
 
@@ -584,9 +584,10 @@ async function renderPlanning() {
     const time = c.start_time?.slice(0,5) || '';
     const prof = c.profiles?.full_name?.split(' ')[0] || '';
     const tag = c.is_recurring ? '' : '<span style="font-size:9px;background:#f472b622;color:#f472b6;border-radius:4px;padding:1px 4px;margin-left:4px">⭐</span>';
+    const levelTag = c.level && c.level !== 'Tous niveaux' ? `<span style="font-size:9px;background:rgba(155,125,219,0.2);color:#c4b5fd;border-radius:4px;padding:1px 4px;margin-left:2px">${c.level}</span>` : '';
     return `<div class="cours-pill" style="background:${color}22;border-left:3px solid ${color};cursor:pointer" onclick="viewInstance('${ci.id}')">
       <div style="font-weight:500;font-size:12px">${time} ${tag}</div>
-      <div style="font-size:11px;color:var(--text2)">${name}</div>
+      <div style="font-size:11px;color:var(--text2)">${name} ${levelTag}</div>
       ${prof ? `<div style="font-size:10px;color:var(--text3)">${prof} · ${c.max_students || ''}p</div>` : ''}
     </div>`;
   };

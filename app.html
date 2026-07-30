@@ -945,7 +945,7 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
             ${ci.level ? `<span style="font-size:10px;background:rgba(155,125,219,0.15);color:var(--violet-light);padding:2px 7px;border-radius:6px">${ci.level}</span>` : ''}
           </div>
           <div class="cours-meta">${ci.duration_minutes} min · ${ci.teacher_name || 'Ana'} · ${{ air: '🦇 Salle Air', terre: '🌿 Salle Terre' }[ci.salle] || ci.salle || 'Salle'}</div>
-          ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${ci.description}</div>` : ''}
+          ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${(ci.description.match(/^[^.!?]+[.!?]/) || [ci.description])[0].trim()}</div>` : ''}
           ${isBooked ? '<div style="font-size:11px;color:var(--violet);margin-top:4px">✓ Réservé</div>' : ''}
           ${isWaiting ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">⏳ Liste d'attente${waitlistPos ? ' · position ' + waitlistPos : ''}</div>` : ''}
         </div>
@@ -1041,7 +1041,7 @@ async function loadBookingForm(ci) {
   let html = `
     <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">${name}</h3>
     <p style="color:var(--text3);font-size:13px;margin-bottom:${ci.description ? '8px' : '20px'}">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${ci.teacher_name || 'Ana'}</p>
-    ${ci.description ? `<p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">${ci.description}</p>` : ''}
+    ${ci.description ? `<p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">${ci.description.replace(/\n/g,'<br>')}</p>` : ''}
     ${isKids ? `<div style="background:rgba(155,125,219,0.1);border:1px solid rgba(155,125,219,0.3);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--violet-light)">👧 Cours Pole Kids · une carte dédiée peut être utilisée ici</div>` : ''}
   `;
 
