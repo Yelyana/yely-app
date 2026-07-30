@@ -582,7 +582,7 @@ async function renderPlanning() {
 
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const { data: instances } = await db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name))')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name))')
     .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
     .neq('status', 'cancelled').order('date').order('courses(start_time)');
 
@@ -694,7 +694,7 @@ async function renderPlanning() {
 
 async function viewInstance(id) {
   const { data: ci } = await db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, event_date, disciplines(name,color), profiles(id, full_name))')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, is_practice, event_date, disciplines(name,color), profiles(id, full_name))')
     .eq('id', id).single();
   const { data: bookings } = await db.from('bookings')
     .select('*, profiles(full_name, email), children(first_name)')
@@ -856,6 +856,10 @@ function openCourseModal(course, disciplines, teachers) {
       <input type="checkbox" id="m-kids-course" ${course?.is_kids_course ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">👧 Cours Pole Kids / parent-enfant</label>
     </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-top:4px">
+      <input type="checkbox" id="m-is-practice" ${course?.is_practice ? 'checked' : ''} style="width:auto">
+      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🦇 Créneau Practice Libre (accès libre, sans réservation)</label>
+    </div>
     <div style="display:flex;gap:10px;margin-top:4px">
       <button class="btn btn-primary" onclick="saveCourse(${course?.id || 'null'})" style="flex:1">${isNew ? 'Créer le cours' : 'Enregistrer'}</button>
       ${!isNew ? `<button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : ''}
@@ -891,6 +895,7 @@ async function saveCourse(id) {
     event_date: isUnique ? document.getElementById('m-date').value || null : null,
     description: document.getElementById('m-description').value || null,
     is_kids_course: document.getElementById('m-kids-course').checked,
+    is_practice: document.getElementById('m-is-practice').checked,
   };
 
   let courseId = id;
