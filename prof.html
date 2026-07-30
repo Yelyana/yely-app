@@ -408,7 +408,7 @@ async function loadPlanning() {
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <div style="font-size:12px;font-weight:700;color:${color}">${ci.courses?.start_time?.slice(0,5)} · ${ci.courses?.duration_minutes} min</div>
-              <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:2px;display:flex;align-items:center;gap:6px">${name}${ci.courses?.level ? `<span style="font-size:11px;font-weight:600;background:${color}33;color:${color};border-radius:5px;padding:2px 7px">${ci.courses.level}</span>` : ''}</div>
+              <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:2px;display:flex;align-items:center;gap:6px">${name}${ci.courses?.level ? `<span style="font-size:12px;font-weight:600;background:${color}33;color:${color};border-radius:6px;padding:3px 9px">${ci.courses.level}</span>` : ''}</div>
               ${profStudioView && !isMine && teacherName ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">👤 ${teacherName}</div>` : ''}
             </div>
             ${isMine ? `<div style="font-size:11px;background:${color}22;color:${color};padding:4px 8px;border-radius:6px;font-weight:600">Mon cours →</div>` : ''}
@@ -439,7 +439,7 @@ async function openSeance(instanceId) {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
       <div style="width:4px;height:40px;background:${color};border-radius:2px"></div>
       <div>
-        <div class="modal-title" style="margin-bottom:0;display:flex;align-items:center;gap:8px">${name}${ci?.courses?.level ? `<span style="font-size:12px;font-weight:600;background:${color}33;color:${color};border-radius:5px;padding:2px 8px">${ci.courses.level}</span>` : ''}</div>
+        <div class="modal-title" style="margin-bottom:0;display:flex;align-items:center;gap:8px">${name}${ci?.courses?.level ? `<span style="font-size:12px;font-weight:600;background:${color}33;color:${color};border-radius:6px;padding:3px 9px">${ci.courses.level}</span>` : ''}</div>
         <div style="font-size:12px;color:var(--text3)">${date} · ${ci?.courses?.start_time?.slice(0,5)}</div>
       </div>
     </div>
