@@ -332,7 +332,7 @@ async function loadPlanning() {
   const weekLabel = `${weekStart.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekEnd.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
 
   let instancesQuery = db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, salle, disciplines(name,color)), profiles(full_name)')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, salle, level, description, disciplines(name,color)), profiles(full_name)')
     .gte('date', fmt(weekStart))
     .lte('date', fmt(weekEnd))
     .neq('status','cancelled')
@@ -408,7 +408,7 @@ async function loadPlanning() {
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <div style="font-size:12px;font-weight:700;color:${color}">${ci.courses?.start_time?.slice(0,5)} · ${ci.courses?.duration_minutes} min</div>
-              <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:2px">${name}</div>
+              <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:2px;display:flex;align-items:center;gap:6px">${name}${ci.courses?.level ? `<span style="font-size:11px;font-weight:600;background:${color}33;color:${color};border-radius:5px;padding:2px 7px">${ci.courses.level}</span>` : ''}</div>
               ${profStudioView && !isMine && teacherName ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">👤 ${teacherName}</div>` : ''}
             </div>
             ${isMine ? `<div style="font-size:11px;background:${color}22;color:${color};padding:4px 8px;border-radius:6px;font-weight:600">Mon cours →</div>` : ''}
@@ -422,7 +422,7 @@ async function loadPlanning() {
 // ── SÉANCE DÉTAIL + PRÉSENCES ─────────────────────────────
 async function openSeance(instanceId) {
   const { data: ci } = await db.from('course_instances')
-    .select('*, courses(custom_name, start_time, duration_minutes, max_students, disciplines(name,color))')
+    .select('*, courses(custom_name, start_time, duration_minutes, max_students, level, description, disciplines(name,color))')
     .eq('id', instanceId).single();
   const { data: bookings } = await db.from('bookings')
     .select('*, profiles(full_name, phone)')
@@ -439,10 +439,11 @@ async function openSeance(instanceId) {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
       <div style="width:4px;height:40px;background:${color};border-radius:2px"></div>
       <div>
-        <div class="modal-title" style="margin-bottom:0">${name}</div>
+        <div class="modal-title" style="margin-bottom:0;display:flex;align-items:center;gap:8px">${name}${ci?.courses?.level ? `<span style="font-size:12px;font-weight:600;background:${color}33;color:${color};border-radius:5px;padding:2px 8px">${ci.courses.level}</span>` : ''}</div>
         <div style="font-size:12px;color:var(--text3)">${date} · ${ci?.courses?.start_time?.slice(0,5)}</div>
       </div>
     </div>
+    ${ci?.courses?.description ? `<div style="font-size:13px;color:var(--text2);line-height:1.6;margin:12px 0 4px;padding:10px 14px;background:var(--bg);border-radius:10px">${ci.courses.description.replace(/\n/g,'<br>')}</div>` : ''}
 
     ${total > 0 ? `<div style="display:flex;gap:12px;margin:16px 0">
       <div style="flex:1;text-align:center;background:var(--bg);border-radius:10px;padding:10px">
