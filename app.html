@@ -1018,6 +1018,7 @@ async function loadBookingForm(ci) {
   // Déterminer les forfaits compatibles
   const isReformer = ci.is_reformer;
   const isKids = isKidsCourse(ci);
+  const isPractice = /(practice|pratique libre)/i.test(ci.custom_name || ci.discipline_name || '');
   const validFor = isReformer ? ['all', 'reformer'] : ['all', 'non_reformer'];
 
   // Crédits disponibles — exclure les cartes kids_only si ce n'est pas un cours kids
@@ -1036,7 +1037,8 @@ async function loadBookingForm(ci) {
   const alreadyBoughtIds = new Set((pastOrders || []).map(o => o.product_id));
   const availableProducts = (products || [])
     .filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id))
-    .filter(p => isKids ? p.kids_only : !p.kids_only);
+    .filter(p => isKids ? p.kids_only : !p.kids_only)
+    .filter(p => p.type === 'unite' ? isPractice : !isPractice || p.type !== 'unite');
 
   let html = `
     <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">${name}</h3>
@@ -1881,7 +1883,11 @@ async function loadBoutique() {
   }
 
   const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.kids_only)
-    .sort((a, b) => (a.sessions_count || 1) - (b.sessions_count || 1));
+    .sort((a, b) => {
+      if (a.type === 'unite' && b.type !== 'unite') return 1;
+      if (b.type === 'unite' && a.type !== 'unite') return -1;
+      return (a.sessions_count || 1) - (b.sessions_count || 1);
+    });
   const abos = (products || []).filter(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') && !p.kids_only);
   const kidsAll = (products || []).filter(p => p.kids_only);
   const isParentEnfant = p => { const n = (p.name + ' ' + (p.description || '')).toLowerCase(); return n.includes('parent') && n.includes('enfant'); };
