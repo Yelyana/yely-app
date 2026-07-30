@@ -958,15 +958,20 @@ async function loadCoursesForDay(date) {
 
   // Récupérer mes réservations et liste d'attente pour ce jour
   const instanceIds = (data || []).map(d => d.id);
-  const [{ data: myBookings }, { data: myWaitlist }] = await Promise.all([
+  const courseIds = (data || []).map(d => d.course_id).filter(Boolean);
+  const [{ data: myBookings }, { data: myWaitlist }, { data: practiceFlags }] = await Promise.all([
     instanceIds.length ? db.from('bookings').select('course_instance_id, status').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
     instanceIds.length ? db.from('waitlist').select('course_instance_id, position').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
+    courseIds.length ? db.from('courses').select('id, is_practice').in('id', courseIds) : { data: [] },
   ]);
   const myBookingMap = {};
   (myBookings || []).forEach(b => myBookingMap[b.course_instance_id] = b.status);
   const myWaitlistSet = new Set((myWaitlist || []).map(w => w.course_instance_id));
   const myWaitlistPos = {};
   (myWaitlist || []).forEach(w => myWaitlistPos[w.course_instance_id] = w.position);
+  const practiceMap = {};
+  (practiceFlags || []).forEach(c => practiceMap[c.id] = c.is_practice);
+  (data || []).forEach(ci => { ci.is_practice = practiceMap[ci.course_id] || false; });
 
   const cancelledCards = cancelledForMe.map(ci => `
     <div class="cours-card" style="opacity:0.5;cursor:default;border-color:rgba(232,122,122,0.3);background:rgba(232,122,122,0.05)">
