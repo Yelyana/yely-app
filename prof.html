@@ -443,7 +443,11 @@ async function openSeance(instanceId) {
         <div style="font-size:12px;color:var(--text3)">${date} · ${ci?.courses?.start_time?.slice(0,5)}</div>
       </div>
     </div>
-    ${ci?.courses?.description ? `<div style="font-size:13px;color:var(--text2);line-height:1.6;margin:12px 0 4px;padding:10px 14px;background:var(--bg);border-radius:10px">${ci.courses.description.replace(/\n/g,'<br>')}</div>` : ''}
+    ${ci?.courses?.description ? `<div style="font-size:13px;color:var(--text2);line-height:1.6;margin:12px 0 4px;padding:10px 14px;background:var(--bg);border-radius:10px">
+      <span id="desc-short">${(ci.courses.description.match(/^[^.!?]+[.!?]/) || [ci.courses.description])[0].trim()}</span>
+      <span id="desc-full" style="display:none">${ci.courses.description.replace(/\n/g,'<br>')}</span>
+      ${ci.courses.description.length > (ci.courses.description.match(/^[^.!?]+[.!?]/)?.[0]?.length || 9999) ? `<span id="desc-toggle" onclick="const f=document.getElementById('desc-full'),s=document.getElementById('desc-short'),t=document.getElementById('desc-toggle');if(f.style.display==='none'){f.style.display='inline';s.style.display='none';t.textContent=' Voir moins'}else{f.style.display='none';s.style.display='inline';t.textContent=' Voir plus'}" style="color:${color};cursor:pointer;font-weight:600"> Voir plus</span>` : ''}
+    </div>` : ''}
 
     ${total > 0 ? `<div style="display:flex;gap:12px;margin:16px 0">
       <div style="flex:1;text-align:center;background:var(--bg);border-radius:10px;padding:10px">
