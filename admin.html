@@ -567,7 +567,7 @@ async function renderPlanning() {
 
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const { data: instances } = await db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, level, discipline_id, disciplines(name,color), profiles(full_name))')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, level, description, discipline_id, disciplines(name,color), profiles(full_name))')
     .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
     .neq('status', 'cancelled').order('date').order('courses(start_time)');
 
@@ -685,7 +685,7 @@ async function renderPlanning() {
 
 async function viewInstance(id) {
   const { data: ci } = await db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, salle, is_recurring, event_date, disciplines(name,color), profiles(id, full_name))')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, event_date, disciplines(name,color), profiles(id, full_name))')
     .eq('id', id).single();
   const { data: bookings } = await db.from('bookings')
     .select('*, profiles(full_name, email), children(first_name)')
