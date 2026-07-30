@@ -605,40 +605,33 @@ async function renderPlanning() {
       byDateSalle[key][salle].push(ci);
     });
 
-    // Onglets jours
-    const dayTabs = days.map((d, i) => {
-      const isToday = fmt(d) === fmt(today);
-      const isActive = i === planningDay;
-      const label = JOURS[i].slice(0,3);
-      const num = d.getDate();
-      return `<button onclick="planningDay=${i};renderPlanning()" style="flex:1;padding:8px 4px;border:none;cursor:pointer;border-radius:10px;font-size:12px;font-weight:${isActive?'700':'400'};background:${isActive?'var(--accent)':'transparent'};color:${isActive?'#fff':isToday?'var(--accent)':'var(--text2)'}">
-        <div>${label}</div><div style="font-size:11px;opacity:0.8">${num}</div>
-      </button>`;
+    const dayCols = days.map((d, i) => {
+      const key = fmt(d);
+      const isToday = key === fmt(today);
+      const data = byDateSalle[key] || { air: [], terre: [] };
+      const airCours = data.air.sort((a,b) => a.courses?.start_time?.localeCompare(b.courses?.start_time));
+      const terreCours = data.terre.sort((a,b) => a.courses?.start_time?.localeCompare(b.courses?.start_time));
+      const hasCours = airCours.length || terreCours.length;
+      return `
+        <div style="min-width:0;flex:1">
+          <div style="text-align:center;padding:8px 4px 10px;margin-bottom:8px;border-radius:10px;background:${isToday?'var(--accent)':'var(--bg2)'}">
+            <div style="font-size:11px;font-weight:700;color:${isToday?'#fff':'var(--text3)'};text-transform:uppercase;letter-spacing:0.5px">${JOURS[i].slice(0,3)}</div>
+            <div style="font-size:18px;font-weight:700;color:${isToday?'#fff':'var(--text)'};line-height:1.2">${d.getDate()}</div>
+          </div>
+          ${hasCours ? `
+            ${airCours.length ? `
+              <div style="font-size:9px;font-weight:700;color:#9b7ddb;letter-spacing:0.5px;margin-bottom:4px;padding:0 2px">🦇 AIR</div>
+              ${airCours.map(pillHtml).join('')}
+            ` : ''}
+            ${terreCours.length ? `
+              <div style="font-size:9px;font-weight:700;color:#5a8a7a;letter-spacing:0.5px;margin:${airCours.length?'10px':0} 0 4px;padding:0 2px">🌿 TERRE</div>
+              ${terreCours.map(pillHtml).join('')}
+            ` : ''}
+          ` : `<div style="text-align:center;padding:20px 4px;color:var(--text3);font-size:11px">—</div>`}
+        </div>`;
     }).join('');
 
-    const selectedDay = days[planningDay];
-    const data = byDateSalle[fmt(selectedDay)] || { air: [], terre: [] };
-    const airHtml = data.air.length
-      ? data.air.sort((a,b) => a.courses?.start_time?.localeCompare(b.courses?.start_time)).map(pillHtml).join('')
-      : `<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Aucun cours</div>`;
-    const terreHtml = data.terre.length
-      ? data.terre.sort((a,b) => a.courses?.start_time?.localeCompare(b.courses?.start_time)).map(pillHtml).join('')
-      : `<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Aucun cours</div>`;
-
-    gridHtml = `
-      <div style="display:flex;background:var(--bg2);border-radius:12px;padding:4px;gap:2px;margin-bottom:16px">
-        ${dayTabs}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div style="background:var(--card);border-radius:12px;overflow:hidden">
-          <div style="font-size:11px;font-weight:700;padding:8px 12px;background:#ece4f2;color:#7c4a9e;letter-spacing:0.5px">🦇 SALLE AIR</div>
-          <div style="padding:8px">${airHtml}</div>
-        </div>
-        <div style="background:var(--card);border-radius:12px;overflow:hidden">
-          <div style="font-size:11px;font-weight:700;padding:8px 12px;background:#e6efe9;color:#5a8a7a;letter-spacing:0.5px">🌿 SALLE TERRE</div>
-          <div style="padding:8px">${terreHtml}</div>
-        </div>
-      </div>`;
+    gridHtml = `<div style="overflow-x:auto;padding-bottom:8px"><div style="display:flex;gap:10px;min-width:600px">${dayCols}</div></div>`;
   } else {
     const firstDow = (rangeStart.getDay() + 6) % 7;
     const daysInMonth = rangeEnd.getDate();
