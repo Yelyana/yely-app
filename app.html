@@ -261,6 +261,10 @@ select option { background: var(--card); }
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       Historique
     </button>
+    <button class="desk-nav-item" onclick="navigate('practice')" id="desk-nav-practice" style="display:none">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9"/></svg>
+      Practice Libre
+    </button>
     <div style="flex:1"></div>
     <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:8px">
       <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background 0.15s" onclick="navigate('notifications')" onmouseover="this.style.background='rgba(155,125,219,0.08)'" onmouseout="this.style.background='transparent'">
@@ -330,6 +334,9 @@ select option { background: var(--card); }
       <div class="section-label" style="margin-bottom:10px">Prochain cours</div>
       <div id="next-cours-content"><div class="loading"><div class="spinner"></div></div></div>
     </div>
+
+    <!-- Practice card (affiché si crédits ou session active) -->
+    <div id="practice-home-card" style="display:none"></div>
 
     <!-- Journal rapide (si cours récent sans journal) -->
     <div id="journal-prompt" style="display:none" class="card" style="border-color:rgba(212,120,138,0.25);background:linear-gradient(135deg,#1e1528,#150f22)">
@@ -424,6 +431,15 @@ select option { background: var(--card); }
       <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Mon profil</div></div>
     </div>
     <div id="profil-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+
+  <!-- PRACTICE LIBRE -->
+  <div id="screen-practice" class="screen" style="padding-top:0">
+    <div class="top-bar">
+      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:0.9;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Practice Libre</div></div>
+      <button onclick="navigate('home')" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer">Fermer</button>
+    </div>
+    <div id="practice-content"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 
   <!-- HISTORIQUE -->
@@ -609,6 +625,7 @@ function navigate(screen) {
   if (screen === 'communaute') loadCommunaute();
   if (screen === 'notifications') loadNotifications();
   if (screen === 'historique') loadHistorique();
+  if (screen === 'practice') loadPractice();
 }
 
 function showAuth() {
@@ -761,6 +778,55 @@ async function loadHome() {
         renderQuickFeelings(bkId, recentCIRows[0].id);
       }
     }
+  }
+
+  loadPracticeHomeWidget();
+}
+
+async function loadPracticeHomeWidget() {
+  const card = document.getElementById('practice-home-card');
+  if (!card) return;
+
+  const [{ data: activeSession }, { data: credits }, { data: subs }] = await Promise.all([
+    db.from('practice_sessions').select('*').eq('student_id', currentUser.id).eq('status', 'active').maybeSingle(),
+    db.from('student_credits').select('*, products(type)').eq('student_id', currentUser.id).gt('sessions_remaining', 0),
+    db.from('subscriptions').select('*, products(type)').eq('student_id', currentUser.id).eq('status', 'active'),
+  ]);
+
+  const practiceCredit = (credits || []).find(c => c.products?.type === 'unite');
+  const illimiteSub = (subs || []).find(s => s.products?.type === 'abo_illimite');
+  const hasPracticeAccess = practiceCredit || illimiteSub;
+  const deskBtn = document.getElementById('desk-nav-practice');
+
+  if (activeSession) {
+    if (deskBtn) deskBtn.style.display = 'flex';
+    const elapsed = Math.floor((Date.now() - new Date(activeSession.started_at)) / 1000);
+    const m = Math.floor(elapsed / 60);
+    card.style.display = 'block';
+    card.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1030,#0d0820);border-color:rgba(139,107,78,0.4);cursor:pointer" onclick="navigate('practice')">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="section-label" style="color:#8B6B4E;margin-bottom:4px">🦇 Session en cours</div>
+          <div class="serif" style="font-size:20px;color:var(--ivoire);font-weight:300">${m} min</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">Depuis ${new Date(activeSession.started_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+        <div style="background:rgba(139,107,78,0.2);border:1px solid rgba(139,107,78,0.4);border-radius:10px;padding:10px 16px;font-size:13px;color:#8B6B4E">Terminer →</div>
+      </div>
+    </div>`;
+  } else if (hasPracticeAccess) {
+    if (deskBtn) deskBtn.style.display = 'flex';
+    const label = illimiteSub ? 'Accès illimité ✨' : `${practiceCredit.sessions_remaining} crédit${practiceCredit.sessions_remaining > 1 ? 's' : ''}`;
+    card.style.display = 'block';
+    card.innerHTML = `<div class="card card-sm" style="background:rgba(139,107,78,0.07);border-color:rgba(139,107,78,0.25);cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="navigate('practice')">
+      <div>
+        <div style="font-size:12px;color:#8B6B4E;font-weight:600;letter-spacing:0.5px;margin-bottom:2px">🦇 PRACTICE LIBRE</div>
+        <div style="font-size:13px;color:var(--text2)">${label} disponible</div>
+      </div>
+      <div style="font-size:18px;color:rgba(139,107,78,0.6)">→</div>
+    </div>`;
+  } else {
+    if (deskBtn) deskBtn.style.display = 'none';
+    card.style.display = 'none';
   }
 }
 
@@ -2738,6 +2804,127 @@ function installPWA() {
     const banner = document.getElementById('pwa-banner');
     if (banner) banner.style.display = 'none';
   });
+}
+
+// ── PRACTICE LIBRE ───────────────────────────────────────
+let _practiceTimerInterval = null;
+
+async function loadPractice() {
+  const el = document.getElementById('practice-content');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  const { data: activeSession } = await db
+    .from('practice_sessions').select('*')
+    .eq('student_id', currentUser.id).eq('status', 'active').maybeSingle();
+
+  if (activeSession) { renderActivePractice(el, activeSession); return; }
+
+  const [{ data: credits }, { data: subs }] = await Promise.all([
+    db.from('student_credits').select('*, products(type,name)').eq('student_id', currentUser.id).gt('sessions_remaining', 0),
+    db.from('subscriptions').select('*, products(type)').eq('student_id', currentUser.id).eq('status', 'active'),
+  ]);
+
+  const practiceCredit = (credits || []).find(c => c.products?.type === 'unite');
+  const illimiteSub = (subs || []).find(s => s.products?.type === 'abo_illimite');
+
+  if (!practiceCredit && !illimiteSub) {
+    el.innerHTML = `<div style="text-align:center;padding:60px 24px">
+      <div style="font-size:48px;margin-bottom:16px">🦇</div>
+      <div class="serif" style="font-size:22px;font-weight:300;color:var(--ivoire);margin-bottom:8px">Aucun accès disponible</div>
+      <div style="font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:24px">Tu n'as pas de crédit practice ni d'abonnement illimité actif.</div>
+      <button class="btn btn-primary" onclick="navigate('boutique')">Voir les forfaits →</button>
+    </div>`;
+    return;
+  }
+
+  const creditBadge = illimiteSub
+    ? `<div style="background:rgba(155,125,219,0.12);border:1px solid rgba(155,125,219,0.3);border-radius:12px;padding:14px 16px;margin-bottom:24px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">✨</span>
+        <div><div style="font-size:13px;font-weight:600;color:var(--violet-light)">Abonnement illimité</div><div style="font-size:12px;color:var(--text3)">Practice inclus</div></div>
+       </div>`
+    : `<div style="background:rgba(139,107,78,0.1);border:1px solid rgba(139,107,78,0.3);border-radius:12px;padding:14px 16px;margin-bottom:24px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">🎟️</span>
+        <div><div style="font-size:13px;font-weight:600;color:#c49a6c">${practiceCredit.sessions_remaining} accès practice disponible${practiceCredit.sessions_remaining > 1 ? 's' : ''}</div>${practiceCredit.expires_at ? `<div style="font-size:12px;color:var(--text3)">Expire le ${new Date(practiceCredit.expires_at).toLocaleDateString('fr-FR')}</div>` : ''}</div>
+       </div>`;
+
+  el.innerHTML = `<div style="padding:24px">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="font-size:52px;margin-bottom:10px">🦇</div>
+      <div class="serif" style="font-size:28px;font-weight:300;color:var(--ivoire);margin-bottom:4px">Practice Libre</div>
+      <div style="font-size:13px;color:var(--text3)">Salle Air · Pole Dance</div>
+    </div>
+    ${creditBadge}
+    <label style="display:flex;align-items:flex-start;gap:12px;padding:16px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;cursor:pointer;margin-bottom:24px">
+      <input type="checkbox" id="practice-confirm" style="margin-top:2px;width:18px;height:18px;accent-color:var(--violet);flex-shrink:0">
+      <span style="font-size:14px;color:var(--text);line-height:1.5">Je confirme être bien présente au studio et avoir la clé en main</span>
+    </label>
+    <button class="btn btn-primary" onclick="startPractice('${practiceCredit?.id || ''}', '${illimiteSub?.id || ''}')" style="width:100%;font-size:16px;padding:16px">
+      Démarrer ma session →
+    </button>
+  </div>`;
+}
+
+function renderActivePractice(el, session) {
+  if (_practiceTimerInterval) clearInterval(_practiceTimerInterval);
+
+  const startTime = new Date(session.started_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+
+  const update = () => {
+    const elapsed = Math.floor((Date.now() - new Date(session.started_at)) / 1000);
+    const h = Math.floor(elapsed / 3600);
+    const m = Math.floor((elapsed % 3600) / 60);
+    const s = elapsed % 60;
+    const t = h > 0 ? `${h}h${String(m).padStart(2,'0')}` : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    const timerEl = document.getElementById('practice-timer');
+    if (timerEl) timerEl.textContent = t;
+  };
+
+  el.innerHTML = `<div style="padding:32px 24px;text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">🦇</div>
+    <div class="section-label" style="color:#8B6B4E;margin-bottom:8px">Session en cours</div>
+    <div id="practice-timer" style="font-size:72px;font-weight:700;color:var(--ivoire);font-variant-numeric:tabular-nums;line-height:1;margin:20px 0">00:00</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:48px">Démarrée à ${startTime}</div>
+    <button class="btn" onclick="endPractice('${session.id}')" style="width:100%;font-size:16px;padding:16px;background:rgba(232,122,122,0.15);border:1px solid rgba(232,122,122,0.3);color:#e87a7a">
+      Terminer ma session
+    </button>
+  </div>`;
+
+  update();
+  _practiceTimerInterval = setInterval(update, 1000);
+}
+
+async function startPractice(creditId, subId) {
+  if (!document.getElementById('practice-confirm').checked) {
+    showToast('Confirme ta présence au studio d\'abord', true);
+    return;
+  }
+
+  if (creditId) {
+    const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', creditId).single();
+    if (!credit || credit.sessions_remaining < 1) { showToast('Crédit insuffisant', true); return; }
+    await db.from('student_credits').update({ sessions_remaining: credit.sessions_remaining - 1 }).eq('id', creditId);
+  }
+
+  const { error } = await db.from('practice_sessions').insert({
+    student_id: currentUser.id,
+    credit_id: creditId ? parseInt(creditId) : null,
+    subscription_id: subId ? parseInt(subId) : null,
+    status: 'active',
+  });
+  if (error) { showToast('Erreur : ' + error.message, true); return; }
+
+  showToast('Session démarrée — bonne pratique ! 🦇');
+  loadPractice();
+}
+
+async function endPractice(sessionId) {
+  const { error } = await db.from('practice_sessions')
+    .update({ status: 'completed', ended_at: new Date().toISOString() })
+    .eq('id', sessionId);
+  if (error) { showToast('Erreur : ' + error.message, true); return; }
+  if (_practiceTimerInterval) { clearInterval(_practiceTimerInterval); _practiceTimerInterval = null; }
+  showToast('Session terminée — à bientôt ! 🦇');
+  navigate('home');
 }
 
 if ('serviceWorker' in navigator) {

@@ -280,6 +280,7 @@ async function loadDashboard() {
     { data: topCours },
     { data: allStudents },
     { data: topCredits },
+    { data: activePracticeSessions },
   ] = await Promise.all([
     db.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
     db.from('bookings').select('*', { count: 'exact', head: true }).gte('booked_at', monthStart).eq('status', 'confirmed'),
@@ -289,6 +290,7 @@ async function loadDashboard() {
     db.from('bookings').select('course_instance_id, course_instances(courses(custom_name, disciplines(name,color), max_students))').eq('status','confirmed').gte('booked_at', monthStart),
     db.from('profiles').select('id, full_name, birthday, created_at').eq('role', 'student'),
     db.from('student_credits').select('products(name), sessions_total').gte('purchased_at', monthStart),
+    db.from('practice_sessions').select('*, profiles(full_name)').eq('status', 'active'),
   ]);
 
   const bookingsTrend = bookingsLastMonth > 0 ? Math.round((bookingsMonth - bookingsLastMonth) / bookingsLastMonth * 100) : null;
@@ -332,6 +334,19 @@ async function loadDashboard() {
       <div class="page-title">Tableau de bord 🦇</div>
       <div class="page-sub">${new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</div>
     </div>
+
+    ${(activePracticeSessions||[]).length ? `<div style="background:rgba(139,107,78,0.1);border:1px solid rgba(139,107,78,0.35);border-radius:12px;padding:14px 16px;margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;color:#c49a6c;letter-spacing:0.5px;margin-bottom:10px">🦇 PRACTICE EN COURS — ${activePracticeSessions.length} élève${activePracticeSessions.length>1?'s':''} au studio</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${activePracticeSessions.map(s => {
+          const elapsed = Math.floor((Date.now() - new Date(s.started_at)) / 60000);
+          return `<div style="background:rgba(139,107,78,0.15);border:1px solid rgba(139,107,78,0.25);border-radius:8px;padding:8px 12px">
+            <div style="font-size:13px;font-weight:600;color:#c49a6c">${s.profiles?.full_name || '?'}</div>
+            <div style="font-size:11px;color:#a07850;margin-top:2px">depuis ${elapsed} min · ${new Date(s.started_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
 
     ${birthdays.length ? `<div style="background:#f472b611;border:1px solid #f472b644;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px">
       <span style="font-size:20px">🎂</span>
