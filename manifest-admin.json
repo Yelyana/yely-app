@@ -1,7 +1,7 @@
 {
-  "name": "Yely - Espace Prof",
-  "short_name": "Yely - Espace Prof",
-  "start_url": "/prof.html",
+  "name": "Yely - Admin",
+  "short_name": "Yely - Admin",
+  "start_url": "/admin.html",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0f0d16",

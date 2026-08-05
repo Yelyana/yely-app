@@ -1,6 +1,6 @@
 {
   "name": "Yely in the Air",
-  "short_name": "Yely",
+  "short_name": "Yely in the Air",
   "start_url": "/app.html",
   "scope": "/",
   "display": "standalone",
