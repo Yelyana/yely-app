@@ -1816,13 +1816,14 @@ async function loadCommunaute() {
   }
 
   el.innerHTML = posts.map(p => {
-    const initials = esc(p.profiles.full_name).split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
-    const safeAvatar = safeUrl(p.profiles.avatar_url);
+    const profileName = p.profiles?.full_name || 'Compte supprimé';
+    const initials = esc(profileName).split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+    const safeAvatar = safeUrl(p.profiles?.avatar_url);
     const avatar = safeAvatar
       ? `<img src="${safeAvatar}" style="width:38px;height:38px;border-radius:50%;object-fit:cover">`
       : `<div style="width:38px;height:38px;border-radius:50%;background:var(--violet-dark);border:1.5px solid var(--violet);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--violet-light);flex-shrink:0">${initials}</div>`;
-    const badge = p.profiles.role === 'admin' ? `<span style="font-size:9px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:2px 6px;border-radius:10px;margin-left:6px">Coach</span>`
-      : p.profiles.role === 'teacher' ? `<span style="font-size:9px;background:rgba(125,191,155,0.2);color:var(--green);padding:2px 6px;border-radius:10px;margin-left:6px">Prof</span>` : '';
+    const badge = p.profiles?.role === 'admin' ? `<span style="font-size:9px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:2px 6px;border-radius:10px;margin-left:6px">Coach</span>`
+      : p.profiles?.role === 'teacher' ? `<span style="font-size:9px;background:rgba(125,191,155,0.2);color:var(--green);padding:2px 6px;border-radius:10px;margin-left:6px">Prof</span>` : '';
     const pin = p.is_pinned ? `<span style="font-size:10px;color:var(--violet-light)">📌 </span>` : '';
     const liked = p.community_reactions?.some(r => r.user_id === currentUser.id);
     const likeCount = p.community_reactions?.length || 0;
