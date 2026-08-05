@@ -357,7 +357,7 @@ async function loadDashboard() {
 
     ${birthdays.length ? `<div style="background:#f472b611;border:1px solid #f472b644;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px">
       <span style="font-size:20px">🎂</span>
-      <div style="font-size:13px">Anniversaire${birthdays.length>1?'s':''} cette semaine : <strong>${birthdays.map(s=>s.full_name).join(', ')}</strong></div>
+      <div style="font-size:13px">Anniversaire${birthdays.length>1?'s':''} cette semaine : <strong>${birthdays.map(s=>esc(s.full_name)).join(', ')}</strong></div>
     </div>` : ''}
 
     <div class="grid-3" style="margin-bottom:20px">
@@ -724,7 +724,7 @@ async function viewInstance(id) {
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inscrits (${bookings?.length || 0}/${c.max_students || '?'})</div>
       ${bookings?.length ? bookings.map(b => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-          <span style="font-size:13px">${b.profiles?.full_name}${b.children?.first_name ? ` <span style="font-size:11px;color:var(--violet-light);background:rgba(155,125,219,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">👧 ${b.children.first_name}</span>` : ''}</span>
+          <span style="font-size:13px">${esc(b.profiles?.full_name)}${b.children?.first_name ? ` <span style="font-size:11px;color:var(--violet-light);background:rgba(155,125,219,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">👧 ${esc(b.children.first_name)}</span>` : ''}</span>
           <div style="display:flex;gap:6px;align-items:center">
             ${!isCancelled ? `
               <button onclick="markAttendance('${b.id}',true,'${ci.id}')" style="padding:3px 8px;border-radius:6px;border:none;cursor:pointer;font-size:11px;background:${b.attended===true?'#7dbf9b':'var(--bg)'};color:${b.attended===true?'#fff':'var(--text3)'}">✓ Présente</button>
@@ -883,7 +883,7 @@ function openCourseModal(course, disciplines, teachers) {
         <label>Professeur</label>
         <select id="m-teacher">
           <option value="">— Choisir —</option>
-          ${(teachers || []).map(t => `<option value="${t.id}" ${course?.teacher_id === t.id ? 'selected' : ''}>${t.full_name}</option>`).join('')}
+          ${(teachers || []).map(t => `<option value="${esc(t.id)}" ${course?.teacher_id === t.id ? 'selected' : ''}>${esc(t.full_name)}</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
@@ -1407,7 +1407,7 @@ async function openPaymentModal() {
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">Enregistrer un paiement</div>
     <div class="form-group"><label>Élève</label>
-      <select id="pm-student">${(students||[]).map(s => `<option value="${s.id}">${s.full_name}</option>`).join('')}</select>
+      <select id="pm-student">${(students||[]).map(s => `<option value="${esc(s.id)}">${esc(s.full_name)}</option>`).join('')}</select>
     </div>
     <div class="form-group"><label>Forfait</label>
       <select id="pm-product">${(products||[]).map(p => `<option value="${p.id}" data-sessions="${p.sessions_count}" data-valid="${p.valid_for}" data-days="${p.validity_days || 120}" data-price="${p.price_cents}">${p.name} (${p.sessions_count} séances · ${formatPrice(p.price_cents)})</option>`).join('')}</select>
