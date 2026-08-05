@@ -1311,11 +1311,12 @@ async function _doBookWithSub(instanceId, subId, childId) {
     }
   }
 
-  const { error } = await db.from('bookings').insert({ student_id: currentUser.id, course_instance_id: instanceId, status: 'confirmed', payment_type: sub.products.type, subscription_id: subId, child_id: childId || null });
-  if (error) return showToast(error.code === '23505' ? 'Déjà inscrite !' : error.message, true);
-  if (sub.products.type === 'abo_mensuel') {
-    await db.from('subscriptions').update({ sessions_used_this_month: sub.sessions_used_this_month + 1 }).eq('id', subId);
-  }
+  const { data: result, error } = await db.rpc('book_course', {
+    p_instance_id: instanceId,
+    p_sub_id: subId,
+    p_child_id: childId || null,
+  });
+  if (error || result?.error) return showToast(result?.error || error?.message || 'Erreur réservation', true);
   closeModal(); showToast('Réservation confirmée ! 🦇');
   sendConfirmationEmail(instanceId);
   loadCoursesForDay(selectedDay || new Date());
@@ -1360,9 +1361,12 @@ async function _doBookWithCredit(instanceId, creditId, childId) {
     }
   }
 
-  const { error } = await db.from('bookings').insert({ student_id: currentUser.id, course_instance_id: instanceId, status: 'confirmed', payment_type: 'carte', credit_id: creditId, child_id: childId || null });
-  if (error) return showToast(error.code === '23505' ? 'Déjà inscrite !' : error.message, true);
-  await db.from('student_credits').update({ sessions_remaining: credit.sessions_remaining - 1 }).eq('id', creditId).eq('student_id', currentUser.id);
+  const { data: result, error } = await db.rpc('book_course', {
+    p_instance_id: instanceId,
+    p_credit_id: parseInt(creditId),
+    p_child_id: childId || null,
+  });
+  if (error || result?.error) return showToast(result?.error || error?.message || 'Erreur réservation', true);
   closeModal(); showToast('Réservation confirmée ! 🦇');
   sendConfirmationEmail(instanceId);
   loadCoursesForDay(selectedDay || new Date());
@@ -1401,17 +1405,10 @@ async function cancelBookingFromModal() {
   const courseDate = new Date(ci.date + 'T' + (ci.start_time || '00:00'));
   const hoursUntil = (courseDate - new Date()) / 3600000;
   if (hoursUntil < 8) return showToast('Annulation impossible à moins de 8h du cours', true);
-  const { data: booking } = await db.from('bookings').select('*, student_credits(*)').eq('student_id', currentUser.id).eq('course_instance_id', ci.id).single();
+  const { data: booking } = await db.from('bookings').select('id').eq('student_id', currentUser.id).eq('course_instance_id', ci.id).single();
   if (!booking) return;
-  await db.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', booking.id);
-  if (booking.credit_id) {
-    const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).eq('student_id', currentUser.id).single();
-    await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id).eq('student_id', currentUser.id);
-  }
-  if (booking.subscription_id) {
-    const { data: sub } = await db.from('subscriptions').select('sessions_used_this_month').eq('id', booking.subscription_id).single();
-    await db.from('subscriptions').update({ sessions_used_this_month: Math.max(0, (sub?.sessions_used_this_month || 1) - 1) }).eq('id', booking.subscription_id);
-  }
+  const { data: result, error } = await db.rpc('cancel_booking', { p_booking_id: booking.id });
+  if (error || result?.error) return showToast(result?.error || error?.message || 'Erreur annulation', true);
   await notifyFirstWaitlisted(ci.id, ci.custom_name || ci.discipline_name, ci.date);
   closeModal(); showToast('Réservation annulée');
   loadCoursesForDay(selectedDay || new Date());
@@ -1442,13 +1439,8 @@ async function confirmCancel(bookingId) {
   const courseDate = new Date(booking.course_instances.date + 'T' + (booking.course_instances.start_time || '00:00'));
   if ((courseDate - new Date()) / 3600000 < 8) return showToast('Annulation impossible à moins de 8h du cours', true);
 
-  await db.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-    .eq('id', bookingId)
-    .eq('student_id', currentUser.id);
-  if (booking?.credit_id) {
-    const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).eq('student_id', currentUser.id).single();
-    await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id).eq('student_id', currentUser.id);
-  }
+  const { data: result, error } = await db.rpc('cancel_booking', { p_booking_id: bookingId });
+  if (error || result?.error) return showToast(result?.error || error?.message || 'Erreur annulation', true);
   const ci = booking.course_instances;
   await notifyFirstWaitlisted(booking.course_instance_id, ci?.courses?.custom_name || ci?.courses?.disciplines?.name, ci?.date);
   closeModal(); showToast('Réservation annulée'); loadHome();
@@ -3018,19 +3010,11 @@ async function startPractice(creditId, subId) {
     return;
   }
 
-  if (creditId) {
-    const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', creditId).single();
-    if (!credit || credit.sessions_remaining < 1) { showToast('Crédit insuffisant', true); return; }
-    await db.from('student_credits').update({ sessions_remaining: credit.sessions_remaining - 1 }).eq('id', creditId).eq('student_id', currentUser.id);
-  }
-
-  const { error } = await db.from('practice_sessions').insert({
-    student_id: currentUser.id,
-    credit_id: creditId ? parseInt(creditId) : null,
-    subscription_id: subId ? parseInt(subId) : null,
-    status: 'active',
+  const { data: result, error } = await db.rpc('start_practice_session', {
+    p_credit_id: creditId ? parseInt(creditId) : null,
+    p_sub_id: subId ? parseInt(subId) : null,
   });
-  if (error) { showToast('Erreur : ' + error.message, true); return; }
+  if (error || result?.error) { showToast(result?.error || error?.message || 'Erreur démarrage', true); return; }
 
   showToast('Session démarrée — bonne pratique ! 🦇');
   loadPractice();
