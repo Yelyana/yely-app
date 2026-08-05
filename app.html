@@ -1817,7 +1817,7 @@ async function loadCommunaute() {
     return;
   }
 
-  el.innerHTML = posts.map(p => {
+  try { el.innerHTML = posts.map(p => {
     const profileName = p.profiles?.full_name || 'Compte supprimé';
     const initials = esc(profileName).split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
     const safeAvatar = safeUrl(p.profiles?.avatar_url);
@@ -1896,7 +1896,7 @@ async function loadCommunaute() {
         </div>
       </div>
     </div>`;
-  }).join('');
+  }).join(''); } catch(e) { el.innerHTML = `<div style="padding:20px;color:red;font-size:12px">Erreur rendu: ${e.message}</div>`; }
 }
 
 let postMediaFile = null, postMediaType = null;
