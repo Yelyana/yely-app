@@ -1374,7 +1374,7 @@ async function cancelBookingFromModal() {
   const ci = window._currentCi;
   const courseDate = new Date(ci.date + 'T' + (ci.start_time || '00:00'));
   const hoursUntil = (courseDate - new Date()) / 3600000;
-  if (hoursUntil < 24) return showToast('Annulation impossible à moins de 24h du cours', true);
+  if (hoursUntil < 8) return showToast('Annulation impossible à moins de 8h du cours', true);
   const { data: booking } = await db.from('bookings').select('*, student_credits(*)').eq('student_id', currentUser.id).eq('course_instance_id', ci.id).single();
   if (!booking) return;
   await db.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', booking.id);
@@ -1394,7 +1394,7 @@ async function cancelBookingFromModal() {
 async function cancelBooking(bookingId, instanceId, dateStr) {
   const courseDate = new Date(dateStr);
   const hoursUntil = (courseDate - new Date()) / 3600000;
-  if (hoursUntil < 24) return showToast('Annulation impossible à moins de 24h du cours', true);
+  if (hoursUntil < 8) return showToast('Annulation impossible à moins de 8h du cours', true);
   // Ouvrir le modal de confirmation
   document.getElementById('booking-modal').classList.add('open');
   document.getElementById('modal-content').innerHTML = `
