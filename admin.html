@@ -193,6 +193,13 @@ select option { background: var(--bg); }
 <div class="toast" id="toast"></div>
 
 <script>
+// Échappement HTML pour les données non fiables (noms élèves, emails, etc.)
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+const SUPABASE_STORAGE_ORIGIN = 'https://xayixasuyuranscustyw.supabase.co/storage/v1/object/public/';
+function safeUrl(url) { return (url && url.startsWith(SUPABASE_STORAGE_ORIGIN)) ? url : null; }
+
 const SUPABASE_URL = 'https://xayixasuyuranscustyw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhheWl4YXN1eXVyYW5zY3VzdHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MjIwMTIsImV4cCI6MjA5ODE5ODAxMn0.Kp_cJd5YMtbFZnUvUhd-4wMf0enjcBWsGzjwQSnAPP4';
 const { createClient } = supabase;
@@ -341,7 +348,7 @@ async function loadDashboard() {
         ${activePracticeSessions.map(s => {
           const elapsed = Math.floor((Date.now() - new Date(s.started_at)) / 60000);
           return `<div style="background:rgba(139,107,78,0.15);border:1px solid rgba(139,107,78,0.25);border-radius:8px;padding:8px 12px">
-            <div style="font-size:13px;font-weight:600;color:#c49a6c">${s.profiles?.full_name || '?'}</div>
+            <div style="font-size:13px;font-weight:600;color:#c49a6c">${esc(s.profiles?.full_name || '?')}</div>
             <div style="font-size:11px;color:#a07850;margin-top:2px">depuis ${elapsed} min · ${new Date(s.started_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
           </div>`;
         }).join('')}
@@ -401,7 +408,7 @@ async function loadDashboard() {
             return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
               <div style="display:flex;align-items:center;gap:10px">
                 <div style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0"></div>
-                <div><div style="font-size:13px">${b.profiles?.full_name||'—'}</div>
+                <div><div style="font-size:13px">${esc(b.profiles?.full_name||'—')}</div>
                 <div style="font-size:11px;color:var(--text3)">${name} · ${date}</div></div>
               </div><span class="badge badge-green">✓</span>
             </div>`;
@@ -730,7 +737,7 @@ async function viewInstance(id) {
     ${waitlist?.length ? `
     <div style="margin-bottom:20px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Liste d'attente (${waitlist.length})</div>
-      ${waitlist.map((w,i) => `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${i+1}. ${w.profiles?.full_name}</div>`).join('')}
+      ${waitlist.map((w,i) => `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${i+1}. ${esc(w.profiles?.full_name)}</div>`).join('')}
     </div>` : ''}
     <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
       ${!isCancelled ? `<button class="btn btn-primary btn-sm" onclick="closeModal();openCourseModal(${JSON.stringify(c).replace(/"/g,'&quot;')}, ${JSON.stringify(window._planningDisciplines||[]).replace(/"/g,'&quot;')}, ${JSON.stringify(window._planningTeachers||[]).replace(/"/g,'&quot;')})">✏️ Modifier le cours</button>` : ''}
@@ -774,9 +781,9 @@ async function openAddStudentModal(instanceId) {
     </div>
     <div id="student-list" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
       ${available.map(s => `
-        <div class="student-row" data-name="${s.full_name.toLowerCase()}" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px">
-          <span style="font-size:14px">${s.full_name}</span>
-          <button class="btn btn-primary btn-sm" onclick="addStudentToInstance('${instanceId}','${s.id}','${s.full_name.replace(/'/g,'\\\'}')}')">Inscrire</button>
+        <div class="student-row" data-name="${esc(s.full_name.toLowerCase())}" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+          <span style="font-size:14px">${esc(s.full_name)}</span>
+          <button class="btn btn-primary btn-sm" onclick="addStudentToInstance('${instanceId}','${s.id}')">Inscrire</button>
         </div>`).join('')}
       ${available.length === 0 ? '<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">Toutes les élèves sont déjà inscrites</div>' : ''}
     </div>
@@ -792,7 +799,8 @@ function filterStudentList() {
   });
 }
 
-async function addStudentToInstance(instanceId, studentId, studentName) {
+async function addStudentToInstance(instanceId, studentId) {
+  const student = _allStudentsData.find(s => s.id === studentId);
   const { error } = await db.from('bookings').insert({
     course_instance_id: instanceId,
     student_id: studentId,
@@ -806,7 +814,7 @@ async function addStudentToInstance(instanceId, studentId, studentName) {
     body: 'Tu as été inscrite à un cours par le studio. À très vite !',
     type: 'booking',
   });
-  showToast(`${studentName} inscrite !`);
+  showToast(`${student?.full_name || 'Élève'} inscrite !`);
   viewInstance(instanceId);
 }
 
@@ -1090,8 +1098,8 @@ function renderEleves() {
       ${pendingStudents.map(s => `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(232,201,122,0.15)">
           <div>
-            <div style="font-size:13px;font-weight:500">${s.full_name}</div>
-            ${s.student_card_url ? `<a href="${s.student_card_url}" target="_blank" style="font-size:11px;color:var(--text3)">Voir le justificatif →</a>` : ''}
+            <div style="font-size:13px;font-weight:500">${esc(s.full_name)}</div>
+            ${safeUrl(s.student_card_url) ? `<a href="${safeUrl(s.student_card_url)}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:var(--text3)">Voir le justificatif →</a>` : ''}
           </div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-sm" style="background:rgba(125,191,155,0.2);color:var(--green);border:1px solid rgba(125,191,155,0.3)" onclick="validateStudentDiscount('${s.id}', true)">✓ Valider</button>
@@ -1125,12 +1133,12 @@ function renderEleves() {
     <div style="display:flex;flex-direction:column;gap:8px">
       ${data.map(s => {
         const badge = getLoyaltyBadge(s);
-        return `<div class="card" style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px" onclick="openStudentDetail('${s.id}','${s.full_name.replace(/'/g,"\\'")}')">
+        return `<div class="card" style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px" onclick="openStudentDetail('${s.id}')">
           <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
-            <div style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0">${s.full_name[0]}</div>
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0">${esc(s.full_name[0])}</div>
             <div style="min-width:0">
-              <div style="font-size:14px;font-weight:500">${s.full_name}</div>
-              <div style="font-size:11px;color:var(--text3)">${s.email}</div>
+              <div style="font-size:14px;font-weight:500">${esc(s.full_name)}</div>
+              <div style="font-size:11px;color:var(--text3)">${esc(s.email)}</div>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
@@ -1147,8 +1155,9 @@ function renderEleves() {
   `;
 }
 
-async function openStudentDetail(studentId, name) {
+async function openStudentDetail(studentId) {
   const student = _allStudentsData.find(s => s.id === studentId) || {};
+  const name = student.full_name || '';
   const [{ data: credits }, { data: subs }, { data: bookings }, { data: fullProfile }] = await Promise.all([
     db.from('student_credits').select('*, products(name)').eq('student_id', studentId).order('purchased_at', { ascending: false }),
     db.from('subscriptions').select('*, products(name)').eq('student_id', studentId).order('created_at', { ascending: false }),
@@ -1160,14 +1169,13 @@ async function openStudentDetail(studentId, name) {
   const confirmed = (bookings||[]).filter(b => b.status === 'confirmed').length;
   const attendRate = confirmed > 0 ? Math.round(attended / confirmed * 100) : null;
   const badge = getLoyaltyBadge(student);
-  const nameEsc = name.replace(/'/g,"\\'");
 
   document.getElementById('modal-body').innerHTML = `
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
-      <div style="width:50px;height:50px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;flex-shrink:0">${name[0]}</div>
+      <div style="width:50px;height:50px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;flex-shrink:0">${esc(name[0])}</div>
       <div>
-        <div class="modal-title" style="margin-bottom:2px">${name}</div>
-        <span style="font-size:11px;padding:3px 8px;border-radius:20px;background:${badge.color}22;color:${badge.color}">${badge.label}</span>
+        <div class="modal-title" style="margin-bottom:2px">${esc(name)}</div>
+        <span style="font-size:11px;padding:3px 8px;border-radius:20px;background:${badge.color}22;color:${badge.color}">${esc(badge.label)}</span>
       </div>
     </div>
 
@@ -1188,8 +1196,8 @@ async function openStudentDetail(studentId, name) {
 
     <div style="margin-bottom:16px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Infos</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">📧 ${student.email||'—'}</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">📱 ${student.phone||'—'}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">📧 ${esc(student.email||'—')}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">📱 ${esc(student.phone||'—')}</div>
       ${student.birthday ? `<div style="font-size:13px;color:var(--text2)">🎂 ${new Date(student.birthday).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</div>` : ''}
     </div>
 
@@ -1199,11 +1207,11 @@ async function openStudentDetail(studentId, name) {
       return `<div style="margin-bottom:16px">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🩺 Fiche santé</div>
         <div style="display:flex;flex-direction:column;gap:6px;background:var(--bg);border-radius:12px;padding:12px;font-size:13px">
-          ${h.niveau ? `<div><span style="color:var(--text3)">Niveau :</span> ${h.niveau}</div>` : ''}
-          ${h.objectifs?.length ? `<div><span style="color:var(--text3)">Objectifs :</span> ${h.objectifs.join(', ')}</div>` : ''}
-          ${h.contre_indications ? `<div style="color:var(--red)"><span style="color:var(--text3)">⚠️ Contre-indications :</span> ${h.contre_indications}</div>` : ''}
-          ${h.allergies ? `<div><span style="color:var(--text3)">Allergies/traitements :</span> ${h.allergies}</div>` : ''}
-          ${h.urgence_nom ? `<div><span style="color:var(--text3)">Contact urgence :</span> ${h.urgence_nom} — ${h.urgence_tel||'—'}</div>` : ''}
+          ${h.niveau ? `<div><span style="color:var(--text3)">Niveau :</span> ${esc(h.niveau)}</div>` : ''}
+          ${h.objectifs?.length ? `<div><span style="color:var(--text3)">Objectifs :</span> ${esc(h.objectifs.join(', '))}</div>` : ''}
+          ${h.contre_indications ? `<div style="color:var(--red)"><span style="color:var(--text3)">⚠️ Contre-indications :</span> ${esc(h.contre_indications)}</div>` : ''}
+          ${h.allergies ? `<div><span style="color:var(--text3)">Allergies/traitements :</span> ${esc(h.allergies)}</div>` : ''}
+          ${h.urgence_nom ? `<div><span style="color:var(--text3)">Contact urgence :</span> ${esc(h.urgence_nom)} — ${esc(h.urgence_tel||'—')}</div>` : ''}
           <div><span style="color:var(--text3)">Accord santé :</span> ${h.accord_sante ? '✅ Signé' : '❌ Non signé'}</div>
         </div>
       </div>`;
@@ -1221,7 +1229,7 @@ async function openStudentDetail(studentId, name) {
 
     <div style="margin-bottom:16px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Notes privées</div>
-      <textarea id="student-notes" rows="3" placeholder="Notes visibles uniquement par toi..." style="width:100%;resize:vertical">${student.notes||''}</textarea>
+      <textarea id="student-notes" rows="3" placeholder="Notes visibles uniquement par toi..." style="width:100%;resize:vertical">${esc(student.notes||'')}</textarea>
       <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="saveStudentNotes('${studentId}')">Enregistrer la note</button>
     </div>
 
@@ -1460,8 +1468,8 @@ async function loadProfs() {
         return `<div class="card">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
             <div>
-              <div style="font-size:16px;font-weight:600">${t.full_name}</div>
-              <div style="font-size:12px;color:var(--text3);margin-top:2px">${t.email}</div>
+              <div style="font-size:16px;font-weight:600">${esc(t.full_name)}</div>
+              <div style="font-size:12px;color:var(--text3);margin-top:2px">${esc(t.email)}</div>
               ${(t.teachers?.disciplines||[]).length ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">
                 ${(t.teachers.disciplines).map(d => `<span class="badge badge-violet">${d}</span>`).join('')}
               </div>` : ''}
@@ -1674,8 +1682,8 @@ async function loadRevenus() {
         <thead><tr><th>Élève</th><th>Forfait</th><th>Montant</th><th>Paiement</th><th>Date</th></tr></thead>
         <tbody>
           ${orders?.map(o => `<tr>
-            <td>${o.profiles?.full_name || '—'}</td>
-            <td>${o.products?.name || '—'}</td>
+            <td>${esc(o.profiles?.full_name || '—')}</td>
+            <td>${esc(o.products?.name || '—')}</td>
             <td style="color:var(--violet-light)">${formatPrice(o.amount_cents)}</td>
             <td style="font-size:12px;color:var(--text3)">${methodLabel[o.payment_method] || o.payment_method || '—'}</td>
             <td style="color:var(--text3)">${formatDate(o.created_at)}</td>

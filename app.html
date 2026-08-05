@@ -1362,7 +1362,7 @@ async function _doBookWithCredit(instanceId, creditId, childId) {
 
   const { error } = await db.from('bookings').insert({ student_id: currentUser.id, course_instance_id: instanceId, status: 'confirmed', payment_type: 'carte', credit_id: creditId, child_id: childId || null });
   if (error) return showToast(error.code === '23505' ? 'Déjà inscrite !' : error.message, true);
-  await db.from('student_credits').update({ sessions_remaining: credit.sessions_remaining - 1 }).eq('id', creditId);
+  await db.from('student_credits').update({ sessions_remaining: credit.sessions_remaining - 1 }).eq('id', creditId).eq('student_id', currentUser.id);
   closeModal(); showToast('Réservation confirmée ! 🦇');
   sendConfirmationEmail(instanceId);
   loadCoursesForDay(selectedDay || new Date());
@@ -1405,8 +1405,8 @@ async function cancelBookingFromModal() {
   if (!booking) return;
   await db.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', booking.id);
   if (booking.credit_id) {
-    const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).single();
-    await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id);
+    const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).eq('student_id', currentUser.id).single();
+    await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id).eq('student_id', currentUser.id);
   }
   if (booking.subscription_id) {
     const { data: sub } = await db.from('subscriptions').select('sessions_used_this_month').eq('id', booking.subscription_id).single();
@@ -1432,14 +1432,25 @@ async function cancelBooking(bookingId, instanceId, dateStr) {
 }
 
 async function confirmCancel(bookingId) {
-  const { data: booking } = await db.from('bookings').select('*').eq('id', bookingId).single();
-  await db.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', bookingId);
+  // Vérifier que le booking appartient à l'utilisatrice ET re-vérifier la contrainte 8h
+  const { data: booking } = await db.from('bookings')
+    .select('*, course_instances(date, start_time, courses(custom_name, disciplines(name)))')
+    .eq('id', bookingId)
+    .eq('student_id', currentUser.id)
+    .single();
+  if (!booking) return showToast('Réservation introuvable', true);
+  const courseDate = new Date(booking.course_instances.date + 'T' + (booking.course_instances.start_time || '00:00'));
+  if ((courseDate - new Date()) / 3600000 < 8) return showToast('Annulation impossible à moins de 8h du cours', true);
+
+  await db.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+    .eq('id', bookingId)
+    .eq('student_id', currentUser.id);
   if (booking?.credit_id) {
-    const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).single();
-    await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id);
+    const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).eq('student_id', currentUser.id).single();
+    await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id).eq('student_id', currentUser.id);
   }
-  const { data: bk2 } = await db.from('bookings').select('course_instance_id, course_instances(date, courses(custom_name, disciplines(name)))').eq('id', bookingId).single();
-  if (bk2) await notifyFirstWaitlisted(bk2.course_instance_id, bk2.course_instances?.courses?.custom_name || bk2.course_instances?.courses?.disciplines?.name, bk2.course_instances?.date);
+  const ci = booking.course_instances;
+  await notifyFirstWaitlisted(booking.course_instance_id, ci?.courses?.custom_name || ci?.courses?.disciplines?.name, ci?.date);
   closeModal(); showToast('Réservation annulée'); loadHome();
 }
 
@@ -3010,7 +3021,7 @@ async function startPractice(creditId, subId) {
   if (creditId) {
     const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', creditId).single();
     if (!credit || credit.sessions_remaining < 1) { showToast('Crédit insuffisant', true); return; }
-    await db.from('student_credits').update({ sessions_remaining: credit.sessions_remaining - 1 }).eq('id', creditId);
+    await db.from('student_credits').update({ sessions_remaining: credit.sessions_remaining - 1 }).eq('id', creditId).eq('student_id', currentUser.id);
   }
 
   const { error } = await db.from('practice_sessions').insert({
