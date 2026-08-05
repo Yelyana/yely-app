@@ -694,8 +694,8 @@ async function loadNotifications() {
     <div style="padding:14px 16px;border-bottom:1px solid var(--border);${!n.read ? 'background:rgba(155,125,219,0.06)' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div>
-          <div style="font-size:14px;font-weight:${!n.read ? '600' : '400'};color:var(--text);margin-bottom:3px">${n.title}</div>
-          <div style="font-size:13px;color:var(--text3);line-height:1.5">${n.message}</div>
+          <div style="font-size:14px;font-weight:${!n.read ? '600' : '400'};color:var(--text);margin-bottom:3px">${esc(n.title)}</div>
+          <div style="font-size:13px;color:var(--text3);line-height:1.5">${esc(n.message)}</div>
         </div>
         ${!n.read ? '<div style="width:7px;height:7px;border-radius:50%;background:var(--violet);flex-shrink:0;margin-top:4px"></div>' : ''}
       </div>
@@ -1513,7 +1513,7 @@ async function loadJournal() {
         ${victories?.length ? victories.map(v => `
           <div class="victory-item">
             <div class="victory-icon">✨</div>
-            <div><div style="font-size:13px">${v.title}</div><div style="font-size:11px;color:var(--text3)">${v.discipline || ''} · ${relativeDate(v.created_at)}</div></div>
+            <div><div style="font-size:13px">${esc(v.title)}</div><div style="font-size:11px;color:var(--text3)">${esc(v.discipline || '')} · ${relativeDate(v.created_at)}</div></div>
           </div>`).join('') : '<div style="color:var(--text3);font-size:13px">Aucune victoire encore — elles arrivent !</div>'}
       </div>
       <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="addVictory()">+ Ajouter une victoire</button>
@@ -1788,7 +1788,7 @@ async function loadCommunaute() {
       <div style="position:relative;display:inline-block">
         <button onclick="toggleCommMenu(${p.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px">⋯</button>
         <div id="cmenu-${p.id}" style="display:none;position:absolute;right:0;top:24px;background:var(--card);border:1px solid var(--border);border-radius:10px;z-index:20;min-width:130px;box-shadow:0 4px 20px rgba(0,0,0,0.4)">
-          <button onclick="editCommPost(${p.id},\`${p.content.replace(/`/g,'\\`').replace(/\n/g,'\\n')}\`)" style="display:block;width:100%;padding:10px 14px;background:none;border:none;color:var(--text);font-size:13px;text-align:left;cursor:pointer">✏️ Modifier</button>
+          <button onclick="editCommPost(${p.id})" style="display:block;width:100%;padding:10px 14px;background:none;border:none;color:var(--text);font-size:13px;text-align:left;cursor:pointer">✏️ Modifier</button>
           <button onclick="deleteCommPost(${p.id})" style="display:block;width:100%;padding:10px 14px;background:none;border:none;color:var(--red);font-size:13px;text-align:left;cursor:pointer">🗑 Supprimer</button>
         </div>
       </div>` : '';
@@ -1919,15 +1919,18 @@ async function deleteCommPost(postId) {
   showToast('Post supprimé'); loadCommunaute();
 }
 
-async function editCommPost(postId, currentContent) {
+async function editCommPost(postId) {
+  const { data: post } = await db.from('community_posts').select('content').eq('id', postId).eq('author_id', currentUser.id).single();
+  if (!post) return;
   const el = document.getElementById(`ccontent-${postId}`);
   if (!el) return;
   el.innerHTML = `
-    <textarea id="cedit-${postId}" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:8px;resize:none;font-family:inherit;min-height:60px">${currentContent}</textarea>
+    <textarea id="cedit-${postId}" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:8px;resize:none;font-family:inherit;min-height:60px"></textarea>
     <div style="display:flex;gap:8px;margin-top:6px">
       <button onclick="saveCommPost(${postId})" style="padding:6px 14px;border-radius:8px;border:none;background:var(--violet);color:#fff;font-size:12px;cursor:pointer">Sauvegarder</button>
       <button onclick="loadCommunaute()" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text2);font-size:12px;cursor:pointer">Annuler</button>
     </div>`;
+  document.getElementById(`cedit-${postId}`).value = post.content;
 }
 
 async function saveCommPost(postId) {
@@ -2304,10 +2307,10 @@ async function loadProfil() {
             const age = c.birthdate ? Math.floor((Date.now() - new Date(c.birthdate)) / 31557600000) : null;
             return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
               <div>
-                <div style="font-size:14px;font-weight:500">${c.first_name}</div>
+                <div style="font-size:14px;font-weight:500">${esc(c.first_name)}</div>
                 ${age !== null ? `<div style="font-size:11px;color:var(--text3)">${age} ans</div>` : ''}
               </div>
-              <button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px;color:var(--red)" onclick="deleteChild(${c.id}, '${c.first_name}')">Supprimer</button>
+              <button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px;color:var(--red)" onclick="deleteChild(${c.id})">Supprimer</button>
             </div>`;
           }).join('')}
     `;
@@ -2324,8 +2327,8 @@ async function loadProfil() {
         <div style="position:absolute;bottom:0;right:0;width:22px;height:22px;background:var(--violet);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px">📷</div>
       </div>
       <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
-      <div class="serif" style="font-size:22px">${currentProfile.full_name}</div>
-      <div style="font-size:13px;color:var(--text3)">${currentProfile.email}</div>
+      <div class="serif" style="font-size:22px">${esc(currentProfile.full_name)}</div>
+      <div style="font-size:13px;color:var(--text3)">${esc(currentProfile.email)}</div>
     </div>
 
     ${credits?.length ? `
@@ -2495,10 +2498,12 @@ async function saveChild() {
   loadProfil();
 }
 
-async function deleteChild(id, name) {
+async function deleteChild(id) {
+  const { data: child } = await db.from('children').select('first_name').eq('id', id).eq('parent_id', currentUser.id).single();
+  if (!child) return;
   document.getElementById('booking-modal').classList.add('open');
   document.getElementById('modal-content').innerHTML = `
-    <div style="font-size:17px;font-weight:500;margin-bottom:12px">Supprimer ${name} ?</div>
+    <div style="font-size:17px;font-weight:500;margin-bottom:12px">Supprimer ${esc(child.first_name)} ?</div>
     <div style="font-size:13px;color:var(--text3);margin-bottom:20px">Les réservations existantes ne seront pas affectées.</div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-primary" style="flex:1;background:var(--red);border-color:var(--red)" onclick="confirmDeleteChild(${id})">Supprimer</button>
@@ -2538,7 +2543,7 @@ async function selectChildForBooking(instanceId, bookingFn) {
       ${children.map(c => {
         const age = c.birthdate ? Math.floor((Date.now() - new Date(c.birthdate)) / 31557600000) : null;
         return `<button class="cours-card" style="text-align:left" onclick="window._selectedChildId=${c.id};bookingFnWithChild()">
-          <div style="font-weight:500">${c.first_name}</div>
+          <div style="font-weight:500">${esc(c.first_name)}</div>
           ${age !== null ? `<div style="font-size:12px;color:var(--text3)">${age} ans</div>` : ''}
         </button>`;
       }).join('')}
