@@ -536,6 +536,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const STRIPE_PK = 'pk_live_51SyDYSBFw2xQSDrCHlGNXy8qlXaa2HL1cKZhj4vtPKAlvct9UvzoGGxxAJggn5SwRMP8So0EYTLXxvdJu0yLDvXr006zRXYL01';
 // ─────────────────────────────────────────────────────────────────────
 
+function esc(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 let db;
 try {
   const { createClient } = supabase;
@@ -2330,7 +2335,7 @@ async function loadProfil() {
     db.from('bookings').select('*, course_instances(date, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').gte('course_instances.date', new Date().toISOString().split('T')[0]).order('course_instances(date)').limit(3),
     db.from('bookings').select('*', { count: 'exact', head: true }).eq('student_id', currentUser.id).eq('status', 'confirmed'),
     db.from('children').select('*').eq('parent_id', currentUser.id).order('first_name'),
-    db.from('orders').select('*, products(name, price)').eq('student_id', currentUser.id).neq('status', 'cancelled').order('created_at', { ascending: false }).limit(10),
+    db.from('orders').select('*, products(name, price_cents)').eq('student_id', currentUser.id).neq('status', 'cancelled').order('created_at', { ascending: false }).limit(10),
   ]);
   // Carte enfants
   const childrenCard = document.getElementById('children-card');
