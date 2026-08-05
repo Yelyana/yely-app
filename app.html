@@ -1804,13 +1804,13 @@ async function loadProgression() {
 // ── COMMUNAUTÉ ────────────────────────────────────────────
 async function loadCommunaute() {
   const el = document.getElementById('communaute-content');
-  el.innerHTML = '<div style="padding:20px;color:orange;font-size:14px">⏳ Chargement...</div>';
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const { data: posts, error: postsError } = await db.from('community_posts')
     .select('*, profiles(full_name, avatar_url, role), community_reactions(emoji, user_id), community_comments(id), community_poll_votes(option_index, user_id)')
     .eq('audience', 'all')
     .order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(30);
 
-  if (postsError) { el.innerHTML = `<div style="padding:20px;color:red;font-size:12px">Erreur: ${postsError.message}</div>`; return; }
+  if (postsError) { el.innerHTML = `<div style="padding:20px;color:var(--text3);font-size:13px">Erreur de chargement</div>`; return; }
   if (!posts?.length) {
     el.innerHTML = `<div style="text-align:center;padding:48px 20px">
       <div style="font-size:40px;margin-bottom:12px">🦇</div>
@@ -1900,7 +1900,7 @@ async function loadCommunaute() {
         </div>
       </div>
     </div>`;
-  }).join(''); } catch(e) { el.innerHTML = `<div style="padding:20px;color:red;font-size:12px">Erreur rendu: ${e.message}</div>`; }
+  }).join(''); } catch(e) { el.innerHTML = `<div style="padding:20px;color:var(--text3);font-size:13px">Erreur de chargement</div>`; console.error('loadCommunaute:', e); }
 }
 
 let postMediaFile = null, postMediaType = null;
