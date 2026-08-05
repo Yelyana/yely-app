@@ -2683,9 +2683,11 @@ function editProfile() {
 async function saveProfile() {
   const full_name = document.getElementById('edit-name').value.trim();
   const phone = document.getElementById('edit-phone').value.trim();
-  await db.from('profiles').update({ full_name, phone }).eq('id', currentUser.id);
+  const { error } = await db.from('profiles').update({ full_name, phone }).eq('id', currentUser.id);
+  if (error) return showToast('Erreur : ' + error.message, true);
   currentProfile.full_name = full_name; currentProfile.phone = phone;
   closeModal(); showToast('Profil mis à jour');
+  loadProfil();
 }
 
 async function openHealthForm() {
