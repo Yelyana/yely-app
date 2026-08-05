@@ -1800,7 +1800,7 @@ async function loadProgression() {
 // ── COMMUNAUTÉ ────────────────────────────────────────────
 async function loadCommunaute() {
   const el = document.getElementById('communaute-content');
-  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  el.innerHTML = '<div style="padding:20px;color:orange;font-size:14px">⏳ Chargement...</div>';
   const { data: posts, error: postsError } = await db.from('community_posts')
     .select('*, profiles(full_name, avatar_url, role), community_reactions(emoji, user_id), community_comments(id), community_poll_votes(option_index, user_id)')
     .eq('audience', 'all')
