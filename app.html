@@ -2837,7 +2837,21 @@ async function loadUserProfile(user) {
   currentUser = user;
   try {
     const { data } = await db.from('profiles').select('*').eq('id', user.id).single();
-    currentProfile = data || { id: user.id, email: user.email, full_name: user.email, role: 'student' };
+    if (!data) {
+      // Profil manquant (ex: connexion Google) — le créer avec un code parrainage
+      let refCode, codeExists;
+      do {
+        refCode = 'YELY-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const { count } = await db.from('profiles').select('id', { count: 'exact', head: true }).eq('referral_code', refCode);
+        codeExists = count > 0;
+      } while (codeExists);
+      const fullName = user.user_metadata?.full_name || user.email;
+      await db.from('profiles').insert({ id: user.id, email: user.email, full_name: fullName, referral_code: refCode });
+      const { data: created } = await db.from('profiles').select('*').eq('id', user.id).single();
+      currentProfile = created || { id: user.id, email: user.email, full_name: fullName, role: 'student', referral_code: refCode };
+    } else {
+      currentProfile = data;
+    }
     // Appliquer le code parrainage stocké lors de l'inscription
     const pendingCode = localStorage.getItem('yely-referral-code');
     if (pendingCode && currentProfile && !currentProfile.referred_by) {
