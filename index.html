@@ -2,10 +2,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="refresh" content="0;url=app.html">
 <title>Yely in the Air</title>
 </head>
 <body>
-<script>window.location.replace('app.html');</script>
+<script>
+  // Préserver les paramètres URL (nécessaire pour le callback OAuth Google)
+  const params = window.location.search + window.location.hash;
+  window.location.replace('app.html' + params);
+</script>
 </body>
 </html>
