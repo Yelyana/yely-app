@@ -953,10 +953,12 @@ async function loadReserver() {
   if (!selectedDay) {
     const today = new Date();
     if (today < STUDIO_OPENS) {
-      selectedDay = new Date(STUDIO_OPENS);
       const todayMon = getMondayOf(new Date());
       const opensMon = getMondayOf(STUDIO_OPENS);
       selectedWeekOffset = Math.round((opensMon - todayMon) / 604800000);
+      // Utiliser la date calculée par getWeekDates pour éviter les problèmes de timezone
+      const weekDates = getWeekDates();
+      selectedDay = weekDates.find(d => d.toDateString() === STUDIO_OPENS.toDateString()) || weekDates[0];
     } else {
       selectedDay = today;
     }
