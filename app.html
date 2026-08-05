@@ -548,7 +548,13 @@ try {
     }
   });
 } catch(e) {
-  document.body.innerHTML = '<div style="color:red;padding:40px">Erreur init Supabase: ' + e.message + '</div>';
+  document.body.innerHTML = `
+    <div style="min-height:100vh;background:#0f0d16;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;font-family:'DM Sans',sans-serif;text-align:center">
+      <div style="font-size:48px;margin-bottom:20px">🦇</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;color:#f0ecfa;margin-bottom:12px">La grotte est en pause…</div>
+      <div style="font-size:14px;color:#8a829a;line-height:1.7;max-width:280px;margin-bottom:32px">On revient très vite. Rafraîchis la page dans quelques instants.</div>
+      <button onclick="window.location.reload()" style="background:#9b7ddb;color:#fff;border:none;border-radius:12px;padding:14px 28px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">Réessayer</button>
+    </div>`;
 }
 let currentUser = null;
 let currentProfile = null;
