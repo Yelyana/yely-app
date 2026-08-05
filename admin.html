@@ -1244,7 +1244,7 @@ async function openStudentDetail(studentId) {
           <span>${s.products?.name}</span><span class="badge badge-green">Actif</span>
         </div>`).join('')||''}
       ${!credits?.some(c=>c.sessions_remaining>0) && !subs?.some(s=>s.status==='active') ? '<div style="color:var(--text3);font-size:13px">Aucun crédit actif</div>' : ''}
-      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addCreditsModal('${studentId}','${nameEsc}')">+ Ajouter des crédits</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addCreditsModal('${studentId}','${esc(name)}')">+ Ajouter des crédits</button>
     </div>
 
     <div style="margin-bottom:16px">
@@ -1265,7 +1265,7 @@ async function openStudentDetail(studentId) {
     </div>
 
     <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn btn-primary btn-sm" onclick="sendDirectMessage('${studentId}','${nameEsc}')">💬 Message</button>
+      <button class="btn btn-primary btn-sm" onclick="sendDirectMessage('${studentId}','${esc(name)}')">💬 Message</button>
       <button class="btn btn-ghost" onclick="closeModal()" style="flex:1">Fermer</button>
     </div>
   `;
