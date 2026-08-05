@@ -2370,6 +2370,16 @@ async function loadProfil() {
       <div style="font-size:13px;color:var(--text3)">${esc(currentProfile.email)}</div>
     </div>
 
+    ${(!currentProfile.avatar_url || !currentProfile.phone) ? `
+    <div style="background:rgba(155,125,219,0.08);border:1px solid rgba(155,125,219,0.25);border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;cursor:pointer" onclick="editProfile()">
+      <div style="font-size:22px;flex-shrink:0">✏️</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500;color:var(--ivoire);margin-bottom:2px">Complète ton profil</div>
+        <div style="font-size:12px;color:var(--text3)">${[!currentProfile.avatar_url && 'photo', !currentProfile.phone && 'téléphone'].filter(Boolean).join(' · ')} manquant${(!currentProfile.avatar_url && !currentProfile.phone) ? 's' : ''}</div>
+      </div>
+      <span style="color:var(--violet-light);font-size:18px">›</span>
+    </div>` : ''}
+
     ${credits?.length ? `
     <div class="card card-sm" style="margin-bottom:12px;background:linear-gradient(135deg,#2a1f4e,#17141f);border-color:rgba(155,125,219,0.3)">
       <div style="font-size:10px;color:var(--violet-light);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">Mes crédits</div>
@@ -2502,6 +2512,9 @@ async function loadProfil() {
       </div>
       <div class="settings-row" onclick="togglePushNotifications()" id="notif-row">
         <span>🔔 Notifications de cours</span><span id="notif-status" style="color:var(--text3);font-size:12px">Chargement…</span>
+      </div>
+      <div class="settings-row" onclick="showInstallGuide()">
+        <span>📲 Installer l'appli</span><span style="color:var(--text3)">›</span>
       </div>
     </div>
 
@@ -2930,6 +2943,72 @@ function installPWA() {
   });
 }
 
+// ── PWA INSTALL GUIDE ────────────────────────────────────
+function showInstallGuide() {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const isAndroid = /Android/.test(navigator.userAgent);
+  let content = '';
+  if (isStandalone) {
+    content = `<div style="text-align:center;padding:8px 0">
+      <div style="font-size:40px;margin-bottom:12px">✅</div>
+      <div class="serif" style="font-size:22px;color:var(--ivoire);margin-bottom:8px">Déjà installée !</div>
+      <div style="font-size:14px;color:var(--text2);margin-bottom:24px">L'application est déjà sur ton écran d'accueil.</div>
+      <button class="btn btn-primary" onclick="closeModal()" style="width:100%">Fermer</button>
+    </div>`;
+  } else if (isIOS) {
+    content = `<div style="padding:4px 0 8px">
+      <div style="font-size:22px;font-family:'Cormorant Garamond',serif;font-weight:300;color:var(--ivoire);margin-bottom:4px">Installer sur iPhone</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:20px">Depuis Safari uniquement</div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">1</div>
+          <div style="font-size:14px;color:var(--text2)">Appuie sur le bouton <strong style="color:var(--ivoire)">Partager</strong> <span style="font-size:16px">⬆</span> en bas de Safari</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">2</div>
+          <div style="font-size:14px;color:var(--text2)">Fais défiler et appuie sur <strong style="color:var(--ivoire)">"Sur l'écran d'accueil"</strong></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">3</div>
+          <div style="font-size:14px;color:var(--text2)">Appuie sur <strong style="color:var(--ivoire)">"Ajouter"</strong> en haut à droite</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="closeModal()" style="width:100%">Compris !</button>
+    </div>`;
+  } else if (_pwaPrompt) {
+    content = `<div style="text-align:center;padding:8px 0">
+      <div style="font-size:40px;margin-bottom:12px">📲</div>
+      <div class="serif" style="font-size:22px;color:var(--ivoire);margin-bottom:8px">Installer l'appli</div>
+      <div style="font-size:14px;color:var(--text2);margin-bottom:24px">Accès rapide depuis ton écran d'accueil, sans passer par le navigateur.</div>
+      <button class="btn btn-primary" onclick="installPWA();closeModal()" style="width:100%;margin-bottom:10px">Installer maintenant</button>
+      <button class="btn btn-ghost" onclick="closeModal()" style="width:100%">Plus tard</button>
+    </div>`;
+  } else {
+    content = `<div style="padding:4px 0 8px">
+      <div style="font-size:22px;font-family:'Cormorant Garamond',serif;font-weight:300;color:var(--ivoire);margin-bottom:4px">Installer sur Android</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:20px">Depuis Chrome</div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">1</div>
+          <div style="font-size:14px;color:var(--text2)">Appuie sur <strong style="color:var(--ivoire)">⋮</strong> en haut à droite de Chrome</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">2</div>
+          <div style="font-size:14px;color:var(--text2)">Appuie sur <strong style="color:var(--ivoire)">"Ajouter à l'écran d'accueil"</strong></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">3</div>
+          <div style="font-size:14px;color:var(--text2)">Appuie sur <strong style="color:var(--ivoire)">"Ajouter"</strong> pour confirmer</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="closeModal()" style="width:100%">Compris !</button>
+    </div>`;
+  }
+  document.getElementById('booking-modal').classList.add('open');
+  document.getElementById('modal-content').innerHTML = content;
+}
+
 // ── ONBOARDING ───────────────────────────────────────────
 function showOnboarding() {
   const firstName = esc(currentProfile?.full_name?.split(' ')[0] || '');
@@ -2951,48 +3030,101 @@ function showOnboarding() {
     },
     {
       visual: `<div style="width:56px;height:56px;border-radius:16px;background:rgba(155,125,219,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:26px">🎟️</div>`,
-      label: '2 / 4',
+      label: '2 / 5',
       title: 'Tes forfaits',
       body: `Cartes multi-séances et abonnements sont disponibles dans la <strong style="color:var(--ivoire)">Boutique</strong>.<br>Ton solde de crédits est toujours visible en haut de l'accueil.`,
     },
     {
       visual: `<div style="width:56px;height:56px;border-radius:16px;background:rgba(125,191,155,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:26px">📖</div>`,
-      label: '3 / 4',
+      label: '3 / 5',
       title: 'Journal d\'Envol',
       body: `Après chaque cours, note tes ressentis dans ton <strong style="color:var(--ivoire)">Journal</strong>.<br>Chaque entrée alimente ta progression et débloque des Victoires.`,
     },
     {
       visual: `<div style="width:56px;height:56px;border-radius:16px;background:rgba(232,122,122,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:26px">⏰</div>`,
-      label: '4 / 4',
+      label: '4 / 5',
       title: 'Annulation',
       body: `Tu peux annuler jusqu'à <strong style="color:var(--ivoire)">8h avant</strong> le cours — ton crédit est automatiquement restitué.<br>En dessous de 8h, le crédit est perdu sauf cas de force majeure.`,
-      isFinal: true,
+    },
+    {
+      visual: `<div style="width:56px;height:56px;border-radius:16px;background:rgba(155,125,219,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:26px">🔔</div>`,
+      label: '5 / 5',
+      title: 'Reste informée',
+      body: `Active les notifications pour recevoir tes <strong style="color:var(--ivoire)">rappels de cours</strong>, les alertes d'annulation et les nouveautés du studio.`,
+      isNotif: true,
+    },
+    {
+      visual: `<div style="width:56px;height:56px;border-radius:16px;background:rgba(168,196,245,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:26px">📲</div>`,
+      label: null,
+      title: 'Installe l\'appli',
+      body: null,
+      isInstall: true,
     },
   ];
 
   let step = 0;
 
+  function _obInstallBody() {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isStandalone) return `<div style="font-size:14px;color:var(--text2);line-height:1.75;margin-bottom:28px">L'application est déjà installée sur ton écran d'accueil ✅</div>`;
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    if (isIOS) return `<div style="text-align:left;display:flex;flex-direction:column;gap:12px;margin-bottom:28px">
+      <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;color:var(--violet-light)">1</div><div style="font-size:13px;color:var(--text2)">Appuie sur <strong style="color:var(--ivoire)">Partager ⬆</strong> en bas de Safari</div></div>
+      <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;color:var(--violet-light)">2</div><div style="font-size:13px;color:var(--text2)">Appuie sur <strong style="color:var(--ivoire)">"Sur l'écran d'accueil"</strong></div></div>
+      <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;color:var(--violet-light)">3</div><div style="font-size:13px;color:var(--text2)">Appuie sur <strong style="color:var(--ivoire)">"Ajouter"</strong> en haut à droite</div></div>
+    </div>`;
+    return `<div style="text-align:left;display:flex;flex-direction:column;gap:12px;margin-bottom:28px">
+      <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;color:var(--violet-light)">1</div><div style="font-size:13px;color:var(--text2)">Appuie sur <strong style="color:var(--ivoire)">⋮</strong> en haut à droite de Chrome</div></div>
+      <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;color:var(--violet-light)">2</div><div style="font-size:13px;color:var(--text2)">Appuie sur <strong style="color:var(--ivoire)">"Ajouter à l'écran d'accueil"</strong></div></div>
+      <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:8px;background:var(--violet-dark);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;color:var(--violet-light)">3</div><div style="font-size:13px;color:var(--text2)">Appuie sur <strong style="color:var(--ivoire)">"Ajouter"</strong> pour confirmer</div></div>
+    </div>`;
+  }
+
   function renderStep() {
     const s = steps[step];
     const isLast = step === steps.length - 1;
-    const dotsHTML = steps.map((_, i) =>
-      `<div style="width:${i === step ? 20 : 6}px;height:6px;border-radius:3px;background:${i === step ? 'var(--violet)' : 'rgba(155,125,219,0.25)'};transition:all 0.3s"></div>`
+    // dots only for non-welcome, non-install steps
+    const dotSteps = steps.filter(x => x.label);
+    const dotIndex = dotSteps.indexOf(s);
+    const dotsHTML = dotSteps.map((_, i) =>
+      `<div style="width:${i === dotIndex ? 20 : 6}px;height:6px;border-radius:3px;background:${i === dotIndex ? 'var(--violet)' : 'rgba(155,125,219,0.25)'};transition:all 0.3s"></div>`
     ).join('');
+
+    let body = '';
+    if (s.isInstall) {
+      body = _obInstallBody();
+    } else if (s.body) {
+      body = `<div style="font-size:14px;color:var(--text2);line-height:1.75;margin-bottom:28px">${s.body}</div>`;
+    }
+
+    let actions = '';
+    if (isLast) {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      const showInstallBtn = !isStandalone && !!_pwaPrompt;
+      actions = `
+        ${showInstallBtn ? `<button onclick="installPWA()" style="width:100%;padding:14px;border-radius:12px;border:1px solid var(--violet);background:rgba(155,125,219,0.1);color:var(--violet-light);font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;margin-bottom:10px">Installer maintenant</button>` : ''}
+        <button onclick="closeModal();navigate('profil')" style="width:100%;padding:14px;border-radius:12px;border:none;background:var(--violet);color:#fff;font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer">Compléter mon profil →</button>`;
+    } else if (s.isNotif) {
+      actions = `<div style="display:flex;gap:10px">
+        <button onclick="_obPrev()" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text2);font-size:14px;font-family:'DM Sans',sans-serif;cursor:pointer">Précédent</button>
+        <button onclick="togglePushNotifications().then(()=>_obNext())" style="flex:2;padding:14px;border-radius:12px;border:none;background:var(--violet);color:#fff;font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer">Activer 🔔</button>
+      </div>
+      <button onclick="_obNext()" style="width:100%;margin-top:8px;padding:10px;border-radius:12px;border:none;background:none;color:var(--text3);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer">Passer</button>`;
+    } else {
+      actions = `<div style="display:flex;gap:10px">
+        ${step > 0 ? `<button onclick="_obPrev()" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text2);font-size:14px;font-family:'DM Sans',sans-serif;cursor:pointer">Précédent</button>` : ''}
+        <button onclick="_obNext()" style="flex:2;padding:14px;border-radius:12px;border:none;background:var(--violet);color:#fff;font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer">Suivant →</button>
+      </div>`;
+    }
 
     document.getElementById('modal-content').innerHTML = `
       <div style="text-align:center;padding:4px 0 8px">
         ${s.visual}
         ${s.label ? `<div style="font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">${s.label}</div>` : ''}
         <div class="serif" style="font-size:26px;font-weight:300;color:var(--ivoire);margin-bottom:10px;line-height:1.2">${s.title}</div>
-        <div style="font-size:14px;color:var(--text2);line-height:1.75;margin-bottom:28px">${s.body}</div>
-        <div style="display:flex;gap:6px;align-items:center;justify-content:center;margin-bottom:24px">${dotsHTML}</div>
-        ${isLast
-          ? `<button class="btn btn-primary" onclick="closeModal()" style="width:100%">C'est parti !</button>`
-          : `<div style="display:flex;gap:10px">
-               ${step > 0 ? `<button onclick="_obPrev()" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text2);font-size:14px;font-family:'DM Sans',sans-serif;cursor:pointer">Précédent</button>` : ''}
-               <button onclick="_obNext()" style="flex:2;padding:14px;border-radius:12px;border:none;background:var(--violet);color:#fff;font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer">Suivant →</button>
-             </div>`
-        }
+        ${body}
+        ${dotSteps.length > 0 && dotIndex >= 0 ? `<div style="display:flex;gap:6px;align-items:center;justify-content:center;margin-bottom:24px">${dotsHTML}</div>` : '<div style="margin-bottom:24px"></div>'}
+        ${actions}
       </div>
     `;
   }
