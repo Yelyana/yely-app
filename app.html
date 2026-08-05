@@ -1420,6 +1420,10 @@ async function _doBookWithCredit(instanceId, creditId, childId) {
   closeModal(); showToast('Réservation confirmée ! 🦇');
   sendConfirmationEmail(instanceId);
   loadCoursesForDay(selectedDay || new Date());
+  // Notif si dernier crédit restant
+  const { data: remainingCredits } = await db.from('student_credits').select('sessions_remaining').eq('student_id', currentUser.id).gt('sessions_remaining', 0);
+  const totalLeft = (remainingCredits || []).reduce((s, c) => s + c.sessions_remaining, 0);
+  if (totalLeft === 1) callSendPush({ user_ids: [currentUser.id], title: 'Il te reste 1 séance 🦇', body: 'Pense à recharger ton forfait pour continuer à voler !', url: '/app.html#boutique' });
 }
 
 async function buyAndBook(instanceId, productId) {
@@ -1507,6 +1511,7 @@ async function notifyFirstWaitlisted(instanceId, courseName, courseDate) {
     body: `Une place vient de se libérer dans ${courseName || 'ton cours'}${dateLabel ? ' du ' + dateLabel : ''}. Réserve vite avant qu'elle parte !`,
     type: 'waitlist',
   });
+  callSendPush({ user_ids: [first.student_id], title: 'Une place s\'est libérée ! 🦇', body: `Place dispo dans ${courseName || 'ton cours'}${dateLabel ? ' du ' + dateLabel : ''}`, url: '/app.html#cours' });
 }
 
 // ── JOURNAL ──────────────────────────────────────────────
@@ -1956,6 +1961,8 @@ async function submitPost() {
   }
   await db.from('community_posts').insert({ author_id: currentUser.id, content, media_url, media_type: postMediaType, audience: 'all' });
   postMediaFile = null; postMediaType = null;
+  const posterName = currentProfile?.full_name?.split(' ')[0] || 'Quelqu\'un';
+  callSendPush({ target: 'all_students', exclude_user_ids: [currentUser.id], title: `Nouveau message 🦇`, body: `${posterName} a publié dans la communauté`, url: '/app.html#communaute' });
   closeModal(); showToast('Publié ! 🦇'); loadCommunaute();
 }
 
@@ -2916,6 +2923,17 @@ db.auth.onAuthStateChange(async (event, session) => {
 <script>
 // ── PUSH NOTIFICATIONS ───────────────────────────────────
 const VAPID_PUBLIC = 'BGMrFAtGZrNj6_E9PUyYjqqE7104WJJTBklluDS6wMQxOGNZEoE71xoBkU6q27zrd6UKSaA2RP4rm3rtvcQ357s';
+
+async function callSendPush(opts) {
+  if (!currentUser) return;
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) return;
+  fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(opts),
+  }).catch(() => {});
+}
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);

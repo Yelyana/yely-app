@@ -827,9 +827,23 @@ async function addStudentToInstance(instanceId, studentId) {
 async function cancelInstance(instanceId) {
   const reason = prompt('Motif d\'annulation (optionnel) :') ?? null;
   if (reason === null) return;
+  // Récupérer les élèves inscrites avant d'annuler
+  const { data: enrolledBookings } = await db.from('bookings').select('student_id').eq('course_instance_id', instanceId).eq('status', 'confirmed');
   const { error } = await db.rpc('cancel_course_instance', { instance_id: parseInt(instanceId), reason: reason || '' });
   if (error) return showToast(error.message, true);
   showToast('Séance annulée — élèves notifiés et crédits restitués');
+  // Push aux élèves inscrites
+  const studentIds = (enrolledBookings || []).map(b => b.student_id).filter(Boolean);
+  if (studentIds.length) {
+    const { data: { session } } = await db.auth.getSession();
+    if (session) {
+      fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_ids: studentIds, title: 'Cours annulé 😔', body: reason ? `Cours annulé : ${reason}` : 'Une séance a été annulée — ton crédit a été restitué.', url: '/app.html#cours' }),
+      }).catch(() => {});
+    }
+  }
   closeModal();
   renderPlanning();
 }
@@ -1301,7 +1315,7 @@ async function validateStudentDiscount(studentId, approve) {
     fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/notify-student-decision', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ email: s.email, full_name: s.full_name, approved: approve }),
+      body: JSON.stringify({ email: s.email, full_name: s.full_name, approved: approve, user_id: studentId }),
     }).catch(() => {});
   }
   showToast(approve ? '✅ Tarif étudiant activé !' : '❌ Demande refusée');
