@@ -242,9 +242,40 @@ async function loadAdminUser(user) {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
   document.getElementById('admin-name').textContent = currentProfile.full_name;
+
+  // Gestion boutons mail annulation/maintien cours
+  const params = new URLSearchParams(window.location.search);
+  const decisionToken = params.get('decision_token');
+  const decisionAction = params.get('action');
+  if (decisionToken && (decisionAction === 'cancel' || decisionAction === 'keep')) {
+    window.history.replaceState({}, '', window.location.pathname);
+    await handleCourseDecision(decisionToken, decisionAction);
+    return;
+  }
+
   const hash = location.hash.replace('#', '') || 'dashboard';
   const validPages = ['dashboard', 'planning', 'eleves', 'profs', 'revenus', 'forfaits'];
   showPage(validPages.includes(hash) ? hash : 'dashboard');
+}
+
+async function handleCourseDecision(token, action) {
+  showPage('dashboard');
+  const label = action === 'cancel' ? 'Annulation en cours…' : 'Cours maintenu…';
+  showToast(label);
+  const { data, error } = await db.functions.invoke('handle-course-decision', {
+    body: { token, action },
+  });
+  if (error || data?.error) {
+    const msg = data?.error;
+    if (msg === 'already_used') return showToast('Tu as déjà répondu à cette alerte.', true);
+    if (msg === 'expired') return showToast('Ce lien a expiré.', true);
+    return showToast(data?.message || 'Une erreur est survenue.', true);
+  }
+  if (action === 'cancel') {
+    showToast(`✅ Cours annulé — ${data?.notified ?? 0} élève(s) notifiée(s)`);
+  } else {
+    showToast('✅ Cours maintenu. Les élèves ne sont pas notifiées.');
+  }
 }
 
 (async () => {
