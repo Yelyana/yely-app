@@ -200,9 +200,15 @@ let currentUser = null;
 let currentProf = null;
 let profWeekOffset = 0;
 
-function callSendPush(opts) {
-  if (!currentUser) return;
-  db.functions.invoke('send-push', { body: opts }).catch(() => {});
+async function callSendPush(opts) {
+  if (!currentUser) { showToast('[push] pas de session', true); return; }
+  try {
+    const { data, error } = await db.functions.invoke('send-push', { body: opts });
+    if (error) showToast('[push] erreur: ' + (error.message || JSON.stringify(error)), true);
+    else showToast('[push] ok envoyé: ' + JSON.stringify(data));
+  } catch (e) {
+    showToast('[push] exception: ' + e.message, true);
+  }
 }
 let profPlanningDay = (new Date().getDay() + 6) % 7;
 if (profPlanningDay > 5) profPlanningDay = 0;
