@@ -1104,7 +1104,8 @@ async function loadCoursesForDay(date) {
 
 function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
   // Créneau practice libre — carte spéciale sans réservation
-  if (ci.is_practice) {
+  const isPracticeCard = ci.is_practice || /(practice|pratique libre)/i.test(ci.custom_name || ci.discipline_name || '');
+  if (isPracticeCard) {
     const [h, m] = (ci.start_time || '00:00').split(':').map(Number);
     const endMin = h * 60 + m + (ci.duration_minutes || 0);
     const endH = Math.floor(endMin / 60) % 24;
@@ -1230,9 +1231,9 @@ async function loadBookingForm(ci) {
   const { data: creditsAll } = await db.from('student_credits').select('*, products(*)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).in('valid_for', validFor).order('expires_at');
   const credits = (creditsAll || []).filter(c => isKids || !c.products?.kids_only);
 
-  // Abonnements actifs — exclure kids_only si pas cours kids
+  // Abonnements actifs — exclure kids_only si pas cours kids, et jamais sur practice libre
   const { data: subsAll } = await db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active').in('valid_for', validFor);
-  const subs = (subsAll || []).filter(s => isKids || !s.products?.kids_only);
+  const subs = isPractice ? [] : (subsAll || []).filter(s => isKids || !s.products?.kids_only);
 
   // Produits à acheter — exclure kids_only si pas cours kids
   const [{ data: products }, { data: pastOrders }] = await Promise.all([
@@ -1514,7 +1515,7 @@ async function cancelBooking(bookingId, instanceId, dateStr) {
 }
 
 async function confirmCancel(bookingId) {
-  // Vérifier que le booking appartient à l'utilisatrice ET re-vérifier la contrainte 8h
+  // Vérifier que le booking appartient à l'utilisatrice ET re-vérifier la contrainte 24h
   const { data: booking } = await db.from('bookings')
     .select('*, course_instances(date, start_time, courses(custom_name, disciplines(name)))')
     .eq('id', bookingId)
@@ -3116,7 +3117,7 @@ function showOnboarding() {
       visual: `<div style="width:56px;height:56px;border-radius:16px;background:rgba(232,122,122,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:26px">⏰</div>`,
       label: '4 / 5',
       title: 'Annulation',
-      body: `Tu peux annuler jusqu'à <strong style="color:var(--ivoire)">8h avant</strong> le cours — ton crédit est automatiquement restitué.<br>En dessous de 8h, le crédit est perdu sauf cas de force majeure.`,
+      body: `Tu peux annuler jusqu'à <strong style="color:var(--ivoire)">24h avant</strong> le cours — ton crédit est automatiquement restitué.<br>En dessous de 24h, le crédit est perdu sauf cas de force majeure.`,
     },
     {
       visual: `<div style="width:56px;height:56px;border-radius:16px;background:rgba(155,125,219,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:26px">🔔</div>`,
