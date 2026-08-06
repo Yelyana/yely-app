@@ -1229,11 +1229,11 @@ async function loadBookingForm(ci) {
 
   // Crédits disponibles — exclure les cartes kids_only si ce n'est pas un cours kids
   const { data: creditsAll } = await db.from('student_credits').select('*, products(*)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).in('valid_for', validFor).order('expires_at');
-  const credits = (creditsAll || []).filter(c => isKids || !c.products?.kids_only);
+  const credits = (creditsAll || []).filter(c => isKids ? c.products?.kids_only : !c.products?.kids_only);
 
   // Abonnements actifs — exclure kids_only si pas cours kids, et jamais sur practice libre
   const { data: subsAll } = await db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active').in('valid_for', validFor);
-  const subs = isPractice ? [] : (subsAll || []).filter(s => isKids || !s.products?.kids_only);
+  const subs = isPractice ? [] : (subsAll || []).filter(s => isKids ? s.products?.kids_only : !s.products?.kids_only);
 
   // Produits à acheter — exclure kids_only si pas cours kids
   const [{ data: products }, { data: pastOrders }] = await Promise.all([
