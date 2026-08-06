@@ -949,8 +949,9 @@ async function profPostComm() {
   if (!content) return showToast('Écris quelque chose d\'abord', true);
   const { error } = await db.from('community_posts').insert({ author_id: currentUser.id, content, audience });
   if (error) return showToast(error.message, true);
+  showToast('Publié !');
   const r2 = await callSendPush({ target: 'all_students', exclude_user_ids: [currentUser.id], title: 'Nouveau message 🦇', body: `${currentProf?.full_name?.split(' ')[0] || 'Votre prof'} a publié dans la communauté`, url: '/app.html#communaute' });
-  showToast('Publié ! ' + (r2 || ''));
+  alert('PUSH DEBUG: ' + r2);
   await renderCommTab();
 }
 
