@@ -1373,14 +1373,9 @@ async function doSendMessage(studentIds) {
   const { error } = await db.from('notifications').insert(rows);
   if (error) return showToast(error.message, true);
   // Push notification
-  const { data: { session } } = await db.auth.getSession();
-  if (session) {
-    fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_ids: studentIds, title, body: message, url: '/app.html#notifications' }),
-    }).catch(() => {});
-  }
+  db.functions.invoke('send-push', {
+    body: { user_ids: studentIds, title, body: message, url: '/app.html#notifications' },
+  }).catch(() => {});
   showToast(`Message envoyé à ${studentIds.length} élève${studentIds.length>1?'s':''} !`);
   closeModal();
 }
