@@ -713,6 +713,15 @@ function showApp() {
   document.getElementById('screen-auth').classList.remove('active');
   document.getElementById('bottom-nav').style.display = 'flex';
   document.getElementById('desktop-sidebar').style.removeProperty('display');
+  const params = new URLSearchParams(window.location.search);
+  const waitlistToken = params.get('waitlist_token');
+  const waitlistAction = params.get('action');
+  if (waitlistToken && (waitlistAction === 'accept' || waitlistAction === 'refuse')) {
+    // Nettoyer l'URL sans recharger la page
+    window.history.replaceState({}, '', window.location.pathname);
+    handleWaitlistResponse(waitlistToken, waitlistAction);
+    return;
+  }
   const hash = window.location.hash;
   if (hash.includes('boutique') && hash.includes('success=1')) {
     window.location.hash = '';
@@ -720,6 +729,28 @@ function showApp() {
     setTimeout(() => showToast('🎉 Paiement confirmé ! Ton forfait est activé.'), 500);
   } else {
     navigate('home');
+  }
+}
+
+async function handleWaitlistResponse(token, action) {
+  navigate('home');
+  const label = action === 'accept' ? 'Confirmation de ta place…' : 'Refus en cours…';
+  showToast(label);
+  const { data, error } = await db.functions.invoke('handle-waitlist-response', {
+    body: { token, action },
+  });
+  if (error || data?.error) {
+    const msg = data?.error;
+    if (msg === 'already_used') return showToast('Tu as déjà répondu à cette offre.', true);
+    if (msg === 'expired') return showToast('Ce lien a expiré — la place a été proposée à la suivante.', true);
+    if (msg === 'no_credit') return showToast(data?.message || 'Plus de crédit disponible.', true);
+    return showToast(data?.message || 'Une erreur est survenue.', true);
+  }
+  if (action === 'accept') {
+    showToast('🦇 Place confirmée ! À très vite au studio.');
+    loadHome();
+  } else {
+    showToast('Réponse enregistrée. La place a été proposée à la suivante.');
   }
 }
 
@@ -1463,7 +1494,7 @@ async function cancelBookingFromModal() {
   if (!booking) return;
   const { data: result, error } = await db.rpc('cancel_booking', { p_booking_id: booking.id });
   if (error || result?.error) return showToast(result?.error || error?.message || 'Erreur annulation', true);
-  await notifyFirstWaitlisted(ci.id, ci.custom_name || ci.discipline_name, ci.date);
+  await notifyFirstWaitlisted(ci.id);
   closeModal(); showToast('Réservation annulée');
   loadCoursesForDay(selectedDay || new Date());
 }
@@ -1496,22 +1527,18 @@ async function confirmCancel(bookingId) {
   const { data: result, error } = await db.rpc('cancel_booking', { p_booking_id: bookingId });
   if (error || result?.error) return showToast(result?.error || error?.message || 'Erreur annulation', true);
   const ci = booking.course_instances;
-  await notifyFirstWaitlisted(booking.course_instance_id, ci?.courses?.custom_name || ci?.courses?.disciplines?.name, ci?.date);
+  await notifyFirstWaitlisted(booking.course_instance_id);
   closeModal(); showToast('Réservation annulée'); loadHome();
 }
 
-async function notifyFirstWaitlisted(instanceId, courseName, courseDate) {
+async function notifyFirstWaitlisted(instanceId) {
   if (!instanceId) return;
   const { data: first } = await db.from('waitlist').select('student_id').eq('course_instance_id', instanceId).order('position').limit(1).maybeSingle();
   if (!first) return;
-  const dateLabel = courseDate ? new Date(courseDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
-  await db.from('notifications').insert({
-    student_id: first.student_id,
-    title: 'Une place s\'est libérée ! 🦇',
-    body: `Une place vient de se libérer dans ${courseName || 'ton cours'}${dateLabel ? ' du ' + dateLabel : ''}. Réserve vite avant qu'elle parte !`,
-    type: 'waitlist',
-  });
-  callSendPush({ user_ids: [first.student_id], title: 'Une place s\'est libérée ! 🦇', body: `Place dispo dans ${courseName || 'ton cours'}${dateLabel ? ' du ' + dateLabel : ''}`, url: '/app.html#cours' });
+  // Envoie email + push avec boutons accept/refuse via edge function
+  db.functions.invoke('send-waitlist-offer', {
+    body: { course_instance_id: instanceId, student_id: first.student_id },
+  }).catch(() => {});
 }
 
 // ── JOURNAL ──────────────────────────────────────────────
