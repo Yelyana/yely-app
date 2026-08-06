@@ -835,14 +835,9 @@ async function cancelInstance(instanceId) {
   // Push aux élèves inscrites
   const studentIds = (enrolledBookings || []).map(b => b.student_id).filter(Boolean);
   if (studentIds.length) {
-    const { data: { session } } = await db.auth.getSession();
-    if (session) {
-      fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_ids: studentIds, title: 'Cours annulé 😔', body: reason ? `Cours annulé : ${reason}` : 'Une séance a été annulée — ton crédit a été restitué.', url: '/app.html#cours' }),
-      }).catch(() => {});
-    }
+    db.functions.invoke('send-push', {
+      body: { user_ids: studentIds, title: 'Cours annulé 😔', body: reason ? `Cours annulé : ${reason}` : 'Une séance a été annulée — ton crédit a été restitué.', url: '/app.html#cours' },
+    }).catch(() => {});
   }
   closeModal();
   renderPlanning();

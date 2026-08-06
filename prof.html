@@ -201,13 +201,13 @@ let currentProf = null;
 let profWeekOffset = 0;
 
 async function callSendPush(opts) {
-  if (!currentUser) { showToast('[push] pas de session', true); return; }
+  if (!currentUser) return '⚠️ pas de session';
   try {
     const { data, error } = await db.functions.invoke('send-push', { body: opts });
-    if (error) showToast('[push] erreur: ' + (error.message || JSON.stringify(error)), true);
-    else showToast('[push] ok envoyé: ' + JSON.stringify(data));
+    if (error) return '⚠️ ' + (error.message || JSON.stringify(error));
+    return '🔔 ' + JSON.stringify(data);
   } catch (e) {
-    showToast('[push] exception: ' + e.message, true);
+    return '⚠️ ' + e.message;
   }
 }
 let profPlanningDay = (new Date().getDay() + 6) % 7;
@@ -931,16 +931,16 @@ async function profPostComm() {
     const { error } = await db.from('community_posts').insert({ author_id: currentUser.id, content: question, audience, post_type: 'poll', poll_options: opts });
     if (error) return showToast(error.message, true);
     commPollMode = false;
-    await callSendPush({ target: 'all_students', exclude_user_ids: [currentUser.id], title: 'Nouveau message 🦇', body: `${currentProf?.full_name?.split(' ')[0] || 'Votre prof'} a publié dans la communauté`, url: '/app.html#communaute' });
-    showToast('Sondage publié ! 📊');
+    const r1 = await callSendPush({ target: 'all_students', exclude_user_ids: [currentUser.id], title: 'Nouveau message 🦇', body: `${currentProf?.full_name?.split(' ')[0] || 'Votre prof'} a publié dans la communauté`, url: '/app.html#communaute' });
+    showToast('Sondage publié ! 📊 ' + (r1 || ''));
     return renderCommTab();
   }
   const content = document.getElementById('comm-text').value.trim();
   if (!content) return showToast('Écris quelque chose d\'abord', true);
   const { error } = await db.from('community_posts').insert({ author_id: currentUser.id, content, audience });
   if (error) return showToast(error.message, true);
-  await callSendPush({ target: 'all_students', exclude_user_ids: [currentUser.id], title: 'Nouveau message 🦇', body: `${currentProf?.full_name?.split(' ')[0] || 'Votre prof'} a publié dans la communauté`, url: '/app.html#communaute' });
-  showToast('Publié !');
+  const r2 = await callSendPush({ target: 'all_students', exclude_user_ids: [currentUser.id], title: 'Nouveau message 🦇', body: `${currentProf?.full_name?.split(' ')[0] || 'Votre prof'} a publié dans la communauté`, url: '/app.html#communaute' });
+  showToast('Publié ! ' + (r2 || ''));
   await renderCommTab();
 }
 
