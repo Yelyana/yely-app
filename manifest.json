@@ -1,11 +1,16 @@
 {
+  "id": "com.yelyintheair.app",
   "name": "Yely in the Air",
-  "short_name": "Yely in the Air",
+  "short_name": "Yely",
+  "description": "L'application des élèves de Yely in the Air — réserve tes cours, suis ta progression et rejoins la communauté.",
   "start_url": "/app.html",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
+  "lang": "fr",
   "background_color": "#0f0d16",
   "theme_color": "#0f0d16",
+  "categories": ["health", "fitness", "sports"],
   "icons": [
     {
       "src": "icon-192.png",
@@ -23,5 +28,6 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "screenshots": []
 }
