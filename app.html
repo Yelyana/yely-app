@@ -3237,7 +3237,7 @@ async function loadPractice() {
       <div style="font-size:48px;margin-bottom:16px">🦇</div>
       <div class="serif" style="font-size:22px;font-weight:300;color:var(--ivoire);margin-bottom:8px">Aucun accès disponible</div>
       <div style="font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:24px">Tu n'as pas de crédit practice ni d'abonnement illimité actif.</div>
-      <button class="btn btn-primary" onclick="navigate('boutique')">Voir les forfaits →</button>
+      <button class="btn btn-primary" onclick="openPracticeShop()">Voir les forfaits →</button>
     </div>`;
     return;
   }
@@ -3312,6 +3312,57 @@ async function startPractice(creditId, subId) {
 
   showToast('Session démarrée — bonne pratique ! 🦇');
   loadPractice();
+}
+
+async function openPracticeShop() {
+  const modal = document.getElementById('booking-modal');
+  modal.classList.add('open');
+  document.getElementById('modal-content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  const [{ data: products }, { data: pastOrders }] = await Promise.all([
+    db.from('products').select('*').eq('is_active', true).in('type', ['unite', 'abo_illimite']).eq('kids_only', false).order('sort_order'),
+    db.from('orders').select('product_id').eq('student_id', currentUser.id).neq('status', 'cancelled'),
+  ]);
+  const alreadyBoughtIds = new Set((pastOrders || []).map(o => o.product_id));
+  const available = (products || []).filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id));
+
+  let html = `<h3 class="serif" style="font-size:22px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">Forfaits Practice</h3>
+    <p style="color:var(--text3);font-size:13px;margin-bottom:20px">Choisis ton accès pour démarrer une session</p>`;
+
+  available.forEach(p => {
+    const isAbo = p.type === 'abo_illimite';
+    const sub = isAbo ? `<span style="font-size:11px;font-weight:400;color:var(--text3)">/mois</span>` : '';
+    const desc = isAbo ? '+ practice libre ✨' : (p.description || '');
+    html += `<div class="cours-card" style="margin-bottom:8px;padding:0;overflow:hidden">
+      <button style="width:100%;background:none;border:none;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;text-align:left" onclick="${isAbo ? `confirmAndPay(${p.id}, false)` : `buyPracticeCredit(${p.id})`}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${p.name}</div>
+          ${desc ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${desc}</div>` : ''}
+        </div>
+        <div style="flex-shrink:0;text-align:right">
+          <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}${sub}</div>
+        </div>
+      </button>
+    </div>`;
+  });
+
+  html += `<button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Annuler</button>`;
+  document.getElementById('modal-content').innerHTML = html;
+}
+
+async function buyPracticeCredit(productId) {
+  closeModal();
+  const session = (await db.auth.getSession())?.data?.session;
+  if (!session) return showToast('Connecte-toi pour acheter', true);
+  showToast('Redirection vers le paiement…');
+  const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-checkout-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ product_id: productId }),
+  });
+  const { url, error } = await res.json();
+  if (error || !url) return showToast(error || 'Erreur paiement', true);
+  window.location.href = url;
 }
 
 async function endPractice(sessionId) {
