@@ -202,14 +202,15 @@ let profWeekOffset = 0;
 
 function callSendPush(opts) {
   if (!currentUser) return;
-  db.auth.getSession().then(({ data: { session } }) => {
+  db.auth.getSession().then((resp) => {
+    const session = resp?.data?.session;
     if (!session) return;
     fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/send-push', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(opts),
     }).catch(() => {});
-  });
+  }).catch(() => {});
 }
 let profPlanningDay = (new Date().getDay() + 6) % 7;
 if (profPlanningDay > 5) profPlanningDay = 0;
