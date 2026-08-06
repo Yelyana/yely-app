@@ -1288,7 +1288,7 @@ async function sendConfirmationEmail(instanceId) {
     const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
     const time = ci?.courses?.start_time?.slice(0,5) || '';
     const description = ci?.courses?.description || '';
-    const { data: { session } } = await db.auth.getSession();
+    const session = (await db.auth.getSession())?.data?.session;
     await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/send-confirmation', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
@@ -1439,7 +1439,7 @@ async function buyAndBookInstallments(instanceId, productId) {
 async function redirectToStripe(productId, engagement, applyReferralDiscount = false, installments = false, applyStudentDiscount = false, applyDiscoveryDiscount = false) {
   showToast('Redirection vers le paiement…');
   try {
-    const { data: { session } } = await db.auth.getSession();
+    const session = (await db.auth.getSession())?.data?.session;
     const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
@@ -2887,7 +2887,7 @@ async function loadUserProfile(user) {
 }
 
 (async () => {
-  const { data: { session } } = await db.auth.getSession();
+  const session = (await db.auth.getSession())?.data?.session;
   if (session?.user) {
     await loadUserProfile(session.user);
     showApp();

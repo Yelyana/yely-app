@@ -248,7 +248,7 @@ async function loadAdminUser(user) {
 }
 
 (async () => {
-  const { data: { session } } = await db.auth.getSession();
+  const session = (await db.auth.getSession())?.data?.session;
   if (session?.user) await loadAdminUser(session.user);
 })();
 
@@ -1306,7 +1306,7 @@ async function validateStudentDiscount(studentId, approve) {
   if (s) { s.is_student = approve; s.student_verification_status = approve ? 'approved' : 'rejected'; }
   // Notifier l'élève
   if (s?.email) {
-    const { data: { session } } = await db.auth.getSession();
+    const session = (await db.auth.getSession())?.data?.session;
     fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/notify-student-decision', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },

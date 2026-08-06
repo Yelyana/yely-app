@@ -290,7 +290,7 @@ async function initProf(user) {
     document.getElementById('p-reset-email').placeholder = 'Entre ton nouveau mot de passe ci-dessous';
     return;
   }
-  const { data: { session } } = await db.auth.getSession();
+  const session = (await db.auth.getSession())?.data?.session;
   if (session?.user) await initProf(session.user);
 })();
 
