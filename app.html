@@ -2926,13 +2926,7 @@ const VAPID_PUBLIC = 'BGMrFAtGZrNj6_E9PUyYjqqE7104WJJTBklluDS6wMQxOGNZEoE71xoBkU
 
 async function callSendPush(opts) {
   if (!currentUser) return;
-  const { data: { session } } = await db.auth.getSession();
-  if (!session) return;
-  fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(opts),
-  }).catch(() => {});
+  db.functions.invoke('send-push', { body: opts }).catch(() => {});
 }
 
 function urlBase64ToUint8Array(base64String) {
