@@ -644,11 +644,11 @@ async function renderPlanning() {
     const time = c.start_time?.slice(0,5) || '';
     const prof = c.profiles?.full_name?.split(' ')[0] || '';
     const tag = c.is_recurring ? '' : '<span style="font-size:9px;background:#f472b622;color:#f472b6;border-radius:4px;padding:1px 4px;margin-left:4px">⭐</span>';
-    const levelTag = c.level ? `<span style="font-size:10px;font-weight:600;background:${discColor}33;color:${discColor};border-radius:4px;padding:2px 6px;margin-left:4px">${c.level}</span>` : '';
+    const levelTag = c.level ? `<span style="font-size:10px;font-weight:600;background:${discColor}33;color:${discColor};border-radius:4px;padding:2px 6px;margin-left:4px">${esc(c.level)}</span>` : '';
     return `<div class="cours-pill" style="background:${salleColor}18;border-left:3px solid ${salleColor};cursor:pointer" onclick="viewInstance('${ci.id}')">
       <div style="font-weight:500;font-size:12px;color:${salleColor}">${time} ${tag}</div>
-      <div style="font-size:11px;color:var(--text2);display:flex;align-items:center;flex-wrap:wrap;gap:2px">${name}${levelTag}</div>
-      ${prof ? `<div style="font-size:10px;color:var(--text3)">${prof} · ${c.max_students || ''}p</div>` : ''}
+      <div style="font-size:11px;color:var(--text2);display:flex;align-items:center;flex-wrap:wrap;gap:2px">${esc(name)}${levelTag}</div>
+      ${prof ? `<div style="font-size:10px;color:var(--text3)">${esc(prof)} · ${c.max_students || ''}p</div>` : ''}
     </div>`;
   };
 
@@ -754,9 +754,9 @@ async function viewInstance(id) {
   const isCancelled = ci?.status === 'cancelled';
 
   document.getElementById('modal-body').innerHTML = `
-    <div class="modal-title">${name}</div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">${date} · ${c.start_time?.slice(0,5) || ''}</div>
-    ${isCancelled ? `<div style="background:#e87a7a22;border:1px solid #e87a7a44;border-radius:10px;padding:12px;margin-bottom:16px;color:#e87a7a;font-size:13px">⚠️ Séance annulée${ci.cancellation_reason ? ' : ' + ci.cancellation_reason : ''}</div>` : ''}
+    <div class="modal-title">${esc(name)}</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">${esc(date)} · ${c.start_time?.slice(0,5) || ''}</div>
+    ${isCancelled ? `<div style="background:#e87a7a22;border:1px solid #e87a7a44;border-radius:10px;padding:12px;margin-bottom:16px;color:#e87a7a;font-size:13px">⚠️ Séance annulée${ci.cancellation_reason ? ' : ' + esc(ci.cancellation_reason) : ''}</div>` : ''}
     <div style="margin-bottom:20px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inscrits (${bookings?.length || 0}/${c.max_students || '?'})</div>
       ${bookings?.length ? bookings.map(b => `
@@ -800,8 +800,11 @@ async function cancelBookingAdmin(bookingId, instanceId) {
   if (booking?.credit_id) {
     const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).single();
     await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id);
+  } else if (booking?.subscription_id) {
+    const { data: sub } = await db.from('subscriptions').select('sessions_used_this_month').eq('id', booking.subscription_id).single();
+    await db.from('subscriptions').update({ sessions_used_this_month: Math.max(0, (sub?.sessions_used_this_month || 1) - 1) }).eq('id', booking.subscription_id);
   }
-  showToast('Réservation annulée, crédit restitué');
+  showToast('Réservation annulée, séance restituée');
   viewInstance(instanceId);
 }
 
@@ -1283,11 +1286,11 @@ async function openStudentDetail(studentId) {
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Crédits & abonnements actifs</div>
       ${credits?.filter(c=>c.sessions_remaining>0).map(c=>`
         <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
-          <span>${c.products?.name}</span><span class="badge badge-violet">${c.sessions_remaining} séances</span>
+          <span>${esc(c.products?.name)}</span><span class="badge badge-violet">${c.sessions_remaining} séances</span>
         </div>`).join('')||''}
       ${subs?.filter(s=>s.status==='active').map(s=>`
         <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
-          <span>${s.products?.name}</span><span class="badge badge-green">Actif</span>
+          <span>${esc(s.products?.name)}</span><span class="badge badge-green">Actif</span>
         </div>`).join('')||''}
       ${!credits?.some(c=>c.sessions_remaining>0) && !subs?.some(s=>s.status==='active') ? '<div style="color:var(--text3);font-size:13px">Aucun crédit actif</div>' : ''}
       <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addCreditsModal('${studentId}','${esc(name)}')">+ Ajouter des crédits</button>
@@ -1302,7 +1305,7 @@ async function openStudentDetail(studentId) {
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
           <div style="display:flex;align-items:center;gap:8px">
             <div style="width:4px;height:4px;border-radius:50%;background:${isCancelled?'var(--text3)':color}"></div>
-            <span style="font-size:13px;color:${isCancelled?'var(--text3)':'var(--text)'}">${coursName}</span>
+            <span style="font-size:13px;color:${isCancelled?'var(--text3)':'var(--text)'}">${esc(coursName)}</span>
             ${isCancelled?'<span style="font-size:10px;color:var(--text3)">annulé</span>':''}
           </div>
           <span style="font-size:11px;color:var(--text3)">${formatDate(b.course_instances?.date)}</span>

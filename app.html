@@ -850,11 +850,11 @@ async function loadHome() {
         <div style="font-size:13px;color:var(--text2);margin-top:4px">${formatDate(ci.date)} · ${formatTime(c.start_time)}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
-        ${c?.level ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Niveau</span><span style="color:var(--text1)">${c.level}</span></div>` : ''}
+        ${c?.level ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Niveau</span><span style="color:var(--text1)">${esc(c.level)}</span></div>` : ''}
         <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Salle</span><span style="color:var(--text1)">${salleLabel}</span></div>
         ${c?.duration_minutes ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Durée</span><span style="color:var(--text1)">${c.duration_minutes} min</span></div>` : ''}
-        ${teacherName ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Prof</span><span style="color:var(--text1)">${teacherName}</span></div>` : ''}
-        ${c?.description ? `<div style="font-size:12px;color:var(--text3);margin-top:2px;font-style:italic">${c.description}</div>` : ''}
+        ${teacherName ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Prof</span><span style="color:var(--text1)">${esc(teacherName)}</span></div>` : ''}
+        ${c?.description ? `<div style="font-size:12px;color:var(--text3);margin-top:2px;font-style:italic">${esc(c.description)}</div>` : ''}
       </div>
       <div style="margin-top:8px;text-align:right"><button onclick="cancelBooking(${nb.id}, ${ci.id}, '${ci.date}')" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;padding:0">Annuler ma réservation</button></div>
     `;
@@ -1118,12 +1118,12 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
           <div class="cours-bar" style="background:#8B6B4E"></div>
           <div style="flex:1">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
-              <div class="cours-name" style="color:#c49a6c">${ci.custom_name || ci.discipline_name || 'Practice Libre'}</div>
+              <div class="cours-name" style="color:#c49a6c">${esc(ci.custom_name || ci.discipline_name || 'Practice Libre')}</div>
               <span style="font-size:11px;padding:3px 9px;border-radius:20px;background:rgba(139,107,78,0.15);color:#8B6B4E;font-weight:600;white-space:nowrap">Accès libre</span>
             </div>
             <div class="cours-time" style="color:#a07850">${startStr} → ${endStr}</div>
             <div class="cours-meta" style="margin-top:4px">🦇 Salle Air · viens quand tu veux dans le créneau</div>
-            ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${(ci.description.match(/^[^.!?]+[.!?]/) || [ci.description])[0].trim()}</div>` : ''}
+            ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${(esc(ci.description).match(/^[^.!?]+[.!?]/) || [esc(ci.description)])[0].trim()}</div>` : ''}
             <div style="font-size:11px;color:#8B6B4E;margin-top:6px;font-weight:500">→ Démarrer une session</div>
           </div>
         </div>
@@ -1143,15 +1143,15 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
         <div class="cours-bar" style="background:${ci.discipline_color}"></div>
         <div style="flex:1">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
-            <div class="cours-name">${ci.custom_name || ci.discipline_name || 'Cours'}</div>
+            <div class="cours-name">${esc(ci.custom_name || ci.discipline_name || 'Cours')}</div>
             <div class="spots-pill ${spotsClass}">${spotsText}</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
             <div class="cours-time">${formatTime(ci.start_time)}</div>
-            ${ci.level ? `<span style="font-size:12px;font-weight:600;background:${ci.discipline_color}33;color:${ci.discipline_color};padding:3px 9px;border-radius:6px">${ci.level}</span>` : ''}
+            ${ci.level ? `<span style="font-size:12px;font-weight:600;background:${ci.discipline_color}33;color:${ci.discipline_color};padding:3px 9px;border-radius:6px">${esc(ci.level)}</span>` : ''}
           </div>
-          <div class="cours-meta">${ci.duration_minutes} min · ${ci.teacher_name || 'Ana'} · ${{ air: '🦇 Salle Air', terre: '🌿 Salle Terre' }[ci.salle] || ci.salle || 'Salle'}</div>
-          ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${(ci.description.match(/^[^.!?]+[.!?]/) || [ci.description])[0].trim()}</div>` : ''}
+          <div class="cours-meta">${ci.duration_minutes} min · ${esc(ci.teacher_name || 'Ana')} · ${{ air: '🦇 Salle Air', terre: '🌿 Salle Terre' }[ci.salle] || ci.salle || 'Salle'}</div>
+          ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${(esc(ci.description).match(/^[^.!?]+[.!?]/) || [esc(ci.description)])[0].trim()}</div>` : ''}
           ${isBooked ? '<div style="font-size:11px;color:var(--violet);margin-top:4px">✓ Réservé</div>' : ''}
           ${isWaiting ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">⏳ Liste d'attente${waitlistPos ? ' · position ' + waitlistPos : ''}</div>` : ''}
         </div>
@@ -1221,6 +1221,7 @@ async function leaveWaitlist(instanceId) {
 }
 
 async function loadBookingForm(ci) {
+  const name = ci.custom_name || ci.discipline_name || 'Cours';
   // Déterminer les forfaits compatibles
   const isReformer = ci.is_reformer;
   const isKids = isKidsCourse(ci);
@@ -1247,9 +1248,9 @@ async function loadBookingForm(ci) {
     .filter(p => p.type === 'unite' ? isPractice : !isPractice || p.type !== 'unite');
 
   let html = `
-    <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">${name}</h3>
-    <p style="color:var(--text3);font-size:13px;margin-bottom:${ci.description ? '8px' : '20px'}">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${ci.teacher_name || 'Ana'}</p>
-    ${ci.description ? `<p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">${ci.description.replace(/\n/g,'<br>')}</p>` : ''}
+    <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">${esc(name)}</h3>
+    <p style="color:var(--text3);font-size:13px;margin-bottom:${ci.description ? '8px' : '20px'}">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${esc(ci.teacher_name || 'Ana')}</p>
+    ${ci.description ? `<p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">${esc(ci.description).replace(/\n/g,'<br>')}</p>` : ''}
     ${isKids ? `<div style="background:rgba(155,125,219,0.1);border:1px solid rgba(155,125,219,0.3);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--violet-light)">👧 Cours Pole Kids · une carte dédiée peut être utilisée ici</div>` : ''}
   `;
 
@@ -1259,7 +1260,7 @@ async function loadBookingForm(ci) {
       const sessLeft = s.products.type === 'abo_mensuel' ? (s.products.sessions_per_month - s.sessions_used_this_month) : '∞';
       html += `<button class="cours-card" style="margin-bottom:8px" onclick="bookWithSub(${ci.id}, ${s.id})">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><div style="font-size:14px">${s.products.name}</div><div style="font-size:11px;color:var(--green)">Actif · ${sessLeft === '∞' ? 'Illimité' : sessLeft + ' séances restantes ce mois'}</div></div>
+          <div><div style="font-size:14px">${esc(s.products.name)}</div><div style="font-size:11px;color:var(--green)">Actif · ${sessLeft === '∞' ? 'Illimité' : sessLeft + ' séances restantes ce mois'}</div></div>
           <div style="color:var(--violet);font-size:13px">→</div>
         </div>
       </button>`;
@@ -1272,7 +1273,7 @@ async function loadBookingForm(ci) {
       const kidsTag = c.products?.kids_only ? `<span style="font-size:10px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:1px 6px;border-radius:4px;margin-left:6px">Pole Kids</span>` : '';
       html += `<button class="cours-card" style="margin-bottom:8px" onclick="bookWithCredit(${ci.id}, ${c.id})">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><div style="font-size:14px">${c.products.name}${kidsTag}</div><div style="font-size:11px;color:var(--violet-light)">${c.sessions_remaining} séance(s) restante(s)</div></div>
+          <div><div style="font-size:14px">${esc(c.products.name)}${kidsTag}</div><div style="font-size:11px;color:var(--violet-light)">${c.sessions_remaining} séance(s) restante(s)</div></div>
           <div style="color:var(--violet);font-size:13px">→</div>
         </div>
       </button>`;
@@ -1286,12 +1287,12 @@ async function loadBookingForm(ci) {
     const kidsTag = p.kids_only ? `<span style="font-size:10px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:1px 6px;border-radius:4px;margin-left:6px">Pole Kids</span>` : '';
     const sub = isAbo ? `<span style="font-size:11px;font-weight:400;color:var(--text3)">/mois</span>` : '';
     const engagementLine = isAbo && p.engagement_price_cents ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${formatPrice(p.engagement_price_cents)}/mois avec engagement</div>` : '';
-    const desc = isIllimite ? '+ practice libre ✨' : (p.description || '') + (p.sessions_count && p.type !== 'unite' ? ' · ' + p.sessions_count + ' cours' : '');
+    const desc = isIllimite ? '+ practice libre ✨' : esc(p.description || '') + (p.sessions_count && p.type !== 'unite' ? ' · ' + p.sessions_count + ' cours' : '');
     const installmentPrice = p.allow_installments ? Math.ceil(p.price_cents / 3) : null;
     html += `<div class="cours-card" style="margin-bottom:8px;padding:0;overflow:hidden">
       <button style="width:100%;background:none;border:none;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;text-align:left" onclick="${isAbo ? `confirmAndPay(${p.id}, false)` : `buyAndBook(${ci.id}, ${p.id})`}">
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${p.name}${kidsTag}</div>
+          <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${esc(p.name)}${kidsTag}</div>
           ${desc ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${desc}</div>` : ''}
         </div>
         <div style="flex-shrink:0;text-align:right">

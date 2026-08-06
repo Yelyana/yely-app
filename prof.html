@@ -432,8 +432,8 @@ async function loadPlanning() {
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <div style="font-size:12px;font-weight:700;color:${color}">${ci.courses?.start_time?.slice(0,5)} · ${ci.courses?.duration_minutes} min</div>
-              <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:2px;display:flex;align-items:center;gap:6px">${name}${ci.courses?.level ? `<span style="font-size:12px;font-weight:600;background:${color}33;color:${color};border-radius:6px;padding:3px 9px">${ci.courses.level}</span>` : ''}</div>
-              ${profStudioView && !isMine && teacherName ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">👤 ${teacherName}</div>` : ''}
+              <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:2px;display:flex;align-items:center;gap:6px">${esc(name)}${ci.courses?.level ? `<span style="font-size:12px;font-weight:600;background:${color}33;color:${color};border-radius:6px;padding:3px 9px">${esc(ci.courses.level)}</span>` : ''}</div>
+              ${profStudioView && !isMine && teacherName ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">👤 ${esc(teacherName)}</div>` : ''}
             </div>
             ${isMine ? `<div style="font-size:11px;background:${color}22;color:${color};padding:4px 8px;border-radius:6px;font-weight:600">Mon cours →</div>` : ''}
           </div>
@@ -463,13 +463,13 @@ async function openSeance(instanceId) {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
       <div style="width:4px;height:40px;background:${color};border-radius:2px"></div>
       <div>
-        <div class="modal-title" style="margin-bottom:0;display:flex;align-items:center;gap:8px">${name}${ci?.courses?.level ? `<span style="font-size:12px;font-weight:600;background:${color}33;color:${color};border-radius:6px;padding:3px 9px">${ci.courses.level}</span>` : ''}</div>
+        <div class="modal-title" style="margin-bottom:0;display:flex;align-items:center;gap:8px">${esc(name)}${ci?.courses?.level ? `<span style="font-size:12px;font-weight:600;background:${color}33;color:${color};border-radius:6px;padding:3px 9px">${esc(ci.courses.level)}</span>` : ''}</div>
         <div style="font-size:12px;color:var(--text3)">${date} · ${ci?.courses?.start_time?.slice(0,5)}</div>
       </div>
     </div>
     ${ci?.courses?.description ? `<div style="font-size:13px;color:var(--text2);line-height:1.6;margin:12px 0 4px;padding:10px 14px;background:var(--bg);border-radius:10px">
-      <span id="desc-short">${(ci.courses.description.match(/^[^.!?]+[.!?]/) || [ci.courses.description])[0].trim()}</span>
-      <span id="desc-full" style="display:none">${ci.courses.description.replace(/\n/g,'<br>')}</span>
+      <span id="desc-short">${esc((ci.courses.description.match(/^[^.!?]+[.!?]/) || [ci.courses.description])[0].trim())}</span>
+      <span id="desc-full" style="display:none">${esc(ci.courses.description).replace(/\n/g,'<br>')}</span>
       ${ci.courses.description.length > (ci.courses.description.match(/^[^.!?]+[.!?]/)?.[0]?.length || 9999) ? `<span id="desc-toggle" onclick="const f=document.getElementById('desc-full'),s=document.getElementById('desc-short'),t=document.getElementById('desc-toggle');if(f.style.display==='none'){f.style.display='inline';s.style.display='none';t.textContent=' Voir moins'}else{f.style.display='none';s.style.display='inline';t.textContent=' Voir plus'}" style="color:${color};cursor:pointer;font-weight:600"> Voir plus</span>` : ''}
     </div>` : ''}
 
@@ -515,7 +515,7 @@ async function openSeance(instanceId) {
       </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:16px 0">Aucune élève inscrite</div>'}
 
     <div class="section-title" style="margin-top:16px">Note sur cette séance</div>
-    <textarea id="seance-note" rows="3" placeholder="Ambiance, points à améliorer, élèves à surveiller…" style="width:100%;margin-bottom:8px">${ci?.note || ''}</textarea>
+    <textarea id="seance-note" rows="3" placeholder="Ambiance, points à améliorer, élèves à surveiller…" style="width:100%;margin-bottom:8px">${esc(ci?.note || '')}</textarea>
     <button class="btn btn-ghost btn-sm" onclick="saveSeanceNote('${instanceId}')">Sauvegarder la note</button>
 
     <button class="btn btn-ghost" style="margin-top:16px;width:100%" onclick="closeModal()">Fermer</button>
