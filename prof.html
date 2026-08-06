@@ -200,6 +200,11 @@ let currentUser = null;
 let currentProf = null;
 let profWeekOffset = 0;
 
+function esc(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function callSendPush(opts) {
   if (!currentUser) return;
   db.auth.getSession().then((resp) => {
@@ -493,9 +498,9 @@ async function openSeance(instanceId) {
     ${(bookings||[]).length ? bookings.map(b => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
         <div>
-          <div style="font-size:13px;font-weight:500">${b.profiles?.full_name}</div>
+          <div style="font-size:13px;font-weight:500">${esc(b.profiles?.full_name)}</div>
           ${b.profiles?.phone ? `<div style="display:flex;align-items:center;gap:6px;margin-top:2px">
-            <span style="font-size:11px;color:var(--text3)">${b.profiles.phone}</span>
+            <span style="font-size:11px;color:var(--text3)">${esc(b.profiles.phone)}</span>
             <a href="https://wa.me/${b.profiles.phone.replace(/\D/g,'')}" target="_blank" style="font-size:10px;color:#25d366;text-decoration:none">WhatsApp</a>
           </div>` : ''}
         </div>
@@ -636,11 +641,11 @@ async function loadEleves() {
         const rate = total > 0 ? Math.round(attended / total * 100) : 0;
         const lastCours = stats.courses?.map(b => b.course_instance_id).pop();
         const rateColor = rate >= 80 ? 'var(--green)' : rate >= 50 ? '#fb923c' : 'var(--red)';
-        return `<div class="card" style="padding:14px 16px;cursor:pointer" onclick="openEleveDetail('${p.id}','${p.full_name.replace(/'/g,"\\'")}')">
+        return `<div class="card" style="padding:14px 16px;cursor:pointer" onclick="openEleveDetail('${esc(p.id)}','${esc(p.full_name)}')">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
-              <div style="font-size:14px;font-weight:500">${p.full_name}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.phone || p.email || ''}</div>
+              <div style="font-size:14px;font-weight:500">${esc(p.full_name)}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(p.phone || p.email || '')}</div>
             </div>
             <div style="text-align:right">
               <div style="font-size:13px;font-weight:600;color:${rateColor}">${rate}%</div>
@@ -836,7 +841,7 @@ async function renderCommTab() {
         ${avatar}
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;margin-bottom:6px">
-            <span style="font-size:13px;font-weight:500">${p.profiles?.full_name || '?'}</span>${badge}
+            <span style="font-size:13px;font-weight:500">${esc(p.profiles?.full_name || '?')}</span>${badge}
             <span style="font-size:10px;color:var(--text3);margin-left:auto;margin-right:6px">${ago}</span>
             ${postMenu}
           </div>
@@ -857,11 +862,11 @@ async function renderCommTab() {
               </div>`;
             }).join('');
             return `<div style="margin-bottom:10px">
-              <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px">📊 ${p.content}</div>
+              <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px">📊 ${esc(p.content)}</div>
               ${bars}
               <div style="font-size:11px;color:var(--text3);margin-top:4px">${total} réponse${total!==1?'s':''} au total</div>
             </div>`;
-          })() : `<div id="pcontent-${p.id}" style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px">${p.content}</div>`}
+          })() : `<div id="pcontent-${p.id}" style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px">${esc(p.content)}</div>`}
           <div id="comments-${p.id}" style="display:none;margin-bottom:10px"></div>
           <div style="display:flex;gap:16px">
             <button onclick="profToggleLike(${p.id},this)" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;color:${liked?'#e87a7a':'var(--text3)'};font-size:13px">${liked?'❤️':'🤍'} <span>${likeCount}</span></button>
@@ -995,8 +1000,8 @@ async function toggleProfComments(postId) {
     return `<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">
       ${av}
       <div style="background:var(--bg);border-radius:10px;padding:7px 10px;flex:1">
-        <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px">${c.profiles?.full_name||'?'}</div>
-        <div style="font-size:12px;color:var(--text2);line-height:1.4">${c.content}</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px">${esc(c.profiles?.full_name||'?')}</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.4">${esc(c.content)}</div>
       </div>
     </div>`;
   }).join('') || '<div style="font-size:12px;color:var(--text3);margin-bottom:8px">Aucun commentaire</div>';
@@ -1116,7 +1121,7 @@ async function loadProfil() {
       <div class="form-group"><label>Nom complet</label><input id="pr-name" value="${currentProf?.full_name||''}"></div>
       <div class="form-group"><label>Téléphone</label><input id="pr-phone" value="${currentProf?.phone||''}"></div>
       <div class="form-group"><label>Disciplines</label><input id="pr-disc" value="${(teacher?.disciplines||[]).join(', ')}"></div>
-      <div class="form-group"><label>Bio</label><textarea id="pr-bio" rows="3">${teacher?.bio||''}</textarea></div>
+      <div class="form-group"><label>Bio</label><textarea id="pr-bio" rows="3">${esc(teacher?.bio||'')}</textarea></div>
       <div class="form-group"><label>Instagram</label><input id="pr-insta" value="${teacher?.instagram||''}" placeholder="@handle"></div>
       <button class="btn btn-primary" onclick="saveProfil()">Enregistrer</button>
     </div>
