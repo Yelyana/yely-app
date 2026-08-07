@@ -898,7 +898,7 @@ async function loadPracticeHomeWidget() {
     db.from('subscriptions').select('*, products(type)').eq('student_id', currentUser.id).eq('status', 'active'),
   ]);
 
-  const practiceCredit = (credits || []).find(c => c.products?.type === 'unite' && c.products?.valid_for === 'non_reformer');
+  const practiceCredit = (credits || []).find(c => c.products?.is_practice);
   const illimiteSub = (subs || []).find(s => s.products?.type === 'abo_illimite');
   const hasPracticeAccess = practiceCredit || illimiteSub;
   const deskBtn = document.getElementById('desk-nav-practice');
@@ -1246,8 +1246,8 @@ async function loadBookingForm(ci) {
     .filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id))
     .filter(p => isKids ? p.kids_only : !p.kids_only)
     .filter(p => {
-      if (isPractice) return (p.type === 'abo_illimite') || (p.type === 'unite' && p.valid_for === 'non_reformer');
-      if (p.type === 'unite') return p.valid_for !== 'non_reformer'; // pas l'accès practice sur les cours normaux
+      if (isPractice) return p.type === 'abo_illimite' || p.is_practice;
+      if (p.is_practice) return false; // accès practice jamais sur les cours collectifs
       return true;
     })
     .sort((a, b) => {
@@ -2101,7 +2101,7 @@ function sortForfaits(a, b) {
     if (isDecouverte) return p.sessions_count || 1;          // 1, 5
     if (p.type === 'unite' && p.valid_for === 'all') return 10;       // Cours à l'unité
     if (p.type === 'unite' && p.valid_for === 'reformer') return 20;  // Reformer à l'unité
-    if (p.type === 'unite' && p.valid_for === 'non_reformer') return 30; // Practice à l'unité
+    if (p.is_practice) return 30; // Practice à l'unité
     if (p.type === 'carte') return 40 + (p.sessions_count || 0);      // Carte 10, Carte 20
     if (p.type === 'abo_mensuel') return 60 + (p.sort_order || 0);
     if (p.type === 'abo_illimite') return 70;
@@ -3255,7 +3255,7 @@ async function loadPractice() {
     db.from('subscriptions').select('*, products(type)').eq('student_id', currentUser.id).eq('status', 'active'),
   ]);
 
-  const practiceCredit = (credits || []).find(c => c.products?.type === 'unite' && c.products?.valid_for === 'non_reformer');
+  const practiceCredit = (credits || []).find(c => c.products?.is_practice);
   const illimiteSub = (subs || []).find(s => s.products?.type === 'abo_illimite');
 
   if (!practiceCredit && !illimiteSub) {
@@ -3351,7 +3351,7 @@ async function openPracticeShop() {
   ]);
   const alreadyBoughtIds = new Set((pastOrders || []).map(o => o.product_id));
   const available = (products || [])
-    .filter(p => p.type === 'abo_illimite' || (p.type === 'unite' && p.valid_for === 'non_reformer'))
+    .filter(p => p.type === 'abo_illimite' || p.is_practice)
     .filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id));
 
   let html = `<h3 class="serif" style="font-size:22px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">Forfaits Practice</h3>
