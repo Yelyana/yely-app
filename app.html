@@ -3325,7 +3325,9 @@ async function openPracticeShop() {
     db.from('orders').select('product_id').eq('student_id', currentUser.id).neq('status', 'cancelled'),
   ]);
   const alreadyBoughtIds = new Set((pastOrders || []).map(o => o.product_id));
-  const available = (products || []).filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id));
+  const available = (products || [])
+    .filter(p => p.type === 'abo_illimite' || (p.type === 'unite' && p.valid_for === 'non_reformer'))
+    .filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id));
 
   let html = `<h3 class="serif" style="font-size:22px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">Forfaits Practice</h3>
     <p style="color:var(--text3);font-size:13px;margin-bottom:20px">Choisis ton accès pour démarrer une session</p>`;
