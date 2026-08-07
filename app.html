@@ -2251,21 +2251,31 @@ async function confirmAndPay(productId, engagement, applyStudentDiscount = false
   const engagementMention = engagement ? `<div style="font-size:12px;color:var(--text3);margin-top:4px">Engagement ${p.engagement_months} mois · pause juillet-août · reconduction automatique</div>` : '';
   const hasReferral = !!currentProfile?.referral_discount_available;
 
-  // Vérifier si l'élève a un pack découverte actif (pour -10% sur abonnement)
+  // Vérifier si l'élève a un pack découverte actif (pour -40€ sur le 1er mois d'abonnement)
   let hasDiscoveryPack = false;
   if (isAbo) {
-    const { data: discoveryCredits } = await db.from('student_credits')
-      .select('id, products(max_reformer_sessions)')
-      .eq('student_id', currentUser.id)
-      .gt('sessions_remaining', 0);
-    hasDiscoveryPack = (discoveryCredits || []).some(c => c.products?.max_reformer_sessions != null);
+    const [{ data: discoveryCredits }, { data: profData }] = await Promise.all([
+      db.from('student_credits')
+        .select('id, expires_at, products(name)')
+        .eq('student_id', currentUser.id)
+        .gt('sessions_remaining', 0),
+      db.from('profiles').select('discovery_discount_used_at').eq('id', currentUser.id).single(),
+    ]);
+    const hasActivePack = (discoveryCredits || []).some(c => {
+      if (c.expires_at && new Date(c.expires_at) < new Date()) return false;
+      return /découverte/i.test(c.products?.name || '');
+    });
+    hasDiscoveryPack = hasActivePack && !profData?.discovery_discount_used_at;
   }
 
   // Priorité des discounts : parrainage > étudiant > pack découverte (un seul à la fois)
   const applyReferral = hasReferral && !applyStudentDiscount;
   const applyDiscovery = hasDiscoveryPack && !applyReferral && !applyStudentDiscount;
-  const discountRate = (applyReferral || applyStudentDiscount || applyDiscovery) ? 0.9 : 1;
-  const displayPrice = Math.round(basePrice * discountRate);
+  const DISCOVERY_DISCOUNT_CENTS = 4000;
+  const displayPrice = applyReferral ? Math.round(basePrice * 0.9)
+    : applyStudentDiscount ? Math.round(basePrice * 0.9)
+    : applyDiscovery ? Math.max(0, basePrice - DISCOVERY_DISCOUNT_CENTS)
+    : basePrice;
   const discountBadge = applyReferral ? `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <span style="text-decoration:line-through;color:var(--text3);font-size:16px">${(basePrice/100).toFixed(0)}€</span>
@@ -2277,7 +2287,7 @@ async function confirmAndPay(productId, engagement, applyStudentDiscount = false
     </div>` : applyDiscovery ? `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <span style="text-decoration:line-through;color:var(--text3);font-size:16px">${(basePrice/100).toFixed(0)}€</span>
-      <span style="background:rgba(125,191,155,0.2);color:var(--green);font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px">-10% pack découverte 🦇</span>
+      <span style="background:rgba(125,191,155,0.2);color:var(--green);font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px">-40€ premier mois 🦇</span>
     </div>` : '';
   document.getElementById('modal-content').innerHTML = `
     <div style="font-size:18px;font-weight:500;margin-bottom:4px">${label}</div>
