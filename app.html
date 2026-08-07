@@ -1245,7 +1245,14 @@ async function loadBookingForm(ci) {
   const availableProducts = (products || [])
     .filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id))
     .filter(p => isKids ? p.kids_only : !p.kids_only)
-    .filter(p => p.type === 'unite' ? isPractice : !isPractice || p.type !== 'unite');
+    .filter(p => p.type === 'unite' ? isPractice : !isPractice || p.type !== 'unite')
+    .sort((a, b) => {
+      const isAbo = p => p.type === 'abo_illimite' || p.type === 'abo_mensuel';
+      if (isAbo(a) && !isAbo(b)) return 1;
+      if (!isAbo(a) && isAbo(b)) return -1;
+      if (isAbo(a) && isAbo(b)) return (a.sort_order || 0) - (b.sort_order || 0);
+      return sortForfaits(a, b);
+    });
 
   let html = `
     <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">${esc(name)}</h3>
@@ -2084,6 +2091,19 @@ async function submitComment(postId) {
 
 let _boutiqueTab = 'cours';
 
+function sortForfaits(a, b) {
+  const priority = p => {
+    const isDecouverte = p.one_time_only || /découverte/i.test(p.name || '');
+    if (isDecouverte) return p.sessions_count || 1;
+    if (p.type === 'unite' && p.valid_for === 'all') return 10;
+    if (p.type === 'unite' && p.valid_for === 'reformer') return 20;
+    if (p.type === 'carte') return 30 + (p.sessions_count || 0);
+    if (p.type === 'unite' && p.valid_for === 'non_reformer') return 50;
+    return 99;
+  };
+  return priority(a) - priority(b);
+}
+
 async function loadBoutique() {
   const el = document.getElementById('boutique-content');
   if (currentProfile?.full_name) {
@@ -2119,19 +2139,16 @@ async function loadBoutique() {
   }
 
   const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.kids_only)
-    .sort((a, b) => {
-      if (a.type === 'unite' && b.type !== 'unite') return 1;
-      if (b.type === 'unite' && a.type !== 'unite') return -1;
-      return (a.sessions_count || 1) - (b.sessions_count || 1);
-    });
+    .sort(sortForfaits);
   const abos = (products || []).filter(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') && !p.kids_only);
   const kidsAll = (products || []).filter(p => p.kids_only);
   const isParentEnfant = p => { const n = (p.name + ' ' + (p.description || '')).toLowerCase(); return n.includes('parent') && n.includes('enfant'); };
   const kidsOnly = kidsAll.filter(p => !isParentEnfant(p));
   const parentEnfant = kidsAll.filter(p => isParentEnfant(p));
   const sortKids = arr => {
-    const order = { unite: 0, carte: 1, abo_mensuel: 2, abo_illimite: 3 };
-    return [...arr].sort((a, b) => (order[a.type] ?? 4) - (order[b.type] ?? 4));
+    const unites = [...arr].filter(p => p.type === 'unite' || p.type === 'carte').sort(sortForfaits);
+    const abos = [...arr].filter(p => p.type === 'abo_mensuel' || p.type === 'abo_illimite');
+    return [...unites, ...abos];
   };
 
   const isStudent = currentProfile?.is_student === true;
