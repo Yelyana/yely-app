@@ -1245,7 +1245,11 @@ async function loadBookingForm(ci) {
   const availableProducts = (products || [])
     .filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id))
     .filter(p => isKids ? p.kids_only : !p.kids_only)
-    .filter(p => p.type === 'unite' ? isPractice : !isPractice || p.type !== 'unite')
+    .filter(p => {
+      if (isPractice) return (p.type === 'abo_illimite') || (p.type === 'unite' && p.valid_for === 'non_reformer');
+      if (p.type === 'unite') return p.valid_for !== 'non_reformer'; // pas l'accès practice sur les cours normaux
+      return true;
+    })
     .sort((a, b) => {
       const isAbo = p => p.type === 'abo_illimite' || p.type === 'abo_mensuel';
       if (isAbo(a) && !isAbo(b)) return 1;
