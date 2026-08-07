@@ -235,7 +235,7 @@ async function loadAdminUser(user) {
   currentUser = user;
   const { data } = await db.from('profiles').select('*').eq('id', user.id).single();
   currentProfile = data;
-  if (user.email !== 'yelyanaa@gmail.com') {
+  if (data?.role !== 'admin') {
     await db.auth.signOut();
     return showToast("Accès réservé à l'administration", true);
   }
@@ -711,13 +711,10 @@ async function renderPlanning() {
     gridHtml = `<div style="overflow-x:auto"><table><thead><tr>${JOURS.map(j=>`<th>${j}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
   }
 
-  const disciplinesJson = JSON.stringify(disciplines).replace(/"/g,'&quot;');
-  const teachersJson = JSON.stringify(teachers).replace(/"/g,'&quot;');
-
   document.getElementById('main-content').innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
       <div class="page-title">Planning</div>
-      <button class="btn btn-primary" onclick="openCourseModal(null, ${disciplinesJson}, ${teachersJson})">+ Nouveau cours</button>
+      <button class="btn btn-primary" onclick="openCourseModal(null, window._planningDisciplines, window._planningTeachers)">+ Nouveau cours</button>
     </div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
       <div style="display:flex;background:var(--bg2);border-radius:10px;padding:3px;gap:2px">
@@ -748,6 +745,7 @@ async function viewInstance(id) {
     .eq('course_instance_id', id).order('position');
 
   const c = ci?.courses || {};
+  window._currentViewCourse = c;
   const name = c.custom_name || c.disciplines?.name || 'Cours';
   const color = c.disciplines?.color || '#a78bfa';
   const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
@@ -777,7 +775,7 @@ async function viewInstance(id) {
       ${waitlist.map((w,i) => `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${i+1}. ${esc(w.profiles?.full_name)}</div>`).join('')}
     </div>` : ''}
     <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
-      ${!isCancelled ? `<button class="btn btn-primary btn-sm" onclick="closeModal();openCourseModal(${JSON.stringify(c).replace(/"/g,'&quot;')}, ${JSON.stringify(window._planningDisciplines||[]).replace(/"/g,'&quot;')}, ${JSON.stringify(window._planningTeachers||[]).replace(/"/g,'&quot;')})">✏️ Modifier le cours</button>` : ''}
+      ${!isCancelled ? `<button class="btn btn-primary btn-sm" onclick="closeModal();openCourseModal(window._currentViewCourse, window._planningDisciplines, window._planningTeachers)">✏️ Modifier le cours</button>` : ''}
       ${!isCancelled ? `<button class="btn btn-sm" style="background:rgba(125,191,155,0.15);border:1px solid rgba(125,191,155,0.3);color:#7dbf9b" onclick="openAddStudentModal('${ci.id}')">➕ Ajouter une élève</button>` : ''}
       ${!isCancelled ? `<button class="btn btn-danger btn-sm" onclick="cancelInstance('${ci.id}')">Annuler la séance</button>` : ''}
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">Fermer</button>
@@ -854,7 +852,7 @@ async function addStudentToInstance(instanceId, studentId) {
     body: 'Tu as été inscrite à un cours par le studio. À très vite !',
     type: 'booking',
   });
-  showToast(`${student?.full_name || 'Élève'} inscrite !`);
+  showToast(`${student?.full_name || 'Élève'} inscrite (sans déduction de crédit) !`);
   viewInstance(instanceId);
 }
 
@@ -1361,7 +1359,7 @@ async function toggleFondatrice(studentId, value) {
 
 async function sendDirectMessage(studentId, name) {
   document.getElementById('modal-body').innerHTML = `
-    <div class="modal-title">Message à ${name}</div>
+    <div class="modal-title">Message à ${esc(name)}</div>
     <div class="form-group"><label>Titre</label><input id="msg-title" placeholder="Ex: Rappel de cours"></div>
     <div class="form-group"><label>Message</label><textarea id="msg-body" rows="4" placeholder="Ton message..."></textarea></div>
     <div style="display:flex;gap:10px">
@@ -1508,6 +1506,8 @@ async function savePaymentModal() {
 async function loadProfs() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
   const { data: teachers } = await db.from('profiles').select('*, teachers(*)').eq('role', 'teacher');
+  window._teacherCache = {};
+  (teachers || []).forEach(t => window._teacherCache[t.id] = t);
   const isAdmin = currentProfile?.role === 'admin';
 
   document.getElementById('main-content').innerHTML = `
@@ -1527,7 +1527,7 @@ async function loadProfs() {
                 ${(t.teachers.disciplines).map(d => `<span class="badge badge-violet">${d}</span>`).join('')}
               </div>` : ''}
             </div>
-            ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openTeacherModal(${JSON.stringify(t).replace(/"/g,'&quot;')})">Modifier</button>` : ''}
+            ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openTeacherModal(window._teacherCache['${t.id}'])">Modifier</button>` : ''}
           </div>
           ${t.teachers?.bio ? `<div style="font-size:13px;color:var(--text2);margin-bottom:12px;font-style:italic">"${esc(t.teachers.bio)}"</div>` : ''}
           <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Proposition workshop / cours spécial</div>
@@ -1751,6 +1751,8 @@ async function loadRevenus() {
 async function loadForfaits() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
   const { data: products } = await db.from('products').select('*').order('sort_order');
+  window._productCache = {};
+  (products || []).forEach(p => window._productCache[p.id] = p);
   document.getElementById('main-content').innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
       <div><div class="page-title">Forfaits</div><div class="page-sub">Gérer les offres et tarifs</div></div>
@@ -1767,7 +1769,7 @@ async function loadForfaits() {
             <td>${p.sessions_count || p.sessions_per_month ? (p.sessions_count || p.sessions_per_month + '/mois') : '∞'}</td>
             <td style="color:var(--text3);font-size:12px">${p.valid_for === 'all' ? 'Tout' : p.valid_for === 'reformer' ? 'Reformer' : 'Hors Reformer'}</td>
             <td><span class="badge ${p.is_active ? 'badge-green' : 'badge-red'}">${p.is_active ? 'Actif' : 'Inactif'}</span></td>
-            <td><button class="btn btn-ghost btn-sm" onclick="openProductModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">Modifier</button></td>
+            <td><button class="btn btn-ghost btn-sm" onclick="openProductModal(window._productCache[${p.id}])">Modifier</button></td>
           </tr>`).join('')}
         </tbody>
       </table>
