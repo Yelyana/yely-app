@@ -1262,18 +1262,12 @@ async function loadBookingForm(ci) {
       return sortForfaits(a, b);
     });
 
-  let html = `
-    <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">${esc(name)}</h3>
-    <p style="color:var(--text3);font-size:13px;margin-bottom:${ci.description ? '8px' : '20px'}">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${esc(ci.teacher_name || 'Ana')}</p>
-    ${ci.description ? `<p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">${esc(ci.description).replace(/\n/g,'<br>')}</p>` : ''}
-    ${isKids ? `<div style="background:rgba(155,125,219,0.1);border:1px solid rgba(155,125,219,0.3);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--violet-light)">👧 Cours Pole Kids · une carte dédiée peut être utilisée ici</div>` : ''}
-  `;
-
+  // Construire les blocs séparément pour le toggle
+  let subsHtml = '';
   if (subs?.length) {
-    html += `<div class="section-label">Ton abonnement</div>`;
     subs.forEach(s => {
       const sessLeft = s.products.type === 'abo_mensuel' ? (s.products.sessions_per_month - s.sessions_used_this_month) : '∞';
-      html += `<button class="cours-card" style="margin-bottom:8px" onclick="bookWithSub(${ci.id}, ${s.id})">
+      subsHtml += `<button class="cours-card" style="margin-bottom:8px" onclick="bookWithSub(${ci.id}, ${s.id})">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div><div style="font-size:14px">${esc(s.products.name)}</div><div style="font-size:11px;color:var(--green)">Actif · ${sessLeft === '∞' ? 'Illimité' : sessLeft + ' séances restantes ce mois'}</div></div>
           <div style="color:var(--violet);font-size:13px">→</div>
@@ -1282,11 +1276,11 @@ async function loadBookingForm(ci) {
     });
   }
 
+  let creditsHtml = '';
   if (credits?.length) {
-    html += `<div class="section-label" style="margin-top:8px">Mes cartes</div>`;
     credits.forEach(c => {
       const kidsTag = (c.products?.for_kids || c.products?.for_parent_enfant) ? `<span style="font-size:10px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:1px 6px;border-radius:4px;margin-left:6px">Pole Kids</span>` : '';
-      html += `<button class="cours-card" style="margin-bottom:8px" onclick="bookWithCredit(${ci.id}, ${c.id})">
+      creditsHtml += `<button class="cours-card" style="margin-bottom:8px" onclick="bookWithCredit(${ci.id}, ${c.id})">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div><div style="font-size:14px">${esc(c.products.name)}${kidsTag}</div><div style="font-size:11px;color:var(--violet-light)">${c.sessions_remaining} séance(s) restante(s)</div></div>
           <div style="color:var(--violet);font-size:13px">→</div>
@@ -1295,7 +1289,7 @@ async function loadBookingForm(ci) {
     });
   }
 
-  html += `<div class="section-label" style="margin-top:8px">Acheter</div>`;
+  let buyHtml = '';
   (availableProducts || []).forEach(p => {
     const isAbo = p.type === 'abo_illimite' || p.type === 'abo_mensuel';
     const isIllimite = p.type === 'abo_illimite';
@@ -1304,7 +1298,7 @@ async function loadBookingForm(ci) {
     const engagementLine = isAbo && p.engagement_price_cents ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${formatPrice(p.engagement_price_cents)}/mois avec engagement</div>` : '';
     const desc = isIllimite ? '+ practice libre ✨' : esc(p.description || '') + (p.sessions_count && p.type !== 'unite' ? ' · ' + p.sessions_count + ' cours' : '');
     const installmentPrice = p.allow_installments ? Math.ceil(p.price_cents / 3) : null;
-    html += `<div class="cours-card" style="margin-bottom:8px;padding:0;overflow:hidden">
+    buyHtml += `<div class="cours-card" style="margin-bottom:8px;padding:0;overflow:hidden">
       <button style="width:100%;background:none;border:none;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;text-align:left" onclick="${isAbo ? `confirmAndPay(${p.id}, false)` : `buyAndBook(${ci.id}, ${p.id})`}">
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${esc(p.name)}${kidsTag}</div>
@@ -1321,6 +1315,37 @@ async function loadBookingForm(ci) {
       </button>` : ''}
     </div>`;
   });
+
+  const hasExisting = subs?.length || credits?.length;
+  const spotsText = ci.spots_remaining > 0 ? `${ci.spots_remaining} place${ci.spots_remaining > 1 ? 's' : ''} restante${ci.spots_remaining > 1 ? 's' : ''}` : '';
+
+  let html = `
+    <div style="margin-bottom:16px">
+      <h3 class="serif" style="font-size:20px;font-weight:300;margin-bottom:2px;color:var(--ivoire)">${esc(name)}</h3>
+      <p style="color:var(--text3);font-size:12px;margin:0">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${esc(ci.teacher_name || 'Ana')}${spotsText ? ` · <span style="color:var(--violet-light)">${spotsText}</span>` : ''}</p>
+      ${ci.description ? `
+        <div id="desc-toggle" style="margin-top:8px">
+          <button onclick="document.getElementById('desc-text').style.display=document.getElementById('desc-text').style.display==='none'?'block':'none';this.textContent=this.textContent.includes('▾')?'Description ▸':'Description ▾'" style="background:none;border:none;color:var(--text3);font-size:11px;padding:0;cursor:pointer">Description ▸</button>
+          <div id="desc-text" style="display:none;font-size:12px;color:var(--text2);line-height:1.6;margin-top:6px">${esc(ci.description).replace(/\n/g,'<br>')}</div>
+        </div>` : ''}
+    </div>
+    ${isKids ? `<div style="background:rgba(155,125,219,0.1);border:1px solid rgba(155,125,219,0.3);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--violet-light)">👧 Cours Pole Kids · une carte dédiée peut être utilisée ici</div>` : ''}
+  `;
+
+  if (hasExisting) {
+    if (subs?.length) {
+      html += `<div class="section-label">Ton abonnement</div>${subsHtml}`;
+    }
+    if (credits?.length) {
+      html += `<div class="section-label" style="margin-top:8px">Mes cartes</div>${creditsHtml}`;
+    }
+    if (buyHtml) {
+      html += `<button onclick="const el=document.getElementById('buy-list');const open=el.style.display!=='none';el.style.display=open?'none':'block';this.textContent=open?'Acheter un forfait ▸':'Acheter un forfait ▾'" style="width:100%;background:none;border:1px dashed var(--border);border-radius:10px;padding:10px;color:var(--text3);font-size:13px;cursor:pointer;margin-top:4px;margin-bottom:4px">Acheter un forfait ▸</button>
+        <div id="buy-list" style="display:none">${buyHtml}</div>`;
+    }
+  } else {
+    html += buyHtml;
+  }
 
   html += `<button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Annuler</button>`;
   document.getElementById('modal-content').innerHTML = html;
