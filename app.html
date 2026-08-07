@@ -2094,11 +2094,13 @@ let _boutiqueTab = 'cours';
 function sortForfaits(a, b) {
   const priority = p => {
     const isDecouverte = p.one_time_only || /découverte/i.test(p.name || '');
-    if (isDecouverte) return p.sessions_count || 1;
-    if (p.type === 'unite' && p.valid_for === 'all') return 10;
-    if (p.type === 'unite' && p.valid_for === 'reformer') return 20;
-    if (p.type === 'carte') return 30 + (p.sessions_count || 0);
-    if (p.type === 'unite' && p.valid_for === 'non_reformer') return 50;
+    if (isDecouverte) return p.sessions_count || 1;          // 1, 5
+    if (p.type === 'unite' && p.valid_for === 'all') return 10;       // Cours à l'unité
+    if (p.type === 'unite' && p.valid_for === 'reformer') return 20;  // Reformer à l'unité
+    if (p.type === 'unite' && p.valid_for === 'non_reformer') return 30; // Practice à l'unité
+    if (p.type === 'carte') return 40 + (p.sessions_count || 0);      // Carte 10, Carte 20
+    if (p.type === 'abo_mensuel') return 60 + (p.sort_order || 0);
+    if (p.type === 'abo_illimite') return 70;
     return 99;
   };
   return priority(a) - priority(b);
@@ -2145,11 +2147,6 @@ async function loadBoutique() {
   const isParentEnfant = p => { const n = (p.name + ' ' + (p.description || '')).toLowerCase(); return n.includes('parent') && n.includes('enfant'); };
   const kidsOnly = kidsAll.filter(p => !isParentEnfant(p));
   const parentEnfant = kidsAll.filter(p => isParentEnfant(p));
-  const sortKids = arr => {
-    const unites = [...arr].filter(p => p.type === 'unite' || p.type === 'carte').sort(sortForfaits);
-    const abos = [...arr].filter(p => p.type === 'abo_mensuel' || p.type === 'abo_illimite');
-    return [...unites, ...abos];
-  };
 
   const isStudent = currentProfile?.is_student === true;
   const renderForfait = p => {
@@ -2211,15 +2208,12 @@ async function loadBoutique() {
 
   const renderKidsSection = (list, label, emoji) => {
     if (!list.length) return '';
-    const sorted = sortKids(list);
-    const unites = sorted.filter(p => p.type === 'unite' || p.type === 'carte');
-    const abosK = sorted.filter(p => p.type === 'abo_mensuel' || p.type === 'abo_illimite');
+    const sorted = [...list].sort(sortForfaits);
     return `
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
         <div style="font-size:14px;font-weight:600;color:var(--text1);margin-bottom:4px">${emoji} ${label}</div>
         <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Forfaits utilisables uniquement dans ces cours.</div>
-        ${unites.length ? `<div class="section-label">Cours à l'unité & Cartes</div>${unites.map(renderForfait).join('')}` : ''}
-        ${abosK.length ? `<div class="section-label" style="margin-top:12px">Abonnements</div>${abosK.map(renderAbo).join('')}` : ''}
+        ${sorted.map(p => (p.type === 'abo_mensuel' || p.type === 'abo_illimite') ? renderAbo(p) : renderForfait(p)).join('')}
       </div>`;
   };
 
