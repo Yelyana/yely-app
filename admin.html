@@ -1806,12 +1806,29 @@ function openProductModal(p) {
       </div>
     </div>
     <div class="form-group">
-      <label>Valable pour</label>
-      <select id="p-validfor">
-        <option value="all" ${p?.valid_for==='all'?'selected':''}>Tous les cours</option>
-        <option value="non_reformer" ${p?.valid_for==='non_reformer'?'selected':''}>Hors Pilates Reformer</option>
-        <option value="reformer" ${p?.valid_for==='reformer'?'selected':''}>Pilates Reformer uniquement</option>
-      </select>
+      <label>Utilisable dans ces cours</label>
+      <div style="display:flex;flex-direction:column;gap:8px;padding:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px">
+        <label style="display:flex;align-items:center;gap:10px;margin:0;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="p-for-collectif" ${p?.for_collectif ? 'checked' : ''} style="width:auto">
+          🎭 Cours collectifs (Pole, Yoga, Cerceau…)
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;margin:0;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="p-for-reformer" ${p?.for_reformer ? 'checked' : ''} style="width:auto">
+          🛏️ Cours Pilates Reformer
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;margin:0;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="p-for-practice" ${p?.for_practice ? 'checked' : ''} style="width:auto">
+          🦇 Practice libre
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;margin:0;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="p-for-kids" ${p?.for_kids ? 'checked' : ''} style="width:auto">
+          👧 Pole Kids
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;margin:0;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="p-for-parent-enfant" ${p?.for_parent_enfant ? 'checked' : ''} style="width:auto">
+          👨‍👧 Parent-Enfant
+        </label>
+      </div>
     </div>
     <div class="form-group"><label>Description</label><textarea id="p-desc" rows="2">${p?.description || ''}</textarea></div>
     <div id="engagement-fields" style="${['abo_illimite','abo_mensuel'].includes(p?.type) ? '' : 'display:none'}">
@@ -1835,14 +1852,6 @@ function openProductModal(p) {
     <div class="form-group" style="display:flex;align-items:center;gap:10px">
       <input type="checkbox" id="p-onetime" ${p?.one_time_only ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">Usage unique (ex: Pack découverte — ne peut être acheté qu'une seule fois)</label>
-    </div>
-    <div class="form-group" style="display:flex;align-items:center;gap:10px">
-      <input type="checkbox" id="p-kids-only" ${p?.kids_only ? 'checked' : ''} style="width:auto">
-      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">👧 Réservé aux cours Pole Kids / parent-enfant uniquement</label>
-    </div>
-    <div class="form-group" style="display:flex;align-items:center;gap:10px">
-      <input type="checkbox" id="p-is-practice" ${p?.is_practice ? 'checked' : ''} style="width:auto">
-      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🦇 Accès Practice (crédit utilisable pour les sessions practice libre)</label>
     </div>
     <div class="form-group">
       <label>Max Pilates Reformer inclus (laisser vide = illimité)</label>
@@ -1884,12 +1893,24 @@ async function saveProduct(id) {
     price_cents: Math.round(parseFloat(document.getElementById('p-price').value) * 100),
     sessions_count: parseInt(document.getElementById('p-sessions').value) || null,
     validity_days: parseInt(document.getElementById('p-validity').value) || null,
-    valid_for: document.getElementById('p-validfor').value,
+    for_collectif: document.getElementById('p-for-collectif').checked,
+    for_reformer: document.getElementById('p-for-reformer').checked,
+    for_practice: document.getElementById('p-for-practice').checked,
+    for_kids: document.getElementById('p-for-kids').checked,
+    for_parent_enfant: document.getElementById('p-for-parent-enfant').checked,
+    // Rétrocompatibilité : auto-compute valid_for, kids_only, is_practice
+    valid_for: (() => {
+      const fc = document.getElementById('p-for-collectif').checked;
+      const fr = document.getElementById('p-for-reformer').checked;
+      if (fc && fr) return 'all';
+      if (fr) return 'reformer';
+      return 'non_reformer';
+    })(),
+    kids_only: document.getElementById('p-for-kids').checked && !document.getElementById('p-for-collectif').checked,
+    is_practice: document.getElementById('p-for-practice').checked,
     description: document.getElementById('p-desc').value || null,
     is_active: document.getElementById('p-active').checked,
     one_time_only: document.getElementById('p-onetime').checked,
-    kids_only: document.getElementById('p-kids-only').checked,
-    is_practice: document.getElementById('p-is-practice').checked,
     engagement_price_cents: document.getElementById('p-eng-price')?.value ? Math.round(parseFloat(document.getElementById('p-eng-price').value) * 100) : null,
     engagement_months: parseInt(document.getElementById('p-eng-months')?.value) || 0,
     max_reformer_sessions: document.getElementById('p-max-reformer').value !== '' ? parseInt(document.getElementById('p-max-reformer').value) : null,

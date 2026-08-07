@@ -898,7 +898,7 @@ async function loadPracticeHomeWidget() {
     db.from('subscriptions').select('*, products(type)').eq('student_id', currentUser.id).eq('status', 'active'),
   ]);
 
-  const practiceCredit = (credits || []).find(c => c.products?.is_practice);
+  const practiceCredit = (credits || []).find(c => c.products?.for_practice);
   const illimiteSub = (subs || []).find(s => s.products?.type === 'abo_illimite');
   const hasPracticeAccess = practiceCredit || illimiteSub;
   const deskBtn = document.getElementById('desk-nav-practice');
@@ -1225,30 +1225,34 @@ async function loadBookingForm(ci) {
   // Déterminer les forfaits compatibles
   const isReformer = ci.is_reformer;
   const isKids = isKidsCourse(ci);
-  const isPractice = /(practice|pratique libre)/i.test(ci.custom_name || ci.discipline_name || '');
-  const validFor = isReformer ? ['all', 'reformer'] : ['all', 'non_reformer'];
+  const isPractice = ci.is_practice || /(practice|pratique libre)/i.test(ci.custom_name || ci.discipline_name || '');
+  const isParentEnfant = /parent.enfant/i.test(ci.custom_name || ci.discipline_name || '');
+  const flag = isPractice ? 'for_practice' : isKids ? 'for_kids' : isParentEnfant ? 'for_parent_enfant' : isReformer ? 'for_reformer' : 'for_collectif';
 
-  // Crédits disponibles — exclure les cartes kids_only si ce n'est pas un cours kids
-  const { data: creditsAll } = await db.from('student_credits').select('*, products(*)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).in('valid_for', validFor).order('expires_at');
-  const credits = (creditsAll || []).filter(c => isKids ? c.products?.kids_only : !c.products?.kids_only);
+  // Crédits disponibles — filtrés par le bon flag produit
+  const { data: creditsAll } = await db.from('student_credits').select('*, products(*)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).order('expires_at');
+  const credits = (creditsAll || []).filter(c => {
+    const p = c.products;
+    if (!p) return false;
+    if (isPractice) return p.for_practice || p.type === 'abo_illimite';
+    return p[flag];
+  });
 
-  // Abonnements actifs — exclure kids_only si pas cours kids, et jamais sur practice libre
-  const { data: subsAll } = await db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active').in('valid_for', validFor);
-  const subs = isPractice ? [] : (subsAll || []).filter(s => isKids ? s.products?.kids_only : !s.products?.kids_only);
+  // Abonnements actifs — jamais sur practice libre
+  const { data: subsAll } = await db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active');
+  const subs = isPractice ? [] : (subsAll || []).filter(s => s.products?.[flag]);
 
-  // Produits à acheter — exclure kids_only si pas cours kids
+  // Produits à acheter — filtrés par le bon flag
   const [{ data: products }, { data: pastOrders }] = await Promise.all([
-    db.from('products').select('*').eq('is_active', true).in('valid_for', isReformer ? ['reformer', 'all'] : ['all', 'non_reformer']).order('sort_order'),
+    db.from('products').select('*').eq('is_active', true).order('sort_order'),
     db.from('orders').select('product_id').eq('student_id', currentUser.id).neq('status', 'cancelled'),
   ]);
   const alreadyBoughtIds = new Set((pastOrders || []).map(o => o.product_id));
   const availableProducts = (products || [])
     .filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id))
-    .filter(p => isKids ? p.kids_only : !p.kids_only)
     .filter(p => {
-      if (isPractice) return p.type === 'abo_illimite' || p.is_practice;
-      if (p.is_practice) return false; // accès practice jamais sur les cours collectifs
-      return true;
+      if (isPractice) return p.for_practice || p.type === 'abo_illimite';
+      return p[flag];
     })
     .sort((a, b) => {
       const isAbo = p => p.type === 'abo_illimite' || p.type === 'abo_mensuel';
@@ -1281,7 +1285,7 @@ async function loadBookingForm(ci) {
   if (credits?.length) {
     html += `<div class="section-label" style="margin-top:8px">Mes cartes</div>`;
     credits.forEach(c => {
-      const kidsTag = c.products?.kids_only ? `<span style="font-size:10px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:1px 6px;border-radius:4px;margin-left:6px">Pole Kids</span>` : '';
+      const kidsTag = (c.products?.for_kids || c.products?.for_parent_enfant) ? `<span style="font-size:10px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:1px 6px;border-radius:4px;margin-left:6px">Pole Kids</span>` : '';
       html += `<button class="cours-card" style="margin-bottom:8px" onclick="bookWithCredit(${ci.id}, ${c.id})">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div><div style="font-size:14px">${esc(c.products.name)}${kidsTag}</div><div style="font-size:11px;color:var(--violet-light)">${c.sessions_remaining} séance(s) restante(s)</div></div>
@@ -1295,7 +1299,7 @@ async function loadBookingForm(ci) {
   (availableProducts || []).forEach(p => {
     const isAbo = p.type === 'abo_illimite' || p.type === 'abo_mensuel';
     const isIllimite = p.type === 'abo_illimite';
-    const kidsTag = p.kids_only ? `<span style="font-size:10px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:1px 6px;border-radius:4px;margin-left:6px">Pole Kids</span>` : '';
+    const kidsTag = (p.for_kids || p.for_parent_enfant) ? `<span style="font-size:10px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:1px 6px;border-radius:4px;margin-left:6px">Pole Kids</span>` : '';
     const sub = isAbo ? `<span style="font-size:11px;font-weight:400;color:var(--text3)">/mois</span>` : '';
     const engagementLine = isAbo && p.engagement_price_cents ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${formatPrice(p.engagement_price_cents)}/mois avec engagement</div>` : '';
     const desc = isIllimite ? '+ practice libre ✨' : esc(p.description || '') + (p.sessions_count && p.type !== 'unite' ? ' · ' + p.sessions_count + ' cours' : '');
@@ -2099,9 +2103,9 @@ function sortForfaits(a, b) {
   const priority = p => {
     const isDecouverte = p.one_time_only || /découverte/i.test(p.name || '');
     if (isDecouverte) return p.sessions_count || 1;          // 1, 5
-    if (p.type === 'unite' && p.valid_for === 'all') return 10;       // Cours à l'unité
-    if (p.type === 'unite' && p.valid_for === 'reformer') return 20;  // Reformer à l'unité
-    if (p.is_practice) return 30; // Practice à l'unité
+    if (p.type === 'unite' && p.for_collectif && !p.for_practice) return 10;  // Cours à l'unité
+    if (p.type === 'unite' && p.for_reformer && !p.for_practice) return 20;   // Reformer à l'unité
+    if (p.for_practice && p.type === 'unite') return 30; // Practice à l'unité
     if (p.type === 'carte') return 40 + (p.sessions_count || 0);      // Carte 10, Carte 20
     if (p.type === 'abo_mensuel') return 60 + (p.sort_order || 0);
     if (p.type === 'abo_illimite') return 70;
@@ -2144,13 +2148,11 @@ async function loadBoutique() {
     return;
   }
 
-  const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.kids_only)
+  const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.for_kids && !p.for_parent_enfant)
     .sort(sortForfaits);
-  const abos = (products || []).filter(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') && !p.kids_only);
-  const kidsAll = (products || []).filter(p => p.kids_only);
-  const isParentEnfant = p => { const n = (p.name + ' ' + (p.description || '')).toLowerCase(); return n.includes('parent') && n.includes('enfant'); };
-  const kidsOnly = kidsAll.filter(p => !isParentEnfant(p));
-  const parentEnfant = kidsAll.filter(p => isParentEnfant(p));
+  const abos = (products || []).filter(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') && !p.for_kids && !p.for_parent_enfant);
+  const kidsOnly = (products || []).filter(p => p.for_kids);
+  const parentEnfant = (products || []).filter(p => p.for_parent_enfant);
 
   const isStudent = currentProfile?.is_student === true;
   const renderForfait = p => {
@@ -3255,7 +3257,7 @@ async function loadPractice() {
     db.from('subscriptions').select('*, products(type)').eq('student_id', currentUser.id).eq('status', 'active'),
   ]);
 
-  const practiceCredit = (credits || []).find(c => c.products?.is_practice);
+  const practiceCredit = (credits || []).find(c => c.products?.for_practice);
   const illimiteSub = (subs || []).find(s => s.products?.type === 'abo_illimite');
 
   if (!practiceCredit && !illimiteSub) {
@@ -3346,12 +3348,12 @@ async function openPracticeShop() {
   document.getElementById('modal-content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
   const [{ data: products }, { data: pastOrders }] = await Promise.all([
-    db.from('products').select('*').eq('is_active', true).in('type', ['unite', 'abo_illimite']).eq('kids_only', false).order('sort_order'),
+    db.from('products').select('*').eq('is_active', true).order('sort_order'),
     db.from('orders').select('product_id').eq('student_id', currentUser.id).neq('status', 'cancelled'),
   ]);
   const alreadyBoughtIds = new Set((pastOrders || []).map(o => o.product_id));
   const available = (products || [])
-    .filter(p => p.type === 'abo_illimite' || p.is_practice)
+    .filter(p => p.for_practice || p.type === 'abo_illimite')
     .filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id));
 
   let html = `<h3 class="serif" style="font-size:22px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">Forfaits Practice</h3>
