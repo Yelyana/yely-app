@@ -898,7 +898,7 @@ async function loadPracticeHomeWidget() {
     db.from('subscriptions').select('*, products(type)').eq('student_id', currentUser.id).eq('status', 'active'),
   ]);
 
-  const practiceCredit = (credits || []).find(c => c.products?.type === 'unite');
+  const practiceCredit = (credits || []).find(c => c.products?.type === 'unite' && c.products?.valid_for === 'non_reformer');
   const illimiteSub = (subs || []).find(s => s.products?.type === 'abo_illimite');
   const hasPracticeAccess = practiceCredit || illimiteSub;
   const deskBtn = document.getElementById('desk-nav-practice');
@@ -3255,7 +3255,7 @@ async function loadPractice() {
     db.from('subscriptions').select('*, products(type)').eq('student_id', currentUser.id).eq('status', 'active'),
   ]);
 
-  const practiceCredit = (credits || []).find(c => c.products?.type === 'unite');
+  const practiceCredit = (credits || []).find(c => c.products?.type === 'unite' && c.products?.valid_for === 'non_reformer');
   const illimiteSub = (subs || []).find(s => s.products?.type === 'abo_illimite');
 
   if (!practiceCredit && !illimiteSub) {
