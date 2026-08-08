@@ -2377,6 +2377,7 @@ function confirmAndPayInstallments(productId, applyStudentDiscount = false) {
 }
 
 async function confirmAndPay(productId, engagement, applyStudentDiscount = false, childId = null) {
+  try {
   const p = window._boutiqueProducts[productId];
   if (!p) return;
   const basePrice = engagement && p.engagement_price_cents ? p.engagement_price_cents : p.price_cents;
@@ -2438,6 +2439,7 @@ async function confirmAndPay(productId, engagement, applyStudentDiscount = false
     </div>
   `;
   document.getElementById('booking-modal').classList.add('open');
+  } catch(e) { showToast('Erreur : ' + e.message, true); }
 }
 
 async function openTeacherProfileModal(teacherName) {
