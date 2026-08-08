@@ -1111,7 +1111,15 @@ async function loadCoursesForWeek() {
     const dayCourses = (allActive || []).filter(ci => ci.date === dStr);
     const dayCancelled = (allCancelled || []).filter(ci => ci.date === dStr && myCancelledSet.has(ci.id));
     if (!dayCourses.length && !dayCancelled.length) continue;
-    html += `<div class="section-label" style="margin-top:${i > 0 ? '20px' : '0'}">${JOURS_FULL[(d.getDay() || 7) - 1]} ${d.getDate()} ${d.toLocaleString('fr', { month: 'long' })}</div>`;
+    const isToday = isSameDay(d, new Date());
+    html += `<div style="display:flex;align-items:center;gap:10px;margin:${i > 0 ? '24px' : '4px'} 0 8px">
+      <div style="width:36px;height:36px;border-radius:50%;background:${isToday ? 'var(--violet)' : 'var(--card)'};border:1px solid ${isToday ? 'var(--violet)' : 'var(--border)'};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+        <div style="font-size:9px;font-weight:700;color:${isToday ? 'rgba(255,255,255,0.7)' : 'var(--text3)'};line-height:1;text-transform:uppercase">${JOURS[(d.getDay() || 7) - 1].slice(0,3)}</div>
+        <div style="font-size:14px;font-weight:700;color:${isToday ? '#fff' : 'var(--text1)'};line-height:1">${d.getDate()}</div>
+      </div>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <div style="font-size:11px;color:var(--text3)">${d.toLocaleString('fr', { month: 'long' })}</div>
+    </div>`;
     html += dayCourses.map(ci => renderCourseCard(ci, myBookingMap[ci.id], myWaitlistSet.has(ci.id), myWaitlistPos[ci.id])).join('');
     html += dayCancelled.map(ci => `
       <div class="cours-card" style="opacity:0.5;cursor:default;border-color:rgba(232,122,122,0.3);background:rgba(232,122,122,0.05)">
@@ -1230,8 +1238,11 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
   const isWaiting = myWaitlist === true;
   const spotsClass = ci.spots_remaining > 3 ? '' : ci.spots_remaining > 0 ? 'low' : 'full';
   const spotsText = isFull ? 'Complet' : ci.spots_remaining === 1 ? '1 place' : `${ci.spots_remaining} places`;
+  const salleInfo = { air: { label: 'Air', color: '#5B9BD5', emoji: '🦇' }, terre: { label: 'Terre', color: '#5A9370', emoji: '🌿' } }[ci.salle] || { label: ci.salle || 'Salle', color: 'var(--text3)', emoji: '' };
+  const salleBg = ci.salle === 'air' ? 'rgba(91,155,213,0.06)' : ci.salle === 'terre' ? 'rgba(90,147,112,0.06)' : 'transparent';
   return `
     <div class="cours-card ${isBooked ? 'selected' : ''}"
+         style="background:${salleBg}"
          onclick="openBookingModal(${JSON.stringify(ci).replace(/"/g, '&quot;')}, '${myStatus || ''}', ${isWaiting}, ${waitlistPos || 'null'})">
       <div style="display:flex;gap:12px;align-items:stretch">
         <div class="cours-bar" style="background:${ci.discipline_color}"></div>
@@ -1244,7 +1255,10 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
             <div class="cours-time">${formatTime(ci.start_time)}</div>
             ${ci.level ? `<span style="font-size:12px;font-weight:600;background:${ci.discipline_color}33;color:${ci.discipline_color};padding:3px 9px;border-radius:6px">${esc(ci.level)}</span>` : ''}
           </div>
-          <div class="cours-meta">${ci.duration_minutes} min · ${esc(ci.teacher_name || 'Ana')} · ${{ air: '🦇 Salle Air', terre: '🌿 Salle Terre' }[ci.salle] || ci.salle || 'Salle'}</div>
+          <div class="cours-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span>${ci.duration_minutes} min · ${esc(ci.teacher_name || 'Ana')}</span>
+            <span style="display:inline-flex;align-items:center;gap:3px;background:${salleInfo.color}22;color:${salleInfo.color};padding:2px 7px;border-radius:6px;font-size:11px;font-weight:600">${salleInfo.emoji} ${salleInfo.label}</span>
+          </div>
           ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${(esc(ci.description).match(/^[^.!?]+[.!?]/) || [esc(ci.description)])[0].trim()}</div>` : ''}
           ${isBooked ? '<div style="font-size:11px;color:var(--violet);margin-top:4px">✓ Réservé</div>' : ''}
           ${isWaiting ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">⏳ Liste d'attente${waitlistPos ? ' · position ' + waitlistPos : ''}</div>` : ''}
@@ -1605,10 +1619,28 @@ async function buyAndBookInstallments(instanceId, productId) {
   await redirectToStripe(productId, false, false, true);
 }
 
+async function getFreshSession() {
+  let { data: { session } } = await db.auth.getSession();
+  if (!session) {
+    const { data } = await db.auth.refreshSession();
+    session = data?.session;
+  } else {
+    try {
+      const exp = JSON.parse(atob(session.access_token.split('.')[1])).exp;
+      if (exp - Math.floor(Date.now() / 1000) < 120) {
+        const { data } = await db.auth.refreshSession();
+        if (data?.session) session = data.session;
+      }
+    } catch(_) {}
+  }
+  return session;
+}
+
 async function redirectToStripe(productId, engagement, applyReferralDiscount = false, installments = false, applyStudentDiscount = false, applyDiscoveryDiscount = false, childId = null) {
   showToast('Redirection vers le paiement…');
   try {
-    const session = (await db.auth.getSession())?.data?.session;
+    const session = await getFreshSession();
+    if (!session) return showToast('Session expirée, reconnecte-toi 🔄', true);
     const body = { product_id: productId, engagement, apply_referral_discount: applyReferralDiscount, installments, apply_student_discount: applyStudentDiscount, apply_discovery_discount: applyDiscoveryDiscount };
     if (childId) body.child_id = childId;
     const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-checkout-session', {
@@ -1627,7 +1659,8 @@ async function redirectToStripe(productId, engagement, applyReferralDiscount = f
 async function openStripePortal() {
   showToast('Chargement de tes factures…');
   try {
-    const session = (await db.auth.getSession())?.data?.session;
+    const session = await getFreshSession();
+    if (!session) return showToast('Session expirée, reconnecte-toi 🔄', true);
     const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-portal-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
@@ -2639,10 +2672,15 @@ async function loadProfil() {
     childrenCard.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="font-size:12px;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase">👧 Mes enfants</div>
-        <button class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:12px" onclick="addChildModal()">+ Ajouter</button>
+        ${(children || []).length > 0 ? `<button class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:12px" onclick="addChildModal()">+ Ajouter</button>` : ''}
       </div>
       ${(children || []).length === 0
-        ? `<div style="font-size:13px;color:var(--text3)">Aucun enfant enregistré.<br><span style="font-size:11px">Ajoute un enfant pour réserver les cours Pole Kids.</span></div>`
+        ? `<div style="text-align:center;padding:8px 0 4px">
+            <div style="font-size:28px;margin-bottom:8px">👧</div>
+            <div style="font-size:14px;font-weight:500;margin-bottom:4px">Aucun enfant enregistré</div>
+            <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Ajoute un enfant pour pouvoir réserver les cours Pole Kids.</div>
+            <button class="btn btn-primary btn-sm" onclick="addChildModal()" style="width:100%">+ Ajouter un enfant</button>
+           </div>`
         : (children || []).map(c => {
             const age = c.birthdate ? Math.floor((Date.now() - new Date(c.birthdate)) / 31557600000) : null;
             return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
