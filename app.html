@@ -420,13 +420,7 @@ select option { background: var(--card); }
       <div style="font-size:13px;color:var(--text2)" id="week-label"></div>
       <button class="btn btn-ghost btn-sm" onclick="changeWeek(1)">Suiv. ›</button>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
-      <div class="week-days" id="week-days" style="margin-bottom:0;flex:1"></div>
-      <div style="display:flex;gap:4px;flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:3px">
-        <button id="view-btn-day" onclick="setPlanningView('day')" style="padding:5px 10px;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;background:var(--violet);color:#fff;transition:all 0.15s">Jour</button>
-        <button id="view-btn-week" onclick="setPlanningView('week')" style="padding:5px 10px;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;background:none;color:var(--text3);transition:all 0.15s">Semaine</button>
-      </div>
-    </div>
+    <div class="week-days" id="week-days"></div>
     <div id="cours-list"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 
@@ -585,7 +579,6 @@ let currentProfile = null;
 let currentScreen = 'auth';
 let selectedWeekOffset = 0;
 let selectedDay = null;
-let _planningView = 'day';
 const STUDIO_OPENS = new Date('2026-09-07T00:00:00');
 
 function getMondayOf(date) {
@@ -1052,93 +1045,7 @@ function changeWeek(dir) {
   selectedWeekOffset += dir;
   selectedDay = getWeekDates()[0];
   renderWeekDays();
-  if (_planningView === 'week') loadCoursesForWeek();
-  else loadCoursesForDay(selectedDay);
-}
-
-function setPlanningView(view) {
-  _planningView = view;
-  const dayBtn = document.getElementById('view-btn-day');
-  const weekBtn = document.getElementById('view-btn-week');
-  if (dayBtn && weekBtn) {
-    dayBtn.style.background = view === 'day' ? 'var(--violet)' : 'none';
-    dayBtn.style.color = view === 'day' ? '#fff' : 'var(--text3)';
-    weekBtn.style.background = view === 'week' ? 'var(--violet)' : 'none';
-    weekBtn.style.color = view === 'week' ? '#fff' : 'var(--text3)';
-  }
-  const weekDaysEl = document.getElementById('week-days');
-  if (weekDaysEl) weekDaysEl.style.display = view === 'week' ? 'none' : '';
-  if (view === 'week') loadCoursesForWeek();
-  else loadCoursesForDay(selectedDay || new Date());
-}
-
-async function loadCoursesForWeek() {
-  const container = document.getElementById('cours-list');
-  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  const dates = getWeekDates();
-  const dateStrs = dates.map(d => d.toISOString().split('T')[0]);
-
-  const [{ data: allActive }, { data: allCancelled }] = await Promise.all([
-    db.from('course_instances_with_availability').select('*').in('date', dateStrs).eq('status', 'active').order('date').order('start_time'),
-    db.from('course_instances_with_availability').select('*').in('date', dateStrs).eq('status', 'cancelled').order('date').order('start_time'),
-  ]);
-
-  const instanceIds = (allActive || []).map(d => d.id);
-  const cancelledIds = (allCancelled || []).map(d => d.id);
-  const courseIds = (allActive || []).map(d => d.course_id).filter(Boolean);
-
-  const [{ data: myBookings }, { data: myWaitlist }, { data: myCancelledBookings }, { data: practiceFlags }] = await Promise.all([
-    instanceIds.length ? db.from('bookings').select('course_instance_id, status').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
-    instanceIds.length ? db.from('waitlist').select('course_instance_id, position').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
-    cancelledIds.length ? db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).in('course_instance_id', cancelledIds).eq('status', 'cancelled') : { data: [] },
-    courseIds.length ? db.from('courses').select('id, is_practice').in('id', courseIds) : { data: [] },
-  ]);
-
-  const myBookingMap = {};
-  (myBookings || []).forEach(b => myBookingMap[b.course_instance_id] = b.status);
-  const myWaitlistSet = new Set((myWaitlist || []).map(w => w.course_instance_id));
-  const myWaitlistPos = {};
-  (myWaitlist || []).forEach(w => myWaitlistPos[w.course_instance_id] = w.position);
-  const myCancelledSet = new Set((myCancelledBookings || []).map(b => b.course_instance_id));
-  const practiceMap = {};
-  (practiceFlags || []).forEach(c => practiceMap[c.id] = c.is_practice);
-  (allActive || []).forEach(ci => { ci.is_practice = practiceMap[ci.course_id] || false; });
-
-  let html = '';
-  for (let i = 0; i < dates.length; i++) {
-    const d = dates[i];
-    const dStr = dateStrs[i];
-    const dayCourses = (allActive || []).filter(ci => ci.date === dStr);
-    const dayCancelled = (allCancelled || []).filter(ci => ci.date === dStr && myCancelledSet.has(ci.id));
-    if (!dayCourses.length && !dayCancelled.length) continue;
-    const isToday = isSameDay(d, new Date());
-    html += `<div style="display:flex;align-items:center;gap:10px;margin:${i > 0 ? '24px' : '4px'} 0 8px">
-      <div style="width:36px;height:36px;border-radius:50%;background:${isToday ? 'var(--violet)' : 'var(--card)'};border:1px solid ${isToday ? 'var(--violet)' : 'var(--border)'};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
-        <div style="font-size:9px;font-weight:700;color:${isToday ? 'rgba(255,255,255,0.7)' : 'var(--text3)'};line-height:1;text-transform:uppercase">${JOURS[(d.getDay() || 7) - 1].slice(0,3)}</div>
-        <div style="font-size:14px;font-weight:700;color:${isToday ? '#fff' : 'var(--text1)'};line-height:1">${d.getDate()}</div>
-      </div>
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-      <div style="font-size:11px;color:var(--text3)">${d.toLocaleString('fr', { month: 'long' })}</div>
-    </div>`;
-    html += dayCourses.map(ci => renderCourseCard(ci, myBookingMap[ci.id], myWaitlistSet.has(ci.id), myWaitlistPos[ci.id])).join('');
-    html += dayCancelled.map(ci => `
-      <div class="cours-card" style="opacity:0.5;cursor:default;border-color:rgba(232,122,122,0.3);background:rgba(232,122,122,0.05)">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div class="cours-bar" style="background:var(--red)"></div>
-          <div>
-            <div style="font-size:15px;font-weight:500">${esc(ci.custom_name || ci.discipline_name || 'Cours')}</div>
-            <div style="font-size:12px;color:var(--text3)">${ci.start_time?.slice(0,5) || ''}</div>
-          </div>
-          <span style="margin-left:auto;font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(232,122,122,0.15);color:var(--red);font-weight:600">Annulé</span>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Ta séance t'a été rendue automatiquement.</div>
-      </div>`).join('');
-  }
-
-  if (!html) {
-    html = `<div style="text-align:center;padding:40px 20px;color:var(--text3)"><div style="font-size:28px;margin-bottom:8px">🌿</div><div>Pas de cours cette semaine</div></div>`;
-  }
-  container.innerHTML = html;
+  loadCoursesForDay(selectedDay);
 }
 
 async function loadCoursesForDay(date) {
@@ -1206,7 +1113,7 @@ async function loadCoursesForDay(date) {
 
 function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
   // Créneau practice libre — carte spéciale sans réservation
-  const isPracticeCard = ci.is_practice || /(practice|pratique libre)/i.test(ci.custom_name || ci.discipline_name || '');
+  const isPracticeCard = ci.is_practice === true;
   if (isPracticeCard) {
     const [h, m] = (ci.start_time || '00:00').split(':').map(Number);
     const endMin = h * 60 + m + (ci.duration_minutes || 0);
@@ -1333,7 +1240,7 @@ async function loadBookingForm(ci) {
   // Déterminer les forfaits compatibles
   const isReformer = ci.is_reformer;
   const isKids = isKidsCourse(ci);
-  const isPractice = ci.is_practice || /(practice|pratique libre)/i.test(ci.custom_name || ci.discipline_name || '');
+  const isPractice = ci.is_practice === true;
   const isParentEnfant = /parent.enfant/i.test(ci.custom_name || ci.discipline_name || '');
   const flag = isPractice ? 'for_practice' : isKids ? 'for_kids' : isParentEnfant ? 'for_parent_enfant' : isReformer ? 'for_reformer' : 'for_collectif';
 
@@ -1648,6 +1555,10 @@ async function redirectToStripe(productId, engagement, applyReferralDiscount = f
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       body: JSON.stringify(body),
     });
+    if (res.status === 401) {
+      await db.auth.signOut();
+      return showToast('Session expirée — reconnecte-toi', true);
+    }
     const { url, error } = await res.json();
     if (error) return showToast('Erreur : ' + error, true);
     window.location.href = url;
@@ -2666,33 +2577,14 @@ async function loadProfil() {
     db.from('orders').select('*, products(name, price_cents)').eq('student_id', currentUser.id).neq('status', 'cancelled').order('created_at', { ascending: false }).limit(10),
     db.from('victories').select('*', { count: 'exact', head: true }).eq('student_id', currentUser.id),
   ]);
-  // Carte enfants
-  const childrenCard = document.getElementById('children-card');
-  if (childrenCard) {
-    childrenCard.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-size:12px;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase">👧 Mes enfants</div>
-        ${(children || []).length > 0 ? `<button class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:12px" onclick="addChildModal()">+ Ajouter</button>` : ''}
-      </div>
-      ${(children || []).length === 0
-        ? `<div style="text-align:center;padding:8px 0 4px">
-            <div style="font-size:28px;margin-bottom:8px">👧</div>
-            <div style="font-size:14px;font-weight:500;margin-bottom:4px">Aucun enfant enregistré</div>
-            <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Ajoute un enfant pour pouvoir réserver les cours Pole Kids.</div>
-            <button class="btn btn-primary btn-sm" onclick="addChildModal()" style="width:100%">+ Ajouter un enfant</button>
-           </div>`
-        : (children || []).map(c => {
-            const age = c.birthdate ? Math.floor((Date.now() - new Date(c.birthdate)) / 31557600000) : null;
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-              <div>
-                <div style="font-size:14px;font-weight:500">${esc(c.first_name)}</div>
-                ${age !== null ? `<div style="font-size:11px;color:var(--text3)">${age} ans</div>` : ''}
-              </div>
-              <button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px;color:var(--red)" onclick="deleteChild(${c.id})">Supprimer</button>
-            </div>`;
-          }).join('')}
-    `;
+  // Badge enfants dans les paramètres
+  const badge = document.getElementById('children-count-badge');
+  if (badge) {
+    const n = (children || []).length;
+    badge.textContent = n > 0 ? `${n} enfant${n > 1 ? 's' : ''} ›` : '+ Ajouter ›';
+    badge.style.color = n > 0 ? 'var(--text3)' : 'var(--violet)';
   }
+  window._cachedChildren = children || [];
   setTimeout(updateNotifStatus, 100);
   const initials = currentProfile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const totalCredits = (credits||[]).reduce((s,c) => s + c.sessions_remaining, 0);
@@ -2766,8 +2658,6 @@ async function loadProfil() {
         <div class="stat-box"><div class="stat-val">${(subs||[]).length + (credits||[]).length}</div><div class="stat-lbl">Forfaits actifs</div></div>
       </div>
     </div>
-
-    <div class="card card-sm" id="children-card" style="margin-bottom:12px"></div>
 
     ${orders?.length ? `
     <div class="card card-sm" style="margin-bottom:12px">
@@ -2862,6 +2752,9 @@ async function loadProfil() {
       <div class="settings-row" onclick="showInstallGuide()">
         <span>📲 Installer l'appli</span><span style="color:var(--text3)">›</span>
       </div>
+      <div class="settings-row" onclick="manageChildrenModal()" id="children-settings-row">
+        <span>👧 Mes enfants</span><span id="children-count-badge" style="color:var(--text3);font-size:12px">›</span>
+      </div>
     </div>
 
     <button class="btn" onclick="navigate('historique')" style="margin-bottom:12px;background:var(--card);border:1px solid var(--border);color:var(--text)">
@@ -2872,6 +2765,31 @@ async function loadProfil() {
     <button class="btn btn-ghost" onclick="requestAccountDeletion()" style="margin-top:10px;color:var(--text3);border-color:var(--border);font-size:13px">Supprimer mon compte</button>
     <div style="text-align:center;padding:16px 0;font-size:11px;color:var(--text3)">Yely in the Air · v1.0</div>
   `;
+}
+
+function manageChildrenModal() {
+  const children = window._cachedChildren || [];
+  const modal = document.getElementById('booking-modal');
+  modal.classList.add('open');
+  const renderList = () => {
+    const n = children.length;
+    document.getElementById('modal-content').innerHTML = `
+      <div style="font-size:17px;font-weight:600;margin-bottom:16px">👧 Mes enfants</div>
+      ${n === 0 ? `<div style="text-align:center;padding:16px 0;color:var(--text3);font-size:13px">Aucun enfant enregistré</div>` :
+        children.map(c => {
+          const age = c.birthdate ? Math.floor((Date.now() - new Date(c.birthdate)) / 31557600000) : null;
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-size:14px;font-weight:500">${esc(c.first_name)}</div>
+              ${age !== null ? `<div style="font-size:11px;color:var(--text3)">${age} ans</div>` : ''}
+            </div>
+            <button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--red)" onclick="deleteChild(${c.id})">Supprimer</button>
+          </div>`;
+        }).join('')}
+      <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="closeModal();addChildModal()">+ Ajouter un enfant</button>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Fermer</button>`;
+  };
+  renderList();
 }
 
 function addChildModal() {
