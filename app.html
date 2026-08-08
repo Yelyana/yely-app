@@ -3666,6 +3666,8 @@ async function openPracticeShop() {
     db.from('orders').select('product_id').eq('student_id', currentUser.id).neq('status', 'cancelled'),
   ]);
   const alreadyBoughtIds = new Set((pastOrders || []).map(o => o.product_id));
+  if (!window._boutiqueProducts) window._boutiqueProducts = {};
+  (products || []).forEach(p => { window._boutiqueProducts[p.id] = p; });
   const available = (products || [])
     .filter(p => p.for_practice || p.type === 'abo_illimite')
     .filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id));
