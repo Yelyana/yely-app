@@ -1450,7 +1450,7 @@ async function loadBookingForm(ci) {
       <h3 class="serif" style="font-size:20px;font-weight:300;margin-bottom:6px;color:var(--ivoire)">${esc(name)}</h3>
       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">
         <div style="font-size:12px;color:var(--text3)">${formatDate(ci.date)}</div>
-        <div style="font-size:12px;color:var(--text3)">${formatTime(ci.start_time)} · <span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="openTeacherProfileModal('${esc(ci.teacher_name || 'Ana')}')">${esc(ci.teacher_name || 'Ana')}</span></div>
+        <div style="font-size:12px;color:var(--text3)">${formatTime(ci.start_time)} · <span style="cursor:pointer;color:var(--violet-light);font-weight:500" onclick="openTeacherProfileModal('${ci.teacher_id||''}','${esc(ci.teacher_name || 'Ana')}')">${esc(ci.teacher_name || 'Ana')} ↗</span></div>
         ${spotsText ? `<div style="font-size:12px;color:var(--violet-light)">${spotsText}</div>` : ''}
       </div>
       ${ci.description ? (() => {
@@ -2561,22 +2561,103 @@ async function confirmAndPay(productId, engagement, applyStudentDiscount = false
   } catch(e) { showToast('Erreur : ' + e.message, true); }
 }
 
-async function openTeacherProfileModal(teacherName) {
-  const { data: prof } = await db.from('profiles').select('full_name, avatar_url, bio, instagram_url').eq('full_name', teacherName).maybeSingle();
-  const name = prof?.full_name || teacherName;
-  const avatar = prof?.avatar_url
-    ? `<img src="${safeUrl(prof.avatar_url)}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--violet);margin-bottom:12px">`
-    : `<div style="width:80px;height:80px;border-radius:50%;background:var(--violet-dark);border:2px solid var(--violet);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--violet-light);margin:0 auto 12px">${esc(name[0] || '?')}</div>`;
-  document.getElementById('modal-content').innerHTML = `
-    <div style="text-align:center;padding-bottom:8px">
-      ${avatar}
-      <div style="font-size:19px;font-weight:600;margin-bottom:4px">${esc(name)}</div>
-      <div style="font-size:12px;color:var(--violet-light);margin-bottom:${prof?.bio ? '16px' : '4px'}">Professeure · Yely in the Air</div>
-      ${prof?.bio ? `<div style="font-size:13px;color:var(--text2);line-height:1.6;text-align:left;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px 14px;margin-bottom:12px">${esc(prof.bio).replace(/\n/g,'<br>')}</div>` : ''}
-      ${prof?.instagram_url ? `<a href="${safeUrl(prof.instagram_url)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--violet-light);text-decoration:none;margin-bottom:16px">📸 Instagram</a>` : ''}
-    </div>
-    <button class="btn btn-ghost" style="width:100%" onclick="closeModal()">Fermer</button>`;
+const _TEACHER_DATA = {
+  'Ana': {
+    role: 'Fondatrice & professeure',
+    disciplines: ['Pole Dance', 'Cerceau Aérien', 'Souplesse'],
+    instagram: 'https://www.instagram.com/yelyintheair/',
+    bio: "Pendant longtemps, j'ai pensé que je n'aimais tout simplement pas le sport. Puis j'ai découvert la pole dance, le cerceau aérien et la souplesse — et j'ai compris que bouger pouvait être bien plus que « faire du sport ».\n\nCes disciplines ont fini par me pousser à quitter un emploi stable pour créer Yely in the Air : un studio où l'on peut commencer sans être sportif, souple ou expérimenté, et progresser sans pression ni jugement.",
+  },
+  'Coline': {
+    role: 'Professeure',
+    disciplines: ['Pole Dance', 'Cerceau Aérien'],
+    instagram: 'https://www.instagram.com/coco_with_the_flow/',
+    bio: "Passionnée de pole dance depuis 5 ans, j'ai à cœur d'accompagner chaque élève dans sa propre aventure. Mon objectif est de créer un espace bienveillant où chacun peut progresser à son rythme, gagner en confiance et découvrir les capacités de son corps.\n\nÀ travers mes cours, je souhaite transmettre bien plus que des figures techniques : le plaisir de bouger, la fierté de chaque progrès, le dépassement de soi et la liberté de s'exprimer.",
+  },
+  'Mélissa': {
+    role: 'Professeure',
+    disciplines: ['Pole Dance', 'Renforcement'],
+    instagram: 'https://www.instagram.com/melissaleterrier',
+    bio: "La pole dance est vite devenue une véritable passion. Elle m'a donné envie de me dépasser, d'apprendre, d'expérimenter et de continuer à évoluer, jusqu'à avoir envie de la transmettre à mon tour.\n\nDans mes cours, j'accorde une attention particulière aux bases, aux lignes, aux transitions et à la qualité du mouvement — dans un cadre bienveillant où chacun·e peut progresser à son rythme et prendre plaisir à bouger.",
+  },
+  'Anita': {
+    role: 'Professeure',
+    disciplines: ['Yoga Doux', 'Yoga Dynamique', 'Souplesse & Mobilité'],
+    instagram: 'https://www.instagram.com/_anitash_/',
+    bio: "J'enseigne le yoga avec une approche bienveillante et respectueuse du corps. Formée au yoga et à la mobilité fonctionnelle, je crée des cours où l'on progresse en sécurité et à l'écoute de son corps.\n\nMon parcours dans le théâtre et la danse m'a appris combien il est précieux de construire une relation de confiance avec son corps — c'est pourquoi je propose plusieurs niveaux et différentes intensités, du yoga doux au yoga dynamique.",
+  },
+  'Myriam': {
+    role: 'Professeure',
+    disciplines: ['Reformer Pilates', 'Fly Heart', 'Voyage Sonore'],
+    instagram: 'https://www.instagram.com/myriam_zumbafit/',
+    bio: "Passionnée par le mouvement, le bien-être et l'accompagnement, j'ai à cœur d'aider chaque personne à retrouver confiance en son corps et en ses capacités. J'adapte chacun de mes cours aux besoins, au niveau et aux objectifs de mes élèves — dans un cadre rassurant où le plaisir de bouger est au centre de chaque séance.\n\nAu-delà du travail physique, j'aime transmettre des valeurs qui me sont chères : le dépassement de soi, le lâcher-prise, la confiance et l'équilibre entre le corps et l'esprit.",
+  },
+};
+
+async function openTeacherProfileModal(teacherId, teacherName) {
+  document.getElementById('modal-content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   document.getElementById('booking-modal').classList.add('open');
+
+  const query = teacherId
+    ? db.from('profiles').select('id, full_name, avatar_url, bio, instagram_url').eq('id', teacherId).maybeSingle()
+    : db.from('profiles').select('id, full_name, avatar_url, bio, instagram_url').eq('full_name', teacherName).maybeSingle();
+  const { data: prof } = await query;
+
+  const name = prof?.full_name || teacherName || 'Professeure';
+  const firstName = name.split(' ')[0];
+  const hardcoded = _TEACHER_DATA[firstName] || {};
+  const bio = prof?.bio || hardcoded.bio || '';
+  const instagram = safeUrl(prof?.instagram_url || hardcoded.instagram || '');
+  const role = hardcoded.role || 'Professeure · Yely in the Air';
+  const disciplines = hardcoded.disciplines || [];
+
+  const avatarSrc = safeUrl(prof?.avatar_url);
+  const avatar = avatarSrc
+    ? `<img src="${avatarSrc}" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:2px solid var(--violet);margin-bottom:12px">`
+    : `<div style="width:88px;height:88px;border-radius:50%;background:var(--violet-dark);border:2px solid var(--violet);display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--violet-light);margin:0 auto 12px">${esc(firstName[0] || '?')}</div>`;
+
+  const disciplinesHtml = disciplines.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:14px">${disciplines.map(d => `<span style="font-size:11px;background:var(--violet-dark);color:var(--violet-light);border-radius:20px;padding:3px 10px">${esc(d)}</span>`).join('')}</div>`
+    : '';
+
+  const today = new Date().toISOString().slice(0,10);
+  const refId = prof?.id || teacherId;
+  const { data: upcoming } = refId
+    ? await db.from('course_instances')
+        .select('date, courses(custom_name, start_time, disciplines(name,color))')
+        .eq('teacher_id', refId)
+        .eq('status','active')
+        .gte('date', today)
+        .order('date').order('courses(start_time)')
+        .limit(4)
+    : { data: [] };
+
+  const upcomingHtml = upcoming?.length ? `
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Prochains cours</div>
+      ${upcoming.map(ci => {
+        const color = ci.courses?.disciplines?.color || '#a78bfa';
+        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:3px;height:32px;border-radius:2px;background:${color};flex-shrink:0"></div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text)">${esc(ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours')}</div>
+            <div style="font-size:11px;color:var(--text3)">${new Date(ci.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})} · ${(ci.courses?.start_time||'').slice(0,5)}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  document.getElementById('modal-content').innerHTML = `
+    <div style="text-align:center;padding-bottom:4px">
+      ${avatar}
+      <div style="font-size:19px;font-weight:600;margin-bottom:3px">${esc(name)}</div>
+      <div style="font-size:12px;color:var(--violet-light);margin-bottom:12px">${esc(role)}</div>
+      ${disciplinesHtml}
+      ${bio ? `<div style="font-size:13px;color:var(--text2);line-height:1.65;text-align:left;margin-bottom:14px">${esc(bio).replace(/\n/g,'<br>')}</div>` : ''}
+      ${instagram ? `<a href="${instagram}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--violet-light);text-decoration:none;margin-bottom:14px;background:var(--violet-dark);padding:6px 14px;border-radius:20px">📸 Instagram</a>` : ''}
+    </div>
+    ${upcomingHtml}
+    <button class="btn btn-ghost" style="width:100%;margin-top:16px" onclick="closeModal()">Fermer</button>`;
 }
 
 async function selectChildThenPay(productId, engagement, applyStudentDiscount = false) {
