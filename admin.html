@@ -1682,13 +1682,52 @@ async function sendInvite() {
 }
 
 // ── REVENUS ───────────────────────────────────────────────
+async function exportStudentsCSV() {
+  const { data: students } = await db.from('profiles').select('full_name, email, created_at, is_fondatrice, is_student').eq('role', 'student').order('full_name');
+  const { data: subs } = await db.from('subscriptions').select('student_id, status, products(name)').eq('status', 'active');
+  const { data: credits } = await db.from('student_credits').select('student_id, sessions_remaining, products(name)').gt('sessions_remaining', 0);
+  const subMap = {};
+  (subs || []).forEach(s => { subMap[s.student_id] = s.products?.name || ''; });
+  const creditMap = {};
+  (credits || []).forEach(c => {
+    if (!creditMap[c.student_id]) creditMap[c.student_id] = [];
+    creditMap[c.student_id].push(`${c.products?.name || '?'} (${c.sessions_remaining} séances)`);
+  });
+  const rows = [['Nom', 'Email', 'Inscrite le', 'Abonnement actif', 'Crédits actifs', 'Fondatrice', 'Étudiante']];
+  (students || []).forEach(s => {
+    rows.push([
+      s.full_name || '',
+      s.email || '',
+      s.created_at ? new Date(s.created_at).toLocaleDateString('fr-FR') : '',
+      subMap[s.id] || '',
+      (creditMap[s.id] || []).join(' | '),
+      s.is_fondatrice ? 'Oui' : '',
+      s.is_student ? 'Oui' : '',
+    ]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `yely-eleves-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 async function loadRevenus() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const [{ data: revenue }, { data: orders }, { data: byTeacher }] = await Promise.all([
+  // Calcul des 6 derniers mois
+  const months6 = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (5 - i));
+    return d.toISOString().slice(0, 7);
+  });
+  const sixMonthsAgo = months6[0] + '-01';
+  const [{ data: revenue }, { data: orders }, { data: byTeacher }, { data: ordersHistory }] = await Promise.all([
     db.from('teacher_revenue').select('*').eq('month', thisMonth + '-01'),
     db.from('orders').select('*, products(name), profiles(full_name)').eq('status', 'paid').gte('created_at', thisMonth + '-01').order('created_at', { ascending: false }),
     db.from('teacher_revenue').select('*').order('month', { ascending: false }).limit(30),
+    db.from('orders').select('amount_cents, created_at').eq('status', 'paid').gte('created_at', sixMonthsAgo),
   ]);
   const methodLabel = { especes: '💵 Espèces', virement: '🏦 Virement', cheque: '📄 Chèque', offert: '🎁 Offert', stripe: '💳 Carte' };
 
@@ -1704,16 +1743,51 @@ async function loadRevenus() {
     byProfMap[r.teacher_name].students += r.students_taught;
   });
 
+  // Calcul CA par mois sur 6 mois
+  const caByMonth = {};
+  months6.forEach(m => { caByMonth[m] = 0; });
+  (ordersHistory || []).forEach(o => {
+    const m = o.created_at?.slice(0, 7);
+    if (m && caByMonth[m] !== undefined) caByMonth[m] += o.amount_cents;
+  });
+  const caValues = months6.map(m => caByMonth[m]);
+  const caMax = Math.max(...caValues, 1);
+  const chartW = 520, chartH = 140, barW = 54, gap = 32, padL = 48, padB = 28;
+  const totalWidth = months6.length * (barW + gap) - gap + padL;
+  const monthLabels = months6.map(m => new Date(m + '-15').toLocaleDateString('fr-FR', { month: 'short' }));
+  const bars = months6.map((m, i) => {
+    const val = caValues[i];
+    const barH = Math.round((val / caMax) * (chartH - padB));
+    const x = padL + i * (barW + gap);
+    const y = chartH - padB - barH;
+    const isCurrentMonth = m === thisMonth;
+    const label = val > 0 ? `<text x="${x + barW/2}" y="${y - 5}" text-anchor="middle" font-size="10" fill="${isCurrentMonth ? '#c4a8f5' : '#8b7bb5'}">${Math.round(val/100)}€</text>` : '';
+    return `${label}
+      <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="6" fill="${isCurrentMonth ? '#7c3aed' : '#3b2060'}"/>
+      <text x="${x + barW/2}" y="${chartH - 6}" text-anchor="middle" font-size="10" fill="#6b5c8a">${monthLabels[i]}</text>`;
+  }).join('');
+  const chartSvg = `<svg viewBox="0 0 ${totalWidth} ${chartH}" style="width:100%;overflow:visible">
+    <line x1="${padL}" y1="0" x2="${padL}" y2="${chartH - padB}" stroke="#2a1f4e" stroke-width="1"/>
+    <line x1="${padL}" y1="${chartH - padB}" x2="${totalWidth}" y2="${chartH - padB}" stroke="#2a1f4e" stroke-width="1"/>
+    ${bars}
+  </svg>`;
+
   document.getElementById('main-content').innerHTML = `
-    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
       <div><div class="page-title">Revenus</div><div class="page-sub">${new Date().toLocaleString('fr', { month: 'long', year: 'numeric' })}</div></div>
-      <button class="btn btn-primary" onclick="openPaymentModal()">+ Enregistrer un paiement</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="exportStudentsCSV()">📥 Export élèves CSV</button>
+        <button class="btn btn-primary" onclick="openPaymentModal()">+ Enregistrer un paiement</button>
+      </div>
     </div>
     <div class="grid-3">
       <div class="stat-card"><div class="stat-val">${formatPrice(totalCA)}</div><div class="stat-lbl">CA ce mois</div></div>
       <div class="stat-card"><div class="stat-val">${totalCours}</div><div class="stat-lbl">Cours donnés</div></div>
       <div class="stat-card"><div class="stat-val">${totalEleves}</div><div class="stat-lbl">Passages élèves</div></div>
     </div>
+
+    <div class="section-title">CA sur 6 mois</div>
+    <div class="card" style="margin-bottom:24px;padding:20px 16px 8px">${chartSvg}</div>
 
     <div class="section-title">Par professeur — ce mois</div>
     <div class="card" style="margin-bottom:24px">
