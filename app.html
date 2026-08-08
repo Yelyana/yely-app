@@ -1477,7 +1477,8 @@ async function loadBookingForm(ci) {
   } else {
     forfaitsHtml += buyHtml;
   }
-  forfaitsHtml += `<button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Annuler</button>`;
+  forfaitsHtml += `<p style="font-size:11px;color:var(--text3);text-align:center;margin-top:12px;margin-bottom:0">Annulation possible jusqu'à 24h avant le cours</p>`;
+  forfaitsHtml += `<button class="btn btn-ghost" style="margin-top:6px" onclick="closeModal()">Annuler</button>`;
 
   const html = `<div class="booking-layout">
     <div class="booking-info">${infoHtml}</div>
