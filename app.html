@@ -862,7 +862,7 @@ async function loadHome() {
     const teacherName = c?.profiles?.full_name || '';
     el.innerHTML = `
       <div style="margin-bottom:14px">
-        <div class="serif" style="font-size:26px;color:var(--ivoire);font-weight:300">${d?.name || c?.custom_name || 'Cours'}</div>
+        <div class="serif" style="font-size:26px;color:var(--ivoire);font-weight:300">${esc(d?.name || c?.custom_name || 'Cours')}</div>
         <div style="font-size:13px;color:var(--text2);margin-top:4px">${formatDate(ci.date)} · ${formatTime(c.start_time)}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
@@ -1203,7 +1203,7 @@ async function loadCoursesForDay(date) {
         <div style="display:flex;align-items:center;gap:10px">
           <div class="cours-bar" style="background:var(--red)"></div>
           <div>
-            <div style="font-size:15px;font-weight:500">${ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours'}</div>
+            <div style="font-size:15px;font-weight:500">${esc(ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours')}</div>
             <div style="font-size:12px;color:var(--text3)">${ci.start_time?.slice(0,5) || ''}</div>
           </div>
         </div>
@@ -1292,8 +1292,8 @@ function openBookingModal(ci, myStatus, isWaiting, waitlistPos) {
 
   if (myStatus === 'confirmed') {
     document.getElementById('modal-content').innerHTML = `
-      <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${name}</h3>
-      <p style="color:var(--text3);font-size:13px;margin-bottom:20px">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${ci.teacher_name}</p>
+      <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${esc(name)}</h3>
+      <p style="color:var(--text3);font-size:13px;margin-bottom:20px">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${esc(ci.teacher_name||'')}</p>
       <div class="card card-sm" style="background:rgba(155,125,219,0.1);border-color:var(--violet);margin-bottom:20px">
         <div style="color:var(--violet);font-size:13px">✓ Tu es inscrite à ce cours</div>
       </div>
@@ -1302,7 +1302,7 @@ function openBookingModal(ci, myStatus, isWaiting, waitlistPos) {
     `;
   } else if (isWaiting) {
     document.getElementById('modal-content').innerHTML = `
-      <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${name}</h3>
+      <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${esc(name)}</h3>
       <p style="color:var(--text3);font-size:13px;margin-bottom:20px">${formatDate(ci.date)} · ${formatTime(ci.start_time)}</p>
       <div class="card card-sm" style="background:rgba(200,200,200,0.08);border-color:var(--border);margin-bottom:20px">
         <div style="font-size:13px;color:var(--text2)">⏳ Tu es en liste d'attente${waitlistPos ? ` · <strong>position ${waitlistPos}</strong>` : ''}.<br><span style="color:var(--text3);font-size:12px">Tu seras automatiquement inscrite si une place se libère.</span></div>
@@ -1312,7 +1312,7 @@ function openBookingModal(ci, myStatus, isWaiting, waitlistPos) {
     `;
   } else if (isFull) {
     document.getElementById('modal-content').innerHTML = `
-      <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${name}</h3>
+      <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${esc(name)}</h3>
       <p style="color:var(--text3);font-size:13px;margin-bottom:20px">${formatDate(ci.date)} · ${formatTime(ci.start_time)}</p>
       <div class="card card-sm" style="background:rgba(200,200,200,0.08);border-color:var(--border);margin-bottom:20px">
         <div style="font-size:13px;color:var(--text2)">Ce cours est complet.<br><span style="color:var(--text3);font-size:12px">Rejoins la liste d'attente — tu seras prévenue automatiquement si une place se libère.</span></div>
@@ -1539,7 +1539,8 @@ async function checkReformerBookingWindow(instanceId) {
 
 async function _doBookWithSub(instanceId, subId, childId) {
   if (!await checkReformerBookingWindow(instanceId)) return;
-  const { data: sub } = await db.from('subscriptions').select('*, products(*)').eq('id', subId).single();
+  const { data: sub } = await db.from('subscriptions').select('*, products(*)').eq('id', subId).eq('student_id', currentUser.id).single();
+  if (!sub) return showToast('Abonnement introuvable', true);
   if (sub.products.type === 'abo_mensuel' && sub.sessions_used_this_month >= sub.products.sessions_per_month) {
     return showToast('Tu as utilisé toutes tes séances ce mois', true);
   }
@@ -1592,7 +1593,8 @@ async function bookWithCredit(instanceId, creditId) {
 
 async function _doBookWithCredit(instanceId, creditId, childId) {
   if (!await checkReformerBookingWindow(instanceId)) return;
-  const { data: credit } = await db.from('student_credits').select('*, products(*)').eq('id', creditId).single();
+  const { data: credit } = await db.from('student_credits').select('*, products(*)').eq('id', creditId).eq('student_id', currentUser.id).single();
+  if (!credit) return showToast('Crédit introuvable', true);
   if (credit.sessions_remaining <= 0) return showToast('Plus de séances disponibles', true);
 
   // Vérifier la limite reformer du pack (ex: pack découverte = max 1 reformer)
@@ -1844,7 +1846,7 @@ async function loadJournal() {
     ${entries?.length ? entries.map(e => `
       <div class="card card-sm" style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><div style="font-size:13px">${e.course_instances?.courses?.disciplines?.name || 'Cours'}</div>
+          <div><div style="font-size:13px">${esc(e.course_instances?.courses?.disciplines?.name || 'Cours')}</div>
           <div style="font-size:11px;color:var(--text3)">${relativeDate(e.created_at)}</div></div>
           <div style="font-size:18px">${FEELINGS[e.feeling] || e.feeling}</div>
         </div>
@@ -2051,11 +2053,11 @@ async function loadProgression() {
     <div class="section-label">Mes forfaits</div>
     <div class="card card-sm" style="margin-bottom:12px">
       ${(credits || []).map(c => `<div class="settings-row" style="cursor:default">
-        <div><div style="font-size:13px">${c.products.name}</div><div style="font-size:11px;color:var(--violet-light)">${c.sessions_remaining} séance(s) restante(s)</div></div>
+        <div><div style="font-size:13px">${esc(c.products.name)}</div><div style="font-size:11px;color:var(--violet-light)">${c.sessions_remaining} séance(s) restante(s)</div></div>
         ${c.expires_at ? `<div style="font-size:11px;color:var(--text3)">exp. ${formatDate(c.expires_at)}</div>` : ''}
       </div>`).join('')}
       ${(subs || []).map(s => `<div class="settings-row" style="cursor:default">
-        <div><div style="font-size:13px">${s.products.name}</div><div style="font-size:11px;color:var(--green)">Actif</div></div>
+        <div><div style="font-size:13px">${esc(s.products.name)}</div><div style="font-size:11px;color:var(--green)">Actif</div></div>
         <div style="font-size:11px;color:var(--text3)">jusqu'au ${formatDate(s.current_period_end)}</div>
       </div>`).join('')}
     </div>` : `
@@ -2234,7 +2236,7 @@ document.addEventListener('click', e => { if (!e.target.closest('[id^="cmenu-"]'
 
 async function deleteCommPost(postId) {
   if (!confirm('Supprimer ce post ?')) return;
-  await db.from('community_posts').delete().eq('id', postId);
+  await db.from('community_posts').delete().eq('id', postId).eq('author_id', currentUser.id);
   showToast('Post supprimé'); loadCommunaute();
 }
 
@@ -2255,7 +2257,7 @@ async function editCommPost(postId) {
 async function saveCommPost(postId) {
   const content = document.getElementById(`cedit-${postId}`)?.value.trim();
   if (!content) return showToast('Le message ne peut pas être vide', true);
-  await db.from('community_posts').update({ content }).eq('id', postId);
+  await db.from('community_posts').update({ content }).eq('id', postId).eq('author_id', currentUser.id);
   showToast('Modifié !'); loadCommunaute();
 }
 
@@ -2818,7 +2820,7 @@ async function loadProfil() {
       <div style="font-size:10px;color:var(--violet-light);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">Mes crédits</div>
       ${credits.map(c => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(155,125,219,0.15)">
-          <div style="font-size:13px;color:var(--text2)">${c.products?.name || '—'}</div>
+          <div style="font-size:13px;color:var(--text2)">${esc(c.products?.name || '—')}</div>
           <div style="font-size:14px;font-weight:600;color:var(--violet-light)">${c.sessions_remaining} séance${c.sessions_remaining>1?'s':''}</div>
         </div>`).join('')}
       <div style="text-align:right;margin-top:8px;font-size:12px;color:var(--text3)">Total : <strong style="color:var(--ivoire)">${totalCredits} séance${totalCredits>1?'s':''}</strong></div>
@@ -2827,7 +2829,7 @@ async function loadProfil() {
     ${subs?.length ? subs.map(s => `
     <div class="abo-card">
       <div style="font-size:10px;color:var(--violet-light);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Abonnement actif</div>
-      <div style="font-size:18px;margin-bottom:4px">${s.products.name}</div>
+      <div style="font-size:18px;margin-bottom:4px">${esc(s.products.name)}</div>
       ${s.products.type === 'abo_mensuel' && s.started_at ? `
         <div style="font-size:13px;color:var(--green);margin-bottom:2px">${s.products.sessions_per_month - s.sessions_used_this_month} séance${(s.products.sessions_per_month - s.sessions_used_this_month) > 1 ? 's' : ''} restante${(s.products.sessions_per_month - s.sessions_used_this_month) > 1 ? 's' : ''}</div>
         <div style="font-size:11px;color:var(--text3)">Reset le ${subResetDate(s.started_at)} · 4 semaines glissantes</div>
@@ -2846,7 +2848,7 @@ async function loadProfil() {
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
           <div style="width:3px;height:32px;background:${color};border-radius:2px;flex-shrink:0"></div>
           <div>
-            <div style="font-size:13px;font-weight:500">${name}</div>
+            <div style="font-size:13px;font-weight:500">${esc(name)}</div>
             <div style="font-size:11px;color:var(--text3)">${date} · ${time}</div>
           </div>
         </div>`;
@@ -2891,11 +2893,11 @@ async function loadProfil() {
             <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Mon code</div>
             <div style="font-size:22px;font-weight:600;color:var(--violet-light);letter-spacing:3px">${code}</div>
           </div>
-          <button onclick="navigator.clipboard.writeText('${code}').then(()=>showToast('Code copié !'))" style="background:var(--violet);border:none;border-radius:10px;padding:10px 16px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Copier</button>
+          <button onclick="navigator.clipboard.writeText('${esc(code)}').then(()=>showToast('Code copié !'))" style="background:var(--violet);border:none;border-radius:10px;padding:10px 16px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Copier</button>
         </div>
         <div style="font-size:12px;color:var(--text3);margin-bottom:6px">${filleuls || 0} filleul${(filleuls||0) > 1 ? 's' : ''} parrainé${(filleuls||0) > 1 ? 's' : ''}</div>
         <div style="font-size:11px;color:var(--text3);line-height:1.5;border-top:1px solid rgba(155,125,219,0.15);padding-top:8px">Partage ton code — toi et la personne que tu invites recevez chacune <strong style="color:var(--violet-light)">-10%</strong> sur votre prochain forfait.</div>
-        ${currentProfile.referred_by ? `<div style="font-size:11px;color:var(--text3);margin-top:6px;border-top:1px solid rgba(155,125,219,0.2);padding-top:6px">Parrainé·e avec le code <span style="color:var(--violet-light)">${currentProfile.referred_by}</span></div>` : ''}
+        ${currentProfile.referred_by ? `<div style="font-size:11px;color:var(--text3);margin-top:6px;border-top:1px solid rgba(155,125,219,0.2);padding-top:6px">Parrainé·e avec le code <span style="color:var(--violet-light)">${esc(currentProfile.referred_by)}</span></div>` : ''}
       </div>`;
     })()}
 
@@ -3031,7 +3033,7 @@ async function deleteChild(id) {
 }
 
 async function confirmDeleteChild(id) {
-  await db.from('children').delete().eq('id', id);
+  await db.from('children').delete().eq('id', id).eq('parent_id', currentUser.id);
   closeModal(); showToast('Enfant supprimé'); loadProfil();
 }
 

@@ -204,6 +204,9 @@ function esc(str) {
   if (str == null) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+function safeUrl(url) {
+  try { const u = new URL(url); return u.protocol === 'https:' ? url : null; } catch { return null; }
+}
 
 function callSendPush(opts) {
   if (!currentUser) return;
@@ -275,7 +278,9 @@ async function initProf(user) {
   const mobAvatar = document.getElementById('mob-avatar');
   if (mobAvatar) {
     mobAvatar.style.opacity = '1';
-    if (currentProf.avatar_url) mobAvatar.innerHTML = `<img src="${currentProf.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    const safeAv = safeUrl(currentProf.avatar_url);
+    if (safeAv) mobAvatar.innerHTML = `<img src="${safeAv}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    else if (!currentProf.avatar_url) void 0;
     else mobAvatar.textContent = initials;
   }
   showPage('planning');
@@ -415,7 +420,7 @@ async function loadPlanning() {
 
     ${next ? `<div style="background:linear-gradient(135deg,var(--accent)22,var(--accent)11);border:1px solid var(--accent)44;border-radius:16px;padding:16px;margin-bottom:20px">
       <div style="font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Prochain cours</div>
-      <div style="font-size:16px;font-weight:600">${next.courses?.custom_name || 'Cours'}</div>
+      <div style="font-size:16px;font-weight:600">${esc(next.courses?.custom_name || 'Cours')}</div>
       <div style="font-size:12px;color:var(--text2);margin-top:4px">${new Date(next.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} · ${next.courses?.start_time?.slice(0,5)}</div>
       <button onclick="openSeance('${next.id}')" style="margin-top:10px;padding:6px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:12px;font-weight:500">Voir les présences →</button>
     </div>` : ''}
@@ -606,6 +611,8 @@ function updateWALinks(students) {
 async function sendMessageCours(instanceId) {
   const text = document.getElementById('msg-text').value.trim();
   if (!text) return showToast('Écris un message', true);
+  const { data: instance } = await db.from('course_instances').select('teacher_id').eq('id', instanceId).single();
+  if (!instance || instance.teacher_id !== currentUser.id) return showToast('Non autorisé', true);
   const { data: bookings } = await db.from('bookings')
     .select('student_id').eq('course_instance_id', instanceId).eq('status','confirmed');
   const studentIds = (bookings||[]).map(b => b.student_id);
@@ -762,11 +769,11 @@ async function openEleveDetail(studentId, name) {
       return `<div style="margin-bottom:12px">
         <div class="section-title">🩺 Fiche santé</div>
         <div style="background:var(--bg);border-radius:12px;padding:12px;font-size:13px;display:flex;flex-direction:column;gap:5px">
-          ${h.niveau ? `<div><span style="color:var(--text3)">Niveau :</span> ${h.niveau}</div>` : ''}
-          ${h.objectifs?.length ? `<div><span style="color:var(--text3)">Objectifs :</span> ${h.objectifs.join(', ')}</div>` : ''}
-          ${h.contre_indications ? `<div style="color:var(--red)">⚠️ <span style="color:var(--text3)">Contre-indications :</span> ${h.contre_indications}</div>` : ''}
-          ${h.allergies ? `<div><span style="color:var(--text3)">Allergies :</span> ${h.allergies}</div>` : ''}
-          ${h.urgence_nom ? `<div><span style="color:var(--text3)">Urgence :</span> ${h.urgence_nom} — ${h.urgence_tel||'—'}</div>` : ''}
+          ${h.niveau ? `<div><span style="color:var(--text3)">Niveau :</span> ${esc(h.niveau)}</div>` : ''}
+          ${h.objectifs?.length ? `<div><span style="color:var(--text3)">Objectifs :</span> ${esc(h.objectifs.join(', '))}</div>` : ''}
+          ${h.contre_indications ? `<div style="color:var(--red)">⚠️ <span style="color:var(--text3)">Contre-indications :</span> ${esc(h.contre_indications)}</div>` : ''}
+          ${h.allergies ? `<div><span style="color:var(--text3)">Allergies :</span> ${esc(h.allergies)}</div>` : ''}
+          ${h.urgence_nom ? `<div><span style="color:var(--text3)">Urgence :</span> ${esc(h.urgence_nom)} — ${esc(h.urgence_tel||'—')}</div>` : ''}
         </div>
       </div>`;
     })()}
@@ -775,7 +782,7 @@ async function openEleveDetail(studentId, name) {
     <textarea id="eleve-objectives-${studentId}" rows="3" placeholder="Ex: Travailler la souplesse des hanches, améliorer le timing…" style="width:100%;margin-bottom:8px">${existingNote?.objectives || ''}</textarea>
     <button class="btn btn-ghost btn-sm" onclick="saveObjectives('${studentId}')">Sauvegarder</button>
 
-    <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="openProfPayment('${studentId}','${name.replace(/'/g,"\\'")}')">💵 Encaisser un forfait</button>
+    <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="openProfPayment('${studentId}',${JSON.stringify(name).replace(/</g,'\\u003c')})">💵 Encaisser un forfait</button>
     <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="closeModal()">Fermer</button>
   `;
   openModal();
@@ -863,8 +870,8 @@ async function renderCommTab() {
 
   const postHtml = (posts || []).map(p => {
     const initials = p.profiles?.full_name?.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) || '?';
-    const avatar = p.profiles?.avatar_url
-      ? `<img src="${p.profiles.avatar_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">`
+    const avatar = safeUrl(p.profiles?.avatar_url)
+      ? `<img src="${safeUrl(p.profiles.avatar_url)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">`
       : `<div style="width:36px;height:36px;border-radius:50%;background:var(--accent)22;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--accent);flex-shrink:0">${initials}</div>`;
     const role = p.profiles?.role;
     const badge = role === 'admin' ? `<span style="font-size:9px;background:rgba(155,125,219,0.2);color:var(--accent);padding:2px 6px;border-radius:10px;margin-left:6px">Ana</span>`
@@ -878,7 +885,7 @@ async function renderCommTab() {
       <div style="position:relative;display:inline-block">
         <button onclick="togglePostMenu(${p.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px">⋯</button>
         <div id="pmenu-${p.id}" style="display:none;position:absolute;right:0;top:24px;background:var(--bg3,#231e30);border:1px solid var(--border);border-radius:10px;z-index:20;min-width:130px;box-shadow:0 4px 20px rgba(0,0,0,0.4)">
-          <button onclick="editProfPost(${p.id},\`${p.content.replace(/`/g,'\\`')}\`)" style="display:block;width:100%;padding:10px 14px;background:none;border:none;color:var(--text);font-size:13px;text-align:left;cursor:pointer">✏️ Modifier</button>
+          <button onclick="editProfPost(${p.id},${JSON.stringify(p.content).replace(/</g,'\\u003c').replace(/"/g,'&quot;')})" style="display:block;width:100%;padding:10px 14px;background:none;border:none;color:var(--text);font-size:13px;text-align:left;cursor:pointer">✏️ Modifier</button>
           <button onclick="deleteProfPost(${p.id})" style="display:block;width:100%;padding:10px 14px;background:none;border:none;color:var(--red);font-size:13px;text-align:left;cursor:pointer">🗑 Supprimer</button>
         </div>
       </div>` : '';
@@ -1040,8 +1047,8 @@ async function toggleProfComments(postId) {
     .order('created_at', { ascending: true });
   const commHtml = (comments||[]).map(c => {
     const initials = c.profiles?.full_name?.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2)||'?';
-    const av = c.profiles?.avatar_url
-      ? `<img src="${c.profiles.avatar_url}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+    const av = safeUrl(c.profiles?.avatar_url)
+      ? `<img src="${safeUrl(c.profiles.avatar_url)}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0">`
       : `<div style="width:26px;height:26px;border-radius:50%;background:var(--accent)22;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--accent);flex-shrink:0">${initials}</div>`;
     return `<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">
       ${av}

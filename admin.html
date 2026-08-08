@@ -428,7 +428,7 @@ async function loadDashboard() {
             return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)" onclick="viewInstance('${ci.id}')" style="cursor:pointer">
               <div style="width:3px;height:36px;background:${color};border-radius:2px;flex-shrink:0"></div>
               <div style="flex:1">
-                <div style="font-size:13px;font-weight:500">${name}</div>
+                <div style="font-size:13px;font-weight:500">${esc(name)}</div>
                 <div style="font-size:11px;color:var(--text3)">${ci.courses?.start_time?.slice(0,5)} · ${max} places</div>
               </div>
             </div>`;
@@ -446,7 +446,7 @@ async function loadDashboard() {
               <div style="display:flex;align-items:center;gap:10px">
                 <div style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0"></div>
                 <div><div style="font-size:13px">${esc(b.profiles?.full_name||'—')}</div>
-                <div style="font-size:11px;color:var(--text3)">${name} · ${date}</div></div>
+                <div style="font-size:11px;color:var(--text3)">${esc(name)} · ${date}</div></div>
               </div><span class="badge badge-green">✓</span>
             </div>`;
           }).join('') : '<div style="color:var(--text3);padding:20px;text-align:center">Aucune réservation</div>'}
@@ -462,7 +462,7 @@ async function loadDashboard() {
             const pct = Math.round(d.count / (topCoursArr[0][1].count||1) * 100);
             return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
               <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                <span style="font-size:13px">${i===0?'🥇':i===1?'🥈':i===2?'🥉':''} ${name}</span>
+                <span style="font-size:13px">${i===0?'🥇':i===1?'🥈':i===2?'🥉':''} ${esc(name)}</span>
                 <span style="font-size:12px;color:var(--text3)">${d.count} résa</span>
               </div>
               <div style="height:4px;background:var(--border);border-radius:2px">
@@ -479,7 +479,7 @@ async function loadDashboard() {
             const pct = Math.round(count / maxProd * 100);
             return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
               <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                <span style="font-size:13px">${name}</span>
+                <span style="font-size:13px">${esc(name)}</span>
                 <span style="font-size:12px;color:var(--text3)">${count} achat${count>1?'s':''}</span>
               </div>
               <div style="height:4px;background:var(--border);border-radius:2px">
@@ -881,7 +881,7 @@ function openCourseModal(course, disciplines, teachers) {
     <div class="modal-title">${isNew ? 'Nouveau cours' : 'Modifier le cours'}</div>
     <div class="form-group">
       <label>Nom du cours</label>
-      <input type="text" id="m-name" value="${course?.custom_name || ''}" placeholder="Ex: Pole Initiation, Workshop Tissu…">
+      <input type="text" id="m-name" value="${esc(course?.custom_name || '')}" placeholder="Ex: Pole Initiation, Workshop Tissu…">
     </div>
     <div class="form-group">
       <label>Discipline</label>
@@ -1410,7 +1410,7 @@ async function doSendMessage(studentIds) {
 async function addCreditsModal(studentId, name) {
   const { data: products } = await db.from('products').select('*').eq('is_active', true).in('type', ['carte']).order('sort_order');
   document.getElementById('modal-body').innerHTML = `
-    <div class="modal-title">Enregistrer un paiement — ${name}</div>
+    <div class="modal-title">Enregistrer un paiement — ${esc(name)}</div>
     <div class="form-group"><label>Forfait</label>
       <select id="ac-product">${products?.map(p => `<option value="${p.id}" data-sessions="${p.sessions_count}" data-valid="${p.valid_for}" data-days="${p.validity_days || 120}" data-price="${p.price_cents}">${p.name} (${p.sessions_count} séances · ${formatPrice(p.price_cents)})</option>`).join('')}</select>
     </div>
@@ -1427,7 +1427,7 @@ async function addCreditsModal(studentId, name) {
       <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
     </div>
   `;
-  document.getElementById('modal-overlay').style.display = 'flex';
+  openModal();
 }
 
 async function saveManualCredits(studentId) {
@@ -1476,7 +1476,7 @@ async function openPaymentModal() {
       <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
     </div>
   `;
-  document.getElementById('modal-overlay').style.display = 'flex';
+  openModal();
 }
 
 async function savePaymentModal() {
@@ -1572,7 +1572,7 @@ function openCreateTeacher() {
     <div class="form-group"><label>Prénom et nom</label><input id="ct-name" placeholder="Ex: Coline Martin"></div>
     <div class="form-group"><label>Email</label><input type="email" id="ct-email" placeholder="coline@email.com"></div>
     <div class="form-group"><label>Mot de passe temporaire</label>
-      <input type="text" id="ct-password" value="${Math.random().toString(36).slice(2,10)}">
+      <input type="text" id="ct-password" value="${crypto.randomUUID().replace(/-/g,'').slice(0,10)}">
       <div style="font-size:11px;color:var(--text3);margin-top:4px">Tu l'enverras à la prof — elle pourra le changer ensuite</div>
     </div>
     <div class="form-group"><label>Disciplines (séparées par des virgules)</label>
@@ -1676,9 +1676,7 @@ async function inviteTeacher() {
 async function sendInvite() {
   const email = document.getElementById('inv-email').value.trim();
   const name = document.getElementById('inv-name').value.trim();
-  const { data, error } = await db.auth.admin.inviteUserByEmail(email, { data: { full_name: name, role: 'teacher' } });
-  if (error) return showToast('Invitation envoyée par email (à configurer dans Supabase Auth)', false);
-  closeModal(); showToast('Invitation envoyée !');
+  showToast('Utilise "Créer un compte prof" pour créer le compte manuellement — l\'API d\'invitation n\'est pas disponible côté client.', true);
 }
 
 // ── REVENUS ───────────────────────────────────────────────
