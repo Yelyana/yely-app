@@ -420,7 +420,13 @@ select option { background: var(--card); }
       <div style="font-size:13px;color:var(--text2)" id="week-label"></div>
       <button class="btn btn-ghost btn-sm" onclick="changeWeek(1)">Suiv. ›</button>
     </div>
-    <div class="week-days" id="week-days"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+      <div class="week-days" id="week-days" style="margin-bottom:0;flex:1"></div>
+      <div style="display:flex;gap:2px;flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:3px">
+        <button id="view-btn-day" onclick="setPlanningView('day')" style="padding:4px 10px;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;background:var(--violet);color:#fff;transition:all 0.15s">Jour</button>
+        <button id="view-btn-week" onclick="setPlanningView('week')" style="padding:4px 10px;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;background:none;color:var(--text3);transition:all 0.15s">Semaine</button>
+      </div>
+    </div>
     <div id="cours-list"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 
@@ -579,6 +585,7 @@ let currentProfile = null;
 let currentScreen = 'auth';
 let selectedWeekOffset = 0;
 let selectedDay = null;
+let _planningView = 'day';
 const STUDIO_OPENS = new Date('2026-09-07T00:00:00');
 
 function getMondayOf(date) {
@@ -1045,7 +1052,108 @@ function changeWeek(dir) {
   selectedWeekOffset += dir;
   selectedDay = getWeekDates()[0];
   renderWeekDays();
-  loadCoursesForDay(selectedDay);
+  if (_planningView === 'week') loadCoursesForWeek();
+  else loadCoursesForDay(selectedDay);
+}
+
+function setPlanningView(view) {
+  _planningView = view;
+  const dayBtn = document.getElementById('view-btn-day');
+  const weekBtn = document.getElementById('view-btn-week');
+  if (dayBtn) { dayBtn.style.background = view === 'day' ? 'var(--violet)' : 'none'; dayBtn.style.color = view === 'day' ? '#fff' : 'var(--text3)'; }
+  if (weekBtn) { weekBtn.style.background = view === 'week' ? 'var(--violet)' : 'none'; weekBtn.style.color = view === 'week' ? '#fff' : 'var(--text3)'; }
+  const weekDaysEl = document.getElementById('week-days');
+  if (weekDaysEl) weekDaysEl.style.display = view === 'week' ? 'none' : '';
+  if (view === 'week') loadCoursesForWeek();
+  else loadCoursesForDay(selectedDay || new Date());
+}
+
+function renderMiniCourseCard(ci, myStatus, isWaiting, waitlistPos) {
+  const isBooked = myStatus === 'confirmed';
+  const isFull = ci.spots_remaining <= 0;
+  const isPractice = ci.is_practice === true;
+  const salleBg = ci.salle === 'air' ? 'rgba(91,155,213,0.13)' : ci.salle === 'terre' ? 'rgba(90,147,112,0.13)' : 'rgba(255,255,255,0.04)';
+  const salleDot = ci.salle === 'air' ? '#5B9BD5' : ci.salle === 'terre' ? '#5A9370' : 'var(--text3)';
+  const borderColor = isBooked ? 'var(--violet)' : isPractice ? '#8B6B4E' : (ci.discipline_color || 'var(--border)');
+  const spotsHtml = isBooked
+    ? `<span style="color:var(--violet);font-weight:700;font-size:9px">✓</span>`
+    : isWaiting ? `<span style="font-size:9px">⏳</span>`
+    : isFull ? `<span style="color:var(--red);font-size:9px">●</span>`
+    : isPractice ? `<span style="font-size:9px;color:#8B6B4E">libre</span>`
+    : `<span style="color:var(--text3);font-size:9px">${ci.spots_remaining}p</span>`;
+  return `<div onclick="openBookingModal(${JSON.stringify(ci).replace(/"/g,'&quot;')},'${myStatus||''}',${isWaiting},${waitlistPos||'null'})"
+    style="cursor:pointer;border-radius:8px;padding:5px 6px;background:${salleBg};border-left:3px solid ${borderColor};margin-bottom:3px">
+    <div style="font-size:10px;font-weight:700;color:var(--violet-light);line-height:1;margin-bottom:2px">${formatTime(ci.start_time)}</div>
+    <div style="font-size:10px;font-weight:500;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;color:var(--text1);margin-bottom:3px">${esc(ci.custom_name || ci.discipline_name || 'Cours')}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="width:5px;height:5px;border-radius:50%;background:${salleDot}"></div>
+      ${spotsHtml}
+    </div>
+  </div>`;
+}
+
+async function loadCoursesForWeek() {
+  const container = document.getElementById('cours-list');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const dates = getWeekDates();
+  const dateStrs = dates.map(d => d.toISOString().split('T')[0]);
+
+  const [{ data: allActive }, { data: allCancelled }] = await Promise.all([
+    db.from('course_instances_with_availability').select('*').in('date', dateStrs).eq('status', 'active').order('date').order('start_time'),
+    db.from('course_instances_with_availability').select('*').in('date', dateStrs).eq('status', 'cancelled').order('date').order('start_time'),
+  ]);
+
+  const instanceIds = (allActive || []).map(d => d.id);
+  const cancelledIds = (allCancelled || []).map(d => d.id);
+  const courseIds = (allActive || []).map(d => d.course_id).filter(Boolean);
+
+  const [{ data: myBookings }, { data: myWaitlist }, { data: myCancelledBookings }, { data: practiceFlags }] = await Promise.all([
+    instanceIds.length ? db.from('bookings').select('course_instance_id,status').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
+    instanceIds.length ? db.from('waitlist').select('course_instance_id,position').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
+    cancelledIds.length ? db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).in('course_instance_id', cancelledIds).eq('status', 'cancelled') : { data: [] },
+    courseIds.length ? db.from('courses').select('id,is_practice').in('id', courseIds) : { data: [] },
+  ]);
+
+  const myBookingMap = {};
+  (myBookings || []).forEach(b => myBookingMap[b.course_instance_id] = b.status);
+  const myWaitlistSet = new Set((myWaitlist || []).map(w => w.course_instance_id));
+  const myWaitlistPos = {};
+  (myWaitlist || []).forEach(w => myWaitlistPos[w.course_instance_id] = w.position);
+  const myCancelledSet = new Set((myCancelledBookings || []).map(b => b.course_instance_id));
+  const practiceMap = {};
+  (practiceFlags || []).forEach(c => practiceMap[c.id] = c.is_practice);
+  (allActive || []).forEach(ci => { ci.is_practice = practiceMap[ci.course_id] || false; });
+
+  // Grille 7 colonnes avec scroll horizontal
+  let html = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px 12px">
+    <div style="display:flex;gap:5px;min-width:560px">`;
+
+  for (let i = 0; i < 7; i++) {
+    const d = dates[i];
+    const dStr = dateStrs[i];
+    const isToday = isSameDay(d, new Date());
+    const dayCourses = (allActive || []).filter(ci => ci.date === dStr);
+    const dayCancelled = (allCancelled || []).filter(ci => ci.date === dStr && myCancelledSet.has(ci.id));
+
+    html += `<div style="flex:1;min-width:76px;max-width:130px">
+      <div style="text-align:center;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">${JOURS[i].slice(0,3)}</div>
+        <div style="width:26px;height:26px;border-radius:50%;background:${isToday ? 'var(--violet)' : 'transparent'};display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:13px;font-weight:700;color:${isToday ? '#fff' : 'var(--text1)'}">${d.getDate()}</div>
+      </div>
+      <div>
+        ${dayCourses.map(ci => renderMiniCourseCard(ci, myBookingMap[ci.id], myWaitlistSet.has(ci.id), myWaitlistPos[ci.id])).join('')}
+        ${dayCancelled.map(ci => `<div style="border-radius:8px;padding:5px 6px;background:rgba(232,122,122,0.07);border-left:3px solid var(--red);margin-bottom:3px;opacity:0.6">
+          <div style="font-size:10px;font-weight:700;color:var(--red);line-height:1;margin-bottom:2px">${ci.start_time?.slice(0,5)||''}</div>
+          <div style="font-size:10px;color:var(--text3);line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(ci.custom_name||ci.discipline_name||'Cours')}</div>
+          <div style="font-size:9px;color:var(--red);margin-top:2px">Annulé</div>
+        </div>`).join('')}
+        ${!dayCourses.length && !dayCancelled.length ? `<div style="height:20px"></div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  html += `</div></div>`;
+  container.innerHTML = html;
 }
 
 async function loadCoursesForDay(date) {
@@ -2389,18 +2497,17 @@ async function confirmAndPay(productId, engagement, applyStudentDiscount = false
   // Vérifier si l'élève a un pack découverte actif (pour -40€ sur le 1er mois d'abonnement)
   let hasDiscoveryPack = false;
   if (isAbo) {
-    const [{ data: discoveryCredits }, { data: profData }] = await Promise.all([
-      db.from('student_credits')
-        .select('id, expires_at, products(name)')
-        .eq('student_id', currentUser.id)
-        .gt('sessions_remaining', 0),
-      db.from('profiles').select('discovery_discount_used_at').eq('id', currentUser.id).single(),
-    ]);
-    const hasActivePack = (discoveryCredits || []).some(c => {
-      if (c.expires_at && new Date(c.expires_at) < new Date()) return false;
-      return /découverte/i.test(c.products?.name || '');
-    });
-    hasDiscoveryPack = hasActivePack && !profData?.discovery_discount_used_at;
+    try {
+      const [creditsRes, profRes] = await Promise.all([
+        db.from('student_credits').select('sessions_remaining, expires_at, products(name)').eq('student_id', currentUser.id).gt('sessions_remaining', 0),
+        db.from('profiles').select('discovery_discount_used_at').eq('id', currentUser.id).single(),
+      ]);
+      const hasActivePack = (creditsRes.data || []).some(c => {
+        if (c.expires_at && new Date(c.expires_at) < new Date()) return false;
+        return /découverte/i.test(c.products?.name || '');
+      });
+      hasDiscoveryPack = hasActivePack && !profRes.data?.discovery_discount_used_at;
+    } catch(_) {}
   }
 
   // Priorité des discounts : parrainage > étudiant > pack découverte (un seul à la fois)
