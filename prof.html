@@ -280,7 +280,6 @@ async function initProf(user) {
     mobAvatar.style.opacity = '1';
     const safeAv = safeUrl(currentProf.avatar_url);
     if (safeAv) mobAvatar.innerHTML = `<img src="${safeAv}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
-    else if (!currentProf.avatar_url) void 0;
     else mobAvatar.textContent = initials;
   }
   showPage('planning');
@@ -1158,12 +1157,12 @@ async function loadStats() {
 async function loadProfil() {
   const { data: teacher } = await db.from('teachers').select('*').eq('id', currentUser.id).single();
 
-  const avatarUrl = currentProf?.avatar_url;
+  const safeAvProfil = safeUrl(currentProf?.avatar_url);
   document.getElementById('main-content').innerHTML = `
     <div class="page-title">Mon profil</div>
     <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px">
-      ${avatarUrl
-        ? `<img src="${avatarUrl}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--accent)33">`
+      ${safeAvProfil
+        ? `<img src="${safeAvProfil}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--accent)33">`
         : `<div style="width:80px;height:80px;border-radius:50%;background:var(--accent)22;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--accent)">${currentProf?.full_name?.[0]||'?'}</div>`}
       <label style="cursor:pointer;padding:8px 18px;border-radius:10px;border:1px solid var(--border);font-size:13px;color:var(--text2)">
         📷 Changer ma photo
