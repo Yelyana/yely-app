@@ -1520,18 +1520,36 @@ async function buyAndBookInstallments(instanceId, productId) {
   await redirectToStripe(productId, false, false, true);
 }
 
-async function redirectToStripe(productId, engagement, applyReferralDiscount = false, installments = false, applyStudentDiscount = false, applyDiscoveryDiscount = false) {
+async function redirectToStripe(productId, engagement, applyReferralDiscount = false, installments = false, applyStudentDiscount = false, applyDiscoveryDiscount = false, childId = null) {
   showToast('Redirection vers le paiement…');
   try {
     const session = (await db.auth.getSession())?.data?.session;
+    const body = { product_id: productId, engagement, apply_referral_discount: applyReferralDiscount, installments, apply_student_discount: applyStudentDiscount, apply_discovery_discount: applyDiscoveryDiscount };
+    if (childId) body.child_id = childId;
     const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ product_id: productId, engagement, apply_referral_discount: applyReferralDiscount, installments, apply_student_discount: applyStudentDiscount, apply_discovery_discount: applyDiscoveryDiscount }),
+      body: JSON.stringify(body),
     });
     const { url, error } = await res.json();
     if (error) return showToast('Erreur : ' + error, true);
     window.location.href = url;
+  } catch(e) {
+    showToast('Erreur de connexion', true);
+  }
+}
+
+async function openStripePortal() {
+  showToast('Chargement de tes factures…');
+  try {
+    const session = (await db.auth.getSession())?.data?.session;
+    const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-portal-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    });
+    const { url, error } = await res.json();
+    if (error) return showToast('Erreur : ' + error, true);
+    window.open(url, '_blank');
   } catch(e) {
     showToast('Erreur de connexion', true);
   }
@@ -2251,11 +2269,33 @@ async function loadBoutique() {
   const renderKidsSection = (list, label, emoji) => {
     if (!list.length) return '';
     const sorted = [...list].sort(sortForfaits);
+    const renderKidsForfait = p => {
+      const displayPrice = (p.price_cents / 100).toFixed(0);
+      return `
+      <div class="card card-sm" style="margin-bottom:10px;padding:0;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px">
+          <div>
+            <div style="font-size:15px;font-weight:500">${p.name}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:3px">${p.description || ''}${p.sessions_count ? ' · ' + p.sessions_count + ' cours' : ''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${displayPrice}€</div>
+            <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="selectChildThenPay(${p.id}, false, false)">Acheter</button>
+          </div>
+        </div>
+      </div>`;
+    };
+    const renderKidsAbo = p => {
+      const html = renderAbo(p);
+      return html
+        .replace(/onclick="confirmAndPay\((\d+), false\)"/g, `onclick="selectChildThenPay($1, false, false)"`)
+        .replace(/onclick="confirmAndPay\((\d+), true\)"/g, `onclick="selectChildThenPay($1, true, false)"`);
+    };
     return `
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
         <div style="font-size:14px;font-weight:600;color:var(--text1);margin-bottom:4px">${emoji} ${label}</div>
         <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Forfaits utilisables uniquement dans ces cours.</div>
-        ${sorted.map(p => (p.type === 'abo_mensuel' || p.type === 'abo_illimite') ? renderAbo(p) : renderForfait(p)).join('')}
+        ${sorted.map(p => (p.type === 'abo_mensuel' || p.type === 'abo_illimite') ? renderKidsAbo(p) : renderKidsForfait(p)).join('')}
       </div>`;
   };
 
@@ -2295,7 +2335,7 @@ function confirmAndPayInstallments(productId, applyStudentDiscount = false) {
   document.getElementById('booking-modal').classList.add('open');
 }
 
-async function confirmAndPay(productId, engagement, applyStudentDiscount = false) {
+async function confirmAndPay(productId, engagement, applyStudentDiscount = false, childId = null) {
   const p = window._boutiqueProducts[productId];
   if (!p) return;
   const basePrice = engagement && p.engagement_price_cents ? p.engagement_price_cents : p.price_cents;
@@ -2352,13 +2392,44 @@ async function confirmAndPay(productId, engagement, applyStudentDiscount = false
       ${engagement ? '<br><br>• Engagement de 12 mois calendaires glissants à partir de la date de souscription<br>• Pause automatique et gratuite en juillet-août<br>• Reconduction automatique, résiliable avant la date anniversaire' : ''}
     </div>
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="btn btn-primary" style="flex:1" onclick="redirectToStripe(${productId}, ${engagement}, ${applyReferral}, false, ${applyStudentDiscount}, ${applyDiscovery})">Payer en sécurité →</button>
+      <button class="btn btn-primary" style="flex:1" onclick="redirectToStripe(${productId}, ${engagement}, ${applyReferral}, false, ${applyStudentDiscount}, ${applyDiscovery}, ${childId ? `'${childId}'` : 'null'})">Payer en sécurité →</button>
       <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
     </div>
   `;
   document.getElementById('booking-modal').classList.add('open');
 }
 
+async function selectChildThenPay(productId, engagement, applyStudentDiscount = false) {
+  const { data: children } = await db.from('children').select('*').eq('parent_id', currentUser.id).order('first_name');
+  if (!children || children.length === 0) {
+    document.getElementById('modal-content').innerHTML = `
+      <div style="font-size:17px;font-weight:500;margin-bottom:12px">Ce forfait est réservé aux enfants 👧</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:20px">Ajoute d'abord un enfant dans ton profil pour pouvoir acheter ce forfait.</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" style="flex:1" onclick="closeModal();showSection('profil')">Aller dans mon profil</button>
+        <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
+      </div>`;
+    document.getElementById('booking-modal').classList.add('open');
+    return;
+  }
+  if (children.length === 1) {
+    return confirmAndPay(productId, engagement, applyStudentDiscount, children[0].id);
+  }
+  document.getElementById('modal-content').innerHTML = `
+    <div style="font-size:17px;font-weight:500;margin-bottom:4px">Pour quel enfant ?</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:16px">Ce forfait sera associé à l'enfant choisi.</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      ${children.map(c => {
+        const age = c.birthdate ? Math.floor((Date.now() - new Date(c.birthdate)) / 31557600000) : null;
+        return `<button class="cours-card" style="text-align:left" onclick="closeModal();confirmAndPay(${productId}, ${engagement}, ${applyStudentDiscount}, '${c.id}')">
+          <div style="font-weight:500">${esc(c.first_name)}</div>
+          ${age !== null ? `<div style="font-size:12px;color:var(--text3)">${age} ans</div>` : ''}
+        </button>`;
+      }).join('')}
+    </div>
+    <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>`;
+  document.getElementById('booking-modal').classList.add('open');
+}
 
 async function loadHistorique() {
   const el = document.getElementById('historique-content');
@@ -2557,7 +2628,11 @@ async function loadProfil() {
           <div style="font-size:13px;font-weight:600;color:var(--text2)">${price}</div>
         </div>`;
       }).join('')}
-    </div>` : ''}
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px;font-size:12px" onclick="openStripePortal()">📄 Voir mes factures →</button>
+    </div>` : `
+    <div class="card card-sm" style="margin-bottom:12px">
+      <button class="btn btn-ghost btn-sm" style="width:100%;font-size:12px" onclick="openStripePortal()">📄 Voir mes factures →</button>
+    </div>`}
 
     ${await (async () => {
       const { count: filleuls } = await db.from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by', currentProfile.referral_code || '');
