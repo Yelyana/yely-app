@@ -1451,7 +1451,15 @@ async function loadBookingForm(ci) {
         <div style="font-size:12px;color:var(--text3)">${formatTime(ci.start_time)} · <span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="openTeacherProfileModal('${esc(ci.teacher_name || 'Ana')}')">${esc(ci.teacher_name || 'Ana')}</span></div>
         ${spotsText ? `<div style="font-size:12px;color:var(--violet-light)">${spotsText}</div>` : ''}
       </div>
-      ${ci.description ? `<div style="font-size:12px;color:var(--text2);line-height:1.6;border-top:1px solid var(--border);padding-top:10px;margin-top:10px">${esc(ci.description).replace(/\n/g,'<br>')}</div>` : ''}
+      ${ci.description ? (() => {
+        const descFirst = (ci.description.match(/^[^.!?]+[.!?]/) || [ci.description])[0].trim();
+        const hasMore = ci.description.length > descFirst.length + 3;
+        return `<div style="font-size:12px;color:var(--text2);line-height:1.6;border-top:1px solid var(--border);padding-top:10px;margin-top:10px">
+          <span id="desc-short">${esc(descFirst)}</span>
+          <span id="desc-full" style="display:none">${esc(ci.description).replace(/\n/g,'<br>')}</span>
+          ${hasMore ? `<span id="desc-toggle" onclick="const f=document.getElementById('desc-full'),s=document.getElementById('desc-short'),t=document.getElementById('desc-toggle');if(f.style.display==='none'){f.style.display='inline';s.style.display='none';t.textContent=' Voir moins'}else{f.style.display='none';s.style.display='inline';t.textContent=' Voir plus'}" style="color:var(--violet-light);cursor:pointer;font-weight:600"> Voir plus</span>` : ''}
+        </div>`;
+      })() : ''}
     </div>
     ${isKids ? `<div style="background:rgba(155,125,219,0.1);border:1px solid rgba(155,125,219,0.3);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--violet-light)">👧 Cours Pole Kids · une carte dédiée peut être utilisée ici</div>` : ''}
   `;
@@ -1671,7 +1679,8 @@ async function redirectToStripe(productId, engagement, applyReferralDiscount = f
     if (error) return showToast('Erreur : ' + error, true);
     window.location.href = url;
   } catch(e) {
-    showToast('Erreur de connexion', true);
+    console.error('redirectToStripe:', e);
+    showToast('Erreur : ' + e.message, true);
   }
 }
 
@@ -2463,7 +2472,7 @@ async function loadBoutique() {
 }
 
 function confirmAndPayInstallments(productId, applyStudentDiscount = false) {
-  const p = window._boutiqueProducts[productId];
+  const p = window._boutiqueProducts?.[productId];
   if (!p) return;
   const basePrice = applyStudentDiscount ? Math.floor(p.price_cents * 0.9) : p.price_cents;
   const installmentPrice = Math.ceil(basePrice / 3);
@@ -2486,8 +2495,8 @@ function confirmAndPayInstallments(productId, applyStudentDiscount = false) {
 
 async function confirmAndPay(productId, engagement, applyStudentDiscount = false, childId = null) {
   try {
-  const p = window._boutiqueProducts[productId];
-  if (!p) return;
+  const p = window._boutiqueProducts?.[productId];
+  if (!p) { showToast('Erreur : produit introuvable (recharge la page)', true); return; }
   const basePrice = engagement && p.engagement_price_cents ? p.engagement_price_cents : p.price_cents;
   const isAbo = ['abo_illimite', 'abo_mensuel'].includes(p.type);
   const label = engagement ? `${p.name} — Engagement ${p.engagement_months} mois` : p.name;
