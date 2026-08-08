@@ -1267,9 +1267,10 @@ async function loadBookingForm(ci) {
   if (subs?.length) {
     subs.forEach(s => {
       const sessLeft = s.products.type === 'abo_mensuel' ? (s.products.sessions_per_month - s.sessions_used_this_month) : '∞';
+      const resetInfo = s.products.type === 'abo_mensuel' && s.started_at ? ` · reset le ${subResetDate(s.started_at)}` : '';
       subsHtml += `<button class="cours-card" style="margin-bottom:8px" onclick="bookWithSub(${ci.id}, ${s.id})">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><div style="font-size:14px">${esc(s.products.name)}</div><div style="font-size:11px;color:var(--green)">Actif · ${sessLeft === '∞' ? 'Illimité' : sessLeft + ' séances restantes ce mois'}</div></div>
+          <div><div style="font-size:14px">${esc(s.products.name)}</div><div style="font-size:11px;color:var(--green)">Actif · ${sessLeft === '∞' ? 'Illimité' : sessLeft + ' séance' + (sessLeft > 1 ? 's' : '') + ' restante' + (sessLeft > 1 ? 's' : '') + resetInfo}</div></div>
           <div style="color:var(--violet);font-size:13px">→</div>
         </div>
       </button>`;
@@ -2497,7 +2498,10 @@ async function loadProfil() {
     <div class="abo-card">
       <div style="font-size:10px;color:var(--violet-light);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Abonnement actif</div>
       <div style="font-size:18px;margin-bottom:4px">${s.products.name}</div>
-      <div style="font-size:12px;color:var(--text2)">Actif jusqu'au ${formatDate(s.current_period_end)}</div>
+      ${s.products.type === 'abo_mensuel' && s.started_at ? `
+        <div style="font-size:13px;color:var(--green);margin-bottom:2px">${s.products.sessions_per_month - s.sessions_used_this_month} séance${(s.products.sessions_per_month - s.sessions_used_this_month) > 1 ? 's' : ''} restante${(s.products.sessions_per_month - s.sessions_used_this_month) > 1 ? 's' : ''}</div>
+        <div style="font-size:11px;color:var(--text3)">Reset le ${subResetDate(s.started_at)} · 4 semaines glissantes</div>
+      ` : `<div style="font-size:12px;color:var(--text2)">Illimité ✨</div>`}
     </div>`).join('') : ''}
 
     ${upcomingBookings?.length ? `
@@ -2906,6 +2910,13 @@ function formatMonthRange(d1, d2) {
 }
 function formatPrice(cents) {
   return (cents / 100).toFixed(2).replace('.', ',') + ' €';
+}
+function subResetDate(startedAt) {
+  const start = new Date(startedAt);
+  const daysSince = Math.floor((Date.now() - start) / 86400000);
+  const next = new Date(start);
+  next.setDate(next.getDate() + (Math.floor(daysSince / 28) + 1) * 28);
+  return next.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 function isSameDay(d1, d2) {
   if (!d1 || !d2) return false;
