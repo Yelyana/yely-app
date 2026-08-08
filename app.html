@@ -266,7 +266,7 @@ select option { background: var(--card); }
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
       Boutique
     </button>
-    <button class="desk-nav-item" onclick="navigate('historique')" id="desk-nav-historique">
+    <button class="desk-nav-item" onclick="navigate('historique')" id="desk-nav-historique" style="display:none">
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       Historique
     </button>
@@ -420,7 +420,13 @@ select option { background: var(--card); }
       <div style="font-size:13px;color:var(--text2)" id="week-label"></div>
       <button class="btn btn-ghost btn-sm" onclick="changeWeek(1)">Suiv. ›</button>
     </div>
-    <div class="week-days" id="week-days"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+      <div class="week-days" id="week-days" style="margin-bottom:0;flex:1"></div>
+      <div style="display:flex;gap:4px;flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:3px">
+        <button id="view-btn-day" onclick="setPlanningView('day')" style="padding:5px 10px;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;background:var(--violet);color:#fff;transition:all 0.15s">Jour</button>
+        <button id="view-btn-week" onclick="setPlanningView('week')" style="padding:5px 10px;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;background:none;color:var(--text3);transition:all 0.15s">Semaine</button>
+      </div>
+    </div>
     <div id="cours-list"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 
@@ -579,6 +585,7 @@ let currentProfile = null;
 let currentScreen = 'auth';
 let selectedWeekOffset = 0;
 let selectedDay = null;
+let _planningView = 'day';
 const STUDIO_OPENS = new Date('2026-09-07T00:00:00');
 
 function getMondayOf(date) {
@@ -1045,7 +1052,85 @@ function changeWeek(dir) {
   selectedWeekOffset += dir;
   selectedDay = getWeekDates()[0];
   renderWeekDays();
-  loadCoursesForDay(selectedDay);
+  if (_planningView === 'week') loadCoursesForWeek();
+  else loadCoursesForDay(selectedDay);
+}
+
+function setPlanningView(view) {
+  _planningView = view;
+  const dayBtn = document.getElementById('view-btn-day');
+  const weekBtn = document.getElementById('view-btn-week');
+  if (dayBtn && weekBtn) {
+    dayBtn.style.background = view === 'day' ? 'var(--violet)' : 'none';
+    dayBtn.style.color = view === 'day' ? '#fff' : 'var(--text3)';
+    weekBtn.style.background = view === 'week' ? 'var(--violet)' : 'none';
+    weekBtn.style.color = view === 'week' ? '#fff' : 'var(--text3)';
+  }
+  const weekDaysEl = document.getElementById('week-days');
+  if (weekDaysEl) weekDaysEl.style.display = view === 'week' ? 'none' : '';
+  if (view === 'week') loadCoursesForWeek();
+  else loadCoursesForDay(selectedDay || new Date());
+}
+
+async function loadCoursesForWeek() {
+  const container = document.getElementById('cours-list');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const dates = getWeekDates();
+  const dateStrs = dates.map(d => d.toISOString().split('T')[0]);
+
+  const [{ data: allActive }, { data: allCancelled }] = await Promise.all([
+    db.from('course_instances_with_availability').select('*').in('date', dateStrs).eq('status', 'active').order('date').order('start_time'),
+    db.from('course_instances_with_availability').select('*').in('date', dateStrs).eq('status', 'cancelled').order('date').order('start_time'),
+  ]);
+
+  const instanceIds = (allActive || []).map(d => d.id);
+  const cancelledIds = (allCancelled || []).map(d => d.id);
+  const courseIds = (allActive || []).map(d => d.course_id).filter(Boolean);
+
+  const [{ data: myBookings }, { data: myWaitlist }, { data: myCancelledBookings }, { data: practiceFlags }] = await Promise.all([
+    instanceIds.length ? db.from('bookings').select('course_instance_id, status').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
+    instanceIds.length ? db.from('waitlist').select('course_instance_id, position').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
+    cancelledIds.length ? db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).in('course_instance_id', cancelledIds).eq('status', 'cancelled') : { data: [] },
+    courseIds.length ? db.from('courses').select('id, is_practice').in('id', courseIds) : { data: [] },
+  ]);
+
+  const myBookingMap = {};
+  (myBookings || []).forEach(b => myBookingMap[b.course_instance_id] = b.status);
+  const myWaitlistSet = new Set((myWaitlist || []).map(w => w.course_instance_id));
+  const myWaitlistPos = {};
+  (myWaitlist || []).forEach(w => myWaitlistPos[w.course_instance_id] = w.position);
+  const myCancelledSet = new Set((myCancelledBookings || []).map(b => b.course_instance_id));
+  const practiceMap = {};
+  (practiceFlags || []).forEach(c => practiceMap[c.id] = c.is_practice);
+  (allActive || []).forEach(ci => { ci.is_practice = practiceMap[ci.course_id] || false; });
+
+  let html = '';
+  for (let i = 0; i < dates.length; i++) {
+    const d = dates[i];
+    const dStr = dateStrs[i];
+    const dayCourses = (allActive || []).filter(ci => ci.date === dStr);
+    const dayCancelled = (allCancelled || []).filter(ci => ci.date === dStr && myCancelledSet.has(ci.id));
+    if (!dayCourses.length && !dayCancelled.length) continue;
+    html += `<div class="section-label" style="margin-top:${i > 0 ? '20px' : '0'}">${JOURS_FULL[(d.getDay() || 7) - 1]} ${d.getDate()} ${d.toLocaleString('fr', { month: 'long' })}</div>`;
+    html += dayCourses.map(ci => renderCourseCard(ci, myBookingMap[ci.id], myWaitlistSet.has(ci.id), myWaitlistPos[ci.id])).join('');
+    html += dayCancelled.map(ci => `
+      <div class="cours-card" style="opacity:0.5;cursor:default;border-color:rgba(232,122,122,0.3);background:rgba(232,122,122,0.05)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="cours-bar" style="background:var(--red)"></div>
+          <div>
+            <div style="font-size:15px;font-weight:500">${esc(ci.custom_name || ci.discipline_name || 'Cours')}</div>
+            <div style="font-size:12px;color:var(--text3)">${ci.start_time?.slice(0,5) || ''}</div>
+          </div>
+          <span style="margin-left:auto;font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(232,122,122,0.15);color:var(--red);font-weight:600">Annulé</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Ta séance t'a été rendue automatiquement.</div>
+      </div>`).join('');
+  }
+
+  if (!html) {
+    html = `<div style="text-align:center;padding:40px 20px;color:var(--text3)"><div style="font-size:28px;margin-bottom:8px">🌿</div><div>Pas de cours cette semaine</div></div>`;
+  }
+  container.innerHTML = html;
 }
 
 async function loadCoursesForDay(date) {
