@@ -1686,23 +1686,17 @@ async function openTeacherPlanning(teacherId) {
   const sixWeeks = new Date(Date.now() + 42 * 86400000).toISOString().split('T')[0];
 
   const { data: instances } = await db
-    .from('course_instances')
-    .select('id, date, cancelled, courses(custom_name, start_time, duration_minutes, max_students, salle, level, disciplines(name, color))')
+    .from('course_instances_with_availability')
+    .select('id, date, discipline_name, discipline_color, start_time, max_students, salle, level, custom_name, booked_count')
     .eq('teacher_id', teacherId)
     .eq('cancelled', false)
     .gte('date', today)
     .lte('date', sixWeeks)
     .order('date')
-    .order('courses(start_time)');
-
-  const { data: bookingCounts } = await db
-    .from('bookings')
-    .select('course_instance_id')
-    .in('course_instance_id', (instances||[]).map(i => i.id))
-    .eq('status', 'confirmed');
+    .order('start_time');
 
   const countMap = {};
-  (bookingCounts||[]).forEach(b => { countMap[b.course_instance_id] = (countMap[b.course_instance_id]||0) + 1; });
+  (instances||[]).forEach(ci => { countMap[ci.id] = ci.booked_count || 0; });
 
   const el = document.getElementById('tplanning-rows');
   if (!el) return;
@@ -1733,14 +1727,13 @@ async function openTeacherPlanning(teacherId) {
         Semaine du ${fmt(weekStart)} au ${fmt(weekEnd)}
       </div>
       ${week.items.map(ci => {
-        const c = ci.courses;
-        const coursName = c?.custom_name || c?.disciplines?.name || 'Cours';
-        const color = c?.disciplines?.color || '#a78bfa';
+        const coursName = ci.custom_name || ci.discipline_name || 'Cours';
+        const color = ci.discipline_color || '#a78bfa';
         const booked = countMap[ci.id] || 0;
-        const max = c?.max_students || 0;
+        const max = ci.max_students || 0;
         const pct = max ? Math.round(booked/max*100) : 0;
         const full = booked >= max;
-        const salle = c?.salle || '';
+        const salle = ci.salle || '';
         const salleColor = salle === 'Air' ? '#5B9BD5' : salle === 'Terre' ? '#5A9370' : 'var(--text3)';
         const d = new Date(ci.date + 'T12:00:00');
         return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:10px;margin-bottom:6px;border-left:3px solid ${color}">
@@ -1751,9 +1744,9 @@ async function openTeacherPlanning(teacherId) {
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:600;color:var(--text1)">${esc(coursName)}</div>
             <div style="display:flex;gap:8px;align-items:center;margin-top:2px;flex-wrap:wrap">
-              <span style="font-size:12px;color:var(--text2)">${c?.start_time?.slice(0,5)||''}</span>
+              <span style="font-size:12px;color:var(--text2)">${ci.start_time?.slice(0,5)||''}</span>
               ${salle ? `<span style="font-size:11px;color:${salleColor};font-weight:500">● ${esc(salle)}</span>` : ''}
-              ${c?.level ? `<span style="font-size:11px;color:var(--text3)">${esc(c.level)}</span>` : ''}
+              ${ci.level ? `<span style="font-size:11px;color:var(--text3)">${esc(ci.level)}</span>` : ''}
             </div>
           </div>
           <div style="text-align:right;flex-shrink:0">
