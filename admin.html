@@ -1653,6 +1653,28 @@ function openTeacherModal(teacher) {
   openModal();
 }
 
+async function resetTeacherPassword(teacherId) {
+  if (!confirm('Générer un nouveau mot de passe temporaire pour cette prof ?')) return;
+  const { data: { session } } = await db.auth.getSession();
+  const res = await fetch(`https://xayixasuyuranscustyw.supabase.co/functions/v1/reset-teacher-password`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ teacher_id: teacherId }),
+  });
+  const result = await res.json();
+  if (!res.ok) return showToast(result.error || 'Erreur', true);
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">Nouveau mot de passe</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Communique ce mot de passe temporaire à <strong>${esc(result.name)}</strong> (${esc(result.email)}) — elle pourra le changer depuis son profil.</p>
+    <div style="background:var(--bg3);border-radius:12px;padding:16px;text-align:center;margin-bottom:16px">
+      <div style="font-size:24px;font-weight:700;letter-spacing:3px;color:var(--accent);font-family:monospace">${esc(result.password)}</div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="navigator.clipboard.writeText('${esc(result.password)}');showToast('Copié !')">Copier</button>
+    <button class="btn btn-ghost" style="width:100%" onclick="closeModal()">Fermer</button>
+  `;
+}
+
 async function saveTeacher(teacherId) {
   const disciplines = document.getElementById('t-disciplines').value.split(',').map(s => s.trim()).filter(Boolean);
   const bio = document.getElementById('t-bio').value;
@@ -1673,7 +1695,10 @@ async function openTeacherPlanning(teacherId) {
         <div class="modal-title" style="margin-bottom:2px">${esc(name)}</div>
         ${(teacher?.teachers?.disciplines||[]).length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${teacher.teachers.disciplines.map(d=>`<span class="badge badge-violet">${esc(d)}</span>`).join('')}</div>` : ''}
       </div>
-      ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="closeModal();openTeacherModal(window._teacherCache['${teacherId}'])">Modifier le profil</button>` : ''}
+      ${isAdmin ? `<div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="resetTeacherPassword('${teacherId}')">🔑 Nouveau mdp</button>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal();openTeacherModal(window._teacherCache['${teacherId}'])">Modifier</button>
+      </div>` : ''}
     </div>
     ${teacher?.teachers?.bio ? `<div style="font-size:13px;color:var(--text2);font-style:italic;margin-bottom:16px;padding:10px 14px;background:var(--bg3);border-radius:10px">"${esc(teacher.teachers.bio)}"</div>` : ''}
     <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Planning — 6 prochaines semaines</div>
