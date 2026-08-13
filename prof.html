@@ -347,9 +347,18 @@ function formatDate(d) {
 let profStudioView = false;
 let _profPlanningView = 'day';
 
+function disciplineColor(name) {
+  const palette = ['#9b7bdb','#e879a0','#5bb8d4','#5a9370','#e0895a','#c49a6c','#7bb8a0','#d47ba0','#7b9bdb','#b07bdb'];
+  if (!name) return palette[0];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
+  return palette[Math.abs(h) % palette.length];
+}
+
 function renderProfMiniCard(ci) {
   const isMine = ci.teacher_id === currentUser.id;
-  const color = ci.courses?.disciplines?.color || '#a78bfa';
+  const discName = ci.courses?.disciplines?.name || '';
+  const color = ci.courses?.disciplines?.color || disciplineColor(discName);
   const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
   const salleDot = ci.courses?.salle === 'Air' ? '#5B9BD5' : ci.courses?.salle === 'Terre' ? '#5A9370' : 'var(--text3)';
   const opacity = isMine ? '1' : '0.5';
