@@ -2442,12 +2442,14 @@ async function loadBoutique() {
     const sorted = [...list].sort(sortForfaits);
     const renderKidsForfait = p => {
       const displayPrice = (p.price_cents / 100).toFixed(0);
+      const isAnnuel = p.type === 'abo_annuel';
       return `
-      <div class="card card-sm" style="margin-bottom:10px;padding:0;overflow:hidden">
+      <div class="card card-sm" style="margin-bottom:10px;padding:0;overflow:hidden${isAnnuel ? ';border-color:rgba(155,125,219,0.4)' : ''}">
+        ${isAnnuel ? `<div style="background:rgba(155,125,219,0.12);padding:6px 16px;font-size:10px;font-weight:600;color:var(--violet-light);letter-spacing:.5px;text-transform:uppercase">⭐ Abonnement annuel — paiement unique</div>` : ''}
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px">
           <div>
             <div style="font-size:15px;font-weight:500">${esc(p.name)}</div>
-            <div style="font-size:12px;color:var(--text3);margin-top:3px">${esc(p.description || '')}${p.sessions_count ? ' · ' + p.sessions_count + ' cours' : ''}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:3px">${esc(p.description || '')}${p.sessions_count ? ' · ' + p.sessions_count + ' cours' : ''}${isAnnuel ? ' · valable 1 an' : ''}</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${displayPrice}€</div>

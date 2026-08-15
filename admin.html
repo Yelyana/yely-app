@@ -1987,6 +1987,7 @@ function openProductModal(p) {
         <select id="p-type" onchange="document.getElementById('engagement-fields').style.display=['abo_illimite','abo_mensuel'].includes(this.value)?'':'none'">
           <option value="unite" ${p?.type==='unite'?'selected':''}>Cours à l'unité</option>
           <option value="carte" ${p?.type==='carte'?'selected':''}>Carte multi-séances</option>
+          <option value="abo_annuel" ${p?.type==='abo_annuel'?'selected':''}>Abonnement annuel (paiement unique)</option>
           <option value="abo_illimite" ${p?.type==='abo_illimite'?'selected':''}>Abonnement illimité</option>
           <option value="abo_mensuel" ${p?.type==='abo_mensuel'?'selected':''}>Abonnement mensuel</option>
         </select>
