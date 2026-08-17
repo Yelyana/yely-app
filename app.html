@@ -1432,15 +1432,15 @@ async function loadBookingForm(ci) {
     const installmentPrice = p.allow_installments ? Math.ceil(p.price_cents / 3) : null;
 
     if (isAbo && p.engagement_price_cents) {
-      // Deux boutons côte à côte : sans engagement + avec engagement
+      // Deux boutons côte à côte (ou un seul si engagement_only)
       buyHtml += `<div class="cours-card" style="margin-bottom:8px;padding:12px 14px">
         <div style="font-size:14px;font-weight:500;color:var(--ivoire);margin-bottom:8px">${esc(p.name)}${kidsTag}</div>
         ${desc ? `<div style="font-size:11px;color:var(--text3);margin-bottom:10px">${desc}</div>` : ''}
         <div style="display:flex;gap:8px">
-          <button onclick="confirmAndPay(${p.id}, false)" style="flex:1;background:rgba(155,125,219,0.08);border:1px solid rgba(155,125,219,0.25);border-radius:10px;padding:10px 8px;cursor:pointer;text-align:center">
+          ${!p.engagement_only ? `<button onclick="confirmAndPay(${p.id}, false)" style="flex:1;background:rgba(155,125,219,0.08);border:1px solid rgba(155,125,219,0.25);border-radius:10px;padding:10px 8px;cursor:pointer;text-align:center">
             <div style="font-size:11px;color:var(--text3);margin-bottom:3px">Sans engagement</div>
             <div style="font-size:17px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}<span style="font-size:10px;font-weight:400">/mois</span></div>
-          </button>
+          </button>` : ''}
           <button onclick="confirmAndPay(${p.id}, true)" style="flex:1;background:rgba(155,125,219,0.18);border:1px solid var(--violet);border-radius:10px;padding:10px 8px;cursor:pointer;text-align:center">
             <div style="font-size:11px;color:var(--violet-light);margin-bottom:3px">⭐ Engagement ${p.engagement_months} mois</div>
             <div style="font-size:17px;font-weight:600;color:var(--ivoire)">${formatPrice(p.engagement_price_cents)}<span style="font-size:10px;font-weight:400">/mois</span></div>
@@ -1620,6 +1620,32 @@ async function _doBookWithCredit(instanceId, creditId, childId) {
   const { data: credit } = await db.from('student_credits').select('*, products(*)').eq('id', creditId).eq('student_id', currentUser.id).single();
   if (!credit) return showToast('Crédit introuvable', true);
   if (credit.sessions_remaining <= 0) return showToast('Plus de séances disponibles', true);
+
+  // Vérifier la limite 1x/semaine pour les crédits heures creuses
+  if (credit.products?.heures_creuses) {
+    const { data: ciData } = await db.from('course_instances_with_availability').select('date').eq('id', instanceId).single();
+    if (ciData?.date) {
+      const d = new Date(ciData.date);
+      const day = d.getDay();
+      const diffMon = (day === 0 ? -6 : 1 - day);
+      const mon = new Date(d); mon.setDate(d.getDate() + diffMon);
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      const monStr = mon.toISOString().split('T')[0];
+      const sunStr = sun.toISOString().split('T')[0];
+      const { data: weekBookings } = await db.from('bookings')
+        .select('course_instance_id')
+        .eq('credit_id', creditId)
+        .eq('status', 'confirmed');
+      if (weekBookings?.length) {
+        const ids = weekBookings.map(b => b.course_instance_id);
+        const { data: weekCis } = await db.from('course_instances_with_availability')
+          .select('date').in('id', ids).gte('date', monStr).lte('date', sunStr);
+        if (weekCis?.length > 0) {
+          return showToast('Forfait Heures Creuses : 1 séance maximum par semaine.', true);
+        }
+      }
+    }
+  }
 
   // Vérifier la limite reformer du pack (ex: pack découverte = max 1 reformer)
   const maxReformer = credit.products?.max_reformer_sessions;
@@ -2447,11 +2473,11 @@ async function loadBoutique() {
         <div style="font-size:12px;color:var(--text3);margin-top:3px">${esc(p.description || '')}</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border:1px solid var(--border);border-radius:12px" onclick="confirmAndPay(${p.id}, false)">
+        ${!p.engagement_only ? `<button class="btn btn-ghost btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border:1px solid var(--border);border-radius:12px" onclick="confirmAndPay(${p.id}, false)">
           <span style="font-size:13px;color:var(--text2)">Sans engagement</span>
           <span style="font-size:18px;font-weight:600;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>
           ${pricePerCourse ? `<span style="font-size:10px;color:var(--text3)">soit ${pricePerCourse}€/cours (${freq})</span>` : `<span style="font-size:10px;color:var(--text3)">+ practice libre ✨</span>`}
-        </button>
+        </button>` : ''}
         ${p.engagement_price_cents ? `<button class="btn btn-primary btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border-radius:12px" onclick="confirmAndPay(${p.id}, true)">
           <span style="font-size:11px;opacity:0.85">Engagement ${p.engagement_months} mois ⭐</span>
           <span style="font-size:18px;font-weight:600">${(p.engagement_price_cents/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>

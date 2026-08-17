@@ -2073,6 +2073,10 @@ function openProductModal(p) {
       <input type="checkbox" id="p-heures-creuses" ${p?.heures_creuses ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🌅 Forfait Heures Creuses (valable uniquement sur les cours cochés "Heures Creuses")</label>
     </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="p-engagement-only" ${p?.engagement_only ? 'checked' : ''} style="width:auto">
+      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">⭐ Engagement uniquement (masque l'option sans engagement)</label>
+    </div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-primary" onclick="saveProduct(${p?.id || 'null'})" style="flex:1">Enregistrer</button>
       ${p?.id ? `<button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Supprimer</button>` : ''}
@@ -2127,6 +2131,7 @@ async function saveProduct(id) {
     max_reformer_sessions: document.getElementById('p-max-reformer').value !== '' ? parseInt(document.getElementById('p-max-reformer').value) : null,
     allow_installments: document.getElementById('p-installments').checked,
     heures_creuses: document.getElementById('p-heures-creuses').checked,
+    engagement_only: document.getElementById('p-engagement-only').checked,
   };
   let error;
   if (id) { ({ error } = await db.from('products').update(data).eq('id', id)); }
