@@ -1111,7 +1111,7 @@ async function loadCoursesForWeek() {
     instanceIds.length ? db.from('bookings').select('course_instance_id,status').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
     instanceIds.length ? db.from('waitlist').select('course_instance_id,position').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
     cancelledIds.length ? db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).in('course_instance_id', cancelledIds).eq('status', 'cancelled') : { data: [] },
-    courseIds.length ? db.from('courses').select('id,is_practice').in('id', courseIds) : { data: [] },
+    courseIds.length ? db.from('courses').select('id,is_practice,heures_creuses').in('id', courseIds) : { data: [] },
   ]);
 
   const myBookingMap = {};
@@ -1121,8 +1121,9 @@ async function loadCoursesForWeek() {
   (myWaitlist || []).forEach(w => myWaitlistPos[w.course_instance_id] = w.position);
   const myCancelledSet = new Set((myCancelledBookings || []).map(b => b.course_instance_id));
   const practiceMap = {};
-  (practiceFlags || []).forEach(c => practiceMap[c.id] = c.is_practice);
-  (allActive || []).forEach(ci => { ci.is_practice = practiceMap[ci.course_id] || false; });
+  const hcMap = {};
+  (practiceFlags || []).forEach(c => { practiceMap[c.id] = c.is_practice; hcMap[c.id] = c.heures_creuses; });
+  (allActive || []).forEach(ci => { ci.is_practice = practiceMap[ci.course_id] || false; ci.heures_creuses = hcMap[ci.course_id] || false; });
 
   // Grille 7 colonnes avec scroll horizontal
   let html = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px 12px">
@@ -1186,7 +1187,7 @@ async function loadCoursesForDay(date) {
   const [{ data: myBookings }, { data: myWaitlist }, { data: practiceFlags }] = await Promise.all([
     instanceIds.length ? db.from('bookings').select('course_instance_id, status').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
     instanceIds.length ? db.from('waitlist').select('course_instance_id, position').eq('student_id', currentUser.id).in('course_instance_id', instanceIds) : { data: [] },
-    courseIds.length ? db.from('courses').select('id, is_practice').in('id', courseIds) : { data: [] },
+    courseIds.length ? db.from('courses').select('id, is_practice, heures_creuses').in('id', courseIds) : { data: [] },
   ]);
   const myBookingMap = {};
   (myBookings || []).forEach(b => myBookingMap[b.course_instance_id] = b.status);
@@ -1194,8 +1195,9 @@ async function loadCoursesForDay(date) {
   const myWaitlistPos = {};
   (myWaitlist || []).forEach(w => myWaitlistPos[w.course_instance_id] = w.position);
   const practiceMap = {};
-  (practiceFlags || []).forEach(c => practiceMap[c.id] = c.is_practice);
-  (data || []).forEach(ci => { ci.is_practice = practiceMap[ci.course_id] || false; });
+  const hcMapDay = {};
+  (practiceFlags || []).forEach(c => { practiceMap[c.id] = c.is_practice; hcMapDay[c.id] = c.heures_creuses; });
+  (data || []).forEach(ci => { ci.is_practice = practiceMap[ci.course_id] || false; ci.heures_creuses = hcMapDay[ci.course_id] || false; });
 
   const cancelledCards = cancelledForMe.map(ci => `
     <div class="cours-card" style="opacity:0.5;cursor:default;border-color:rgba(232,122,122,0.3);background:rgba(232,122,122,0.05)">
@@ -1275,6 +1277,7 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
             <span style="display:inline-flex;align-items:center;gap:3px;background:${salleInfo.color}22;color:${salleInfo.color};padding:2px 7px;border-radius:6px;font-size:11px;font-weight:600">${salleInfo.emoji} ${salleInfo.label}</span>
           </div>
           ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${(esc(ci.description).match(/^[^.!?]+[.!?]/) || [esc(ci.description)])[0].trim()}</div>` : ''}
+          ${ci.heures_creuses ? '<span style="font-size:10px;background:rgba(90,170,200,0.15);color:#5aaBc8;padding:2px 7px;border-radius:5px;font-weight:600;margin-top:4px;display:inline-block">🌅 Heures creuses</span>' : ''}
           ${isBooked ? '<div style="font-size:11px;color:var(--violet);margin-top:4px">✓ Réservé</div>' : ''}
           ${isWaiting ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">⏳ Liste d'attente${waitlistPos ? ' · position ' + waitlistPos : ''}</div>` : ''}
         </div>
@@ -1354,9 +1357,14 @@ async function loadBookingForm(ci) {
 
   // Crédits disponibles — filtrés par le bon flag produit
   const { data: creditsAll } = await db.from('student_credits').select('*, products(*)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).order('expires_at');
+  const ciIsHC = ci.heures_creuses === true;
   const credits = (creditsAll || []).filter(c => {
     const p = c.products;
     if (!p) return false;
+    // Un crédit heures creuses n'est utilisable que sur un cours éligible
+    if (p.heures_creuses && !ciIsHC) return false;
+    // Un cours heures creuses n'accepte que des crédits heures creuses (ou abo illimité)
+    if (ciIsHC && !p.heures_creuses && p.type !== 'abo_illimite') return false;
     if (isPractice) return p.for_practice || p.type === 'abo_illimite';
     return p[flag];
   });
@@ -2373,8 +2381,9 @@ async function loadBoutique() {
     return;
   }
 
-  const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.for_kids && !p.for_parent_enfant)
+  const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.heures_creuses && !p.for_kids && !p.for_parent_enfant)
     .sort(sortForfaits);
+  const heuresCruesforFaits = (products || []).filter(p => p.heures_creuses && !p.for_kids && !p.for_parent_enfant).sort(sortForfaits);
   const abos = (products || []).filter(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') && !p.for_kids && !p.for_parent_enfant);
   const kidsOnly = (products || []).filter(p => p.for_kids);
   const parentEnfant = (products || []).filter(p => p.for_parent_enfant);
@@ -2478,9 +2487,17 @@ async function loadBoutique() {
       <div style="font-size:12px;color:var(--text3);line-height:1.5">Étudiante ? Envoie ta carte depuis ton profil pour bénéficier de <strong style="color:var(--green)">-10%</strong> sur tous les forfaits.</div>
     </div>` : '';
 
+  const hcSection = heuresCruesforFaits.length ? `
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="font-size:14px;font-weight:600;color:var(--text1);margin-bottom:4px">🌅 Heures Creuses</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Utilisable uniquement sur les cours éligibles, en semaine de 9h à 16h30.</div>
+      ${heuresCruesforFaits.map(renderForfait).join('')}
+    </div>` : '';
+
   el.innerHTML = tabs + studentBanner +
     (forfaits.length ? `<div class="section-label">Cartes & unités</div>${forfaits.map(renderForfait).join('')}` : '') +
     (abos.length ? `<div class="section-label" style="margin-top:16px">Abonnements</div>${abos.map(renderAbo).join('')}` : '') +
+    hcSection +
     renderKidsSection(kidsOnly, 'Pole Kids', '👧') +
     renderKidsSection(parentEnfant, 'Parent-enfant', '👨‍👧') +
     `<div style="height:8px"></div>`;

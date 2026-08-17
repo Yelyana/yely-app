@@ -965,6 +965,10 @@ function openCourseModal(course, disciplines, teachers) {
       <input type="checkbox" id="m-is-practice" ${course?.is_practice ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🦇 Créneau Practice Libre (accès libre, sans réservation)</label>
     </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-top:4px">
+      <input type="checkbox" id="m-heures-creuses" ${course?.heures_creuses ? 'checked' : ''} style="width:auto">
+      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🌅 Éligible aux forfaits Heures Creuses</label>
+    </div>
     <div style="display:flex;gap:10px;margin-top:4px">
       <button class="btn btn-primary" onclick="saveCourse(${course?.id || 'null'})" style="flex:1">${isNew ? 'Créer le cours' : 'Enregistrer'}</button>
       ${!isNew ? `<button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : ''}
@@ -1001,6 +1005,7 @@ async function saveCourse(id) {
     description: document.getElementById('m-description').value || null,
     is_kids_course: document.getElementById('m-kids-course').checked,
     is_practice: document.getElementById('m-is-practice').checked,
+    heures_creuses: document.getElementById('m-heures-creuses').checked,
   };
 
   let courseId = id;
@@ -2064,6 +2069,10 @@ function openProductModal(p) {
       <input type="checkbox" id="p-installments" ${p?.allow_installments ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">💳 Autoriser le paiement en 3 fois (cartes uniquement — prix affiché : total ÷ 3 / mois)</label>
     </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="p-heures-creuses" ${p?.heures_creuses ? 'checked' : ''} style="width:auto">
+      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🌅 Forfait Heures Creuses (valable uniquement sur les cours cochés "Heures Creuses")</label>
+    </div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-primary" onclick="saveProduct(${p?.id || 'null'})" style="flex:1">Enregistrer</button>
       ${p?.id ? `<button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Supprimer</button>` : ''}
@@ -2117,6 +2126,7 @@ async function saveProduct(id) {
     engagement_months: parseInt(document.getElementById('p-eng-months')?.value) || 0,
     max_reformer_sessions: document.getElementById('p-max-reformer').value !== '' ? parseInt(document.getElementById('p-max-reformer').value) : null,
     allow_installments: document.getElementById('p-installments').checked,
+    heures_creuses: document.getElementById('p-heures-creuses').checked,
   };
   let error;
   if (id) { ({ error } = await db.from('products').update(data).eq('id', id)); }
