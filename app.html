@@ -688,6 +688,42 @@ async function confirmAccountDeletion() {
   showAuth();
 }
 
+async function exportMyData() {
+  showToast('Préparation de tes données…');
+  const uid = currentUser.id;
+  const [{ data: profile }, { data: bookings }, { data: credits }, { data: subs }, { data: orders }, { data: journal }] = await Promise.all([
+    db.from('profiles').select('full_name, email, phone, birthday, created_at, is_student').eq('id', uid).single(),
+    db.from('bookings').select('status, booked_at, attended, course_instances(date, start_time, courses(custom_name, disciplines(name)))').eq('student_id', uid).order('booked_at', { ascending: false }),
+    db.from('student_credits').select('sessions_remaining, expires_at, purchased_at, products(name)').eq('student_id', uid),
+    db.from('subscriptions').select('status, started_at, products(name)').eq('student_id', uid),
+    db.from('orders').select('created_at, amount_cents, payment_method, status, products(name)').eq('student_id', uid).neq('status', 'cancelled'),
+    db.from('journal_entries').select('created_at, content, mood').eq('student_id', uid).order('created_at', { ascending: false }),
+  ]);
+  const data = {
+    exporté_le: new Date().toISOString(),
+    profil: profile,
+    réservations: (bookings || []).map(b => ({
+      statut: b.status,
+      date_résa: b.booked_at,
+      présente: b.attended,
+      cours: b.course_instances?.courses?.custom_name || b.course_instances?.courses?.disciplines?.name,
+      date_cours: b.course_instances?.date,
+      heure: b.course_instances?.start_time,
+    })),
+    crédits: credits,
+    abonnements: subs,
+    achats: (orders || []).map(o => ({ date: o.created_at, forfait: o.products?.name, montant_cts: o.amount_cents, paiement: o.payment_method })),
+    journal: journal,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `mes-donnees-yely-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Téléchargement lancé ✓');
+}
+
 async function logout() {
   await db.auth.signOut();
   currentUser = null; currentProfile = null;
@@ -1501,6 +1537,48 @@ async function loadBookingForm(ci) {
   } else {
     forfaitsHtml += buyHtml;
   }
+  // Prochaines séances de la même série
+  let serieHtml = '';
+  if (credits?.length && ci.course_id) {
+    const today = new Date().toISOString().split('T')[0];
+    const { data: futureInstances } = await db.from('course_instances_with_availability')
+      .select('id, date, start_time, spots_remaining')
+      .eq('course_id', ci.course_id)
+      .eq('status', 'active')
+      .gt('date', ci.date)
+      .gt('spots_remaining', 0)
+      .order('date')
+      .limit(8);
+    if (futureInstances?.length) {
+      window._serieInstances = futureInstances;
+      window._serieCourseId = ci.course_id;
+      serieHtml = `
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+        <button onclick="toggleSerieSection()" id="serie-toggle-btn" style="width:100%;background:none;border:1px dashed rgba(155,125,219,0.4);border-radius:10px;padding:10px;color:var(--violet-light);font-size:13px;cursor:pointer">
+          📅 Réserver toute la série (${futureInstances.length} prochaine${futureInstances.length > 1 ? 's' : ''} séance${futureInstances.length > 1 ? 's' : ''}) ▸
+        </button>
+        <div id="serie-section" style="display:none;margin-top:10px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Séances disponibles · sélectionne, puis choisis ton crédit</div>
+          ${futureInstances.map(fi => `
+            <label style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer">
+              <input type="checkbox" checked data-instance-id="${fi.id}" style="width:16px;height:16px;accent-color:var(--violet)">
+              <span style="font-size:13px">${new Date(fi.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})} · ${fi.start_time?.slice(0,5)}</span>
+              <span style="font-size:11px;color:var(--text3);margin-left:auto">${fi.spots_remaining} place${fi.spots_remaining > 1 ? 's' : ''}</span>
+            </label>`).join('')}
+          <div style="margin-top:12px;font-size:12px;color:var(--text3);margin-bottom:6px">Utiliser ce crédit pour toute la série :</div>
+          ${credits.map(c => `
+            <button class="cours-card" style="margin-bottom:6px;padding:10px 14px" onclick="bookSeries(${JSON.stringify(ci).replace(/"/g, '&quot;')}, ${c.id})">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-size:13px">${esc(c.products.name)}</div>
+                <div style="font-size:11px;color:var(--violet-light)">${c.sessions_remaining} séance${c.sessions_remaining > 1 ? 's' : ''} → Tout réserver</div>
+              </div>
+            </button>`).join('')}
+        </div>
+      </div>`;
+    }
+  }
+
+  forfaitsHtml += serieHtml;
   forfaitsHtml += `<p style="font-size:11px;color:var(--text3);text-align:center;margin-top:12px;margin-bottom:0">Annulation possible jusqu'à 24h avant le cours</p>`;
   forfaitsHtml += `<button class="btn btn-ghost" style="margin-top:6px" onclick="closeModal()">Annuler</button>`;
 
@@ -1510,6 +1588,37 @@ async function loadBookingForm(ci) {
   </div>`;
   document.getElementById('modal-content').innerHTML = html;
   window._currentCi = ci;
+}
+
+function toggleSerieSection() {
+  const section = document.getElementById('serie-section');
+  const btn = document.getElementById('serie-toggle-btn');
+  const open = section.style.display !== 'none';
+  section.style.display = open ? 'none' : 'block';
+  btn.textContent = open
+    ? `📅 Réserver toute la série (${(window._serieInstances||[]).length} prochaine${(window._serieInstances||[]).length > 1 ? 's' : ''} séance${(window._serieInstances||[]).length > 1 ? 's' : ''}) ▸`
+    : `📅 Réserver toute la série ▾`;
+}
+
+async function bookSeries(ci, creditId) {
+  const checkboxes = document.querySelectorAll('#serie-section input[type=checkbox]:checked');
+  const instanceIds = Array.from(checkboxes).map(cb => parseInt(cb.dataset.instanceId));
+  if (!instanceIds.length) return showToast('Aucune séance sélectionnée', true);
+  const { data: credit } = await db.from('student_credits').select('sessions_remaining, products(heures_creuses)').eq('id', creditId).eq('student_id', currentUser.id).single();
+  if (!credit) return showToast('Crédit introuvable', true);
+  if (credit.sessions_remaining < instanceIds.length) {
+    return showToast(`Pas assez de séances — il t'en faut ${instanceIds.length}, tu en as ${credit.sessions_remaining}`, true);
+  }
+  closeModal();
+  showToast(`Réservation de ${instanceIds.length} séances en cours…`);
+  let ok = 0, fail = 0;
+  for (const id of instanceIds) {
+    const { data: result, error } = await db.rpc('book_course', { p_instance_id: id, p_credit_id: parseInt(creditId), p_child_id: null });
+    if (error || result?.error) fail++; else ok++;
+  }
+  if (fail === 0) showToast(`✓ ${ok} séance${ok > 1 ? 's' : ''} réservée${ok > 1 ? 's' : ''} !`);
+  else showToast(`${ok} réservée${ok > 1 ? 's' : ''}, ${fail} échouée${fail > 1 ? 's' : ''} (places déjà prises ?)`, fail > 0);
+  loadCoursesForDay(selectedDay || new Date());
 }
 
 async function sendConfirmationEmail(instanceId) {
@@ -2909,6 +3018,10 @@ async function loadProfil() {
         <div style="font-size:13px;color:var(--green);margin-bottom:2px">${s.products.sessions_per_month - s.sessions_used_this_month} séance${(s.products.sessions_per_month - s.sessions_used_this_month) > 1 ? 's' : ''} restante${(s.products.sessions_per_month - s.sessions_used_this_month) > 1 ? 's' : ''}</div>
         <div style="font-size:11px;color:var(--text3)">Reset le ${subResetDate(s.started_at)} · 4 semaines glissantes</div>
       ` : `<div style="font-size:12px;color:var(--text2)">Illimité ✨</div>`}
+      ${s.engagement_until ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">⭐ Engagement jusqu'au ${new Date(s.engagement_until).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>` : ''}
+      <button onclick="openStripePortal()" style="margin-top:10px;width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px;color:var(--text3);font-size:12px;cursor:pointer">
+        📄 Factures &amp; résiliation →
+      </button>
     </div>`).join('') : ''}
 
     ${upcomingBookings?.length ? `
@@ -3040,6 +3153,7 @@ async function loadProfil() {
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:16px;height:16px;display:inline;vertical-align:-2px;margin-right:6px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       Mon historique de cours
     </button>
+    <button class="btn btn-ghost" onclick="exportMyData()" style="font-size:13px;color:var(--text3)">📦 Télécharger mes données (RGPD)</button>
     <button class="btn btn-ghost" onclick="logout()" style="color:var(--red);border-color:rgba(232,122,122,0.3)">Se déconnecter</button>
     <button class="btn btn-ghost" onclick="requestAccountDeletion()" style="margin-top:10px;color:var(--text3);border-color:var(--border);font-size:13px">Supprimer mon compte</button>
     <div style="text-align:center;padding:16px 0;font-size:11px;color:var(--text3)">Yely in the Air · v1.0</div>

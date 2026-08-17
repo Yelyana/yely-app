@@ -1859,6 +1859,34 @@ async function sendInvite() {
 }
 
 // ── REVENUS ───────────────────────────────────────────────
+async function exportVentesCSV() {
+  showToast('Export en cours…');
+  const { data: orders } = await db.from('orders')
+    .select('created_at, amount_cents, payment_method, status, profiles(full_name, email), products(name, type)')
+    .neq('status', 'cancelled')
+    .order('created_at', { ascending: false });
+  const rows = [['Date', 'Élève', 'Email', 'Forfait', 'Type', 'Montant (€)', 'Paiement', 'Statut']];
+  (orders || []).forEach(o => {
+    rows.push([
+      o.created_at ? new Date(o.created_at).toLocaleDateString('fr-FR') : '',
+      o.profiles?.full_name || '',
+      o.profiles?.email || '',
+      o.products?.name || '',
+      o.products?.type || '',
+      o.amount_cents ? (o.amount_cents / 100).toFixed(2) : '0',
+      o.payment_method || '',
+      o.status || '',
+    ]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `yely-ventes-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 async function exportStudentsCSV() {
   const { data: students } = await db.from('profiles').select('full_name, email, created_at, is_fondatrice, is_student').eq('role', 'student').order('full_name');
   const { data: subs } = await db.from('subscriptions').select('student_id, status, products(name)').eq('status', 'active');
@@ -1953,7 +1981,8 @@ async function loadRevenus() {
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
       <div><div class="page-title">Revenus</div><div class="page-sub">${new Date().toLocaleString('fr', { month: 'long', year: 'numeric' })}</div></div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost" onclick="exportStudentsCSV()">📥 Export élèves CSV</button>
+        <button class="btn btn-ghost" onclick="exportStudentsCSV()">📥 Export élèves</button>
+        <button class="btn btn-ghost" onclick="exportVentesCSV()">📥 Export ventes</button>
         <button class="btn btn-primary" onclick="openPaymentModal()">+ Enregistrer un paiement</button>
       </div>
     </div>
