@@ -797,10 +797,12 @@ async function cancelBookingAdmin(bookingId, instanceId) {
   if (error) return showToast(error.message, true);
   if (booking?.credit_id) {
     const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).single();
-    await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id);
+    const { error: creditErr } = await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id);
+    if (creditErr) return showToast('Réservation annulée mais recrédit échoué — vérifier manuellement', true);
   } else if (booking?.subscription_id) {
     const { data: sub } = await db.from('subscriptions').select('sessions_used_this_month').eq('id', booking.subscription_id).single();
-    await db.from('subscriptions').update({ sessions_used_this_month: Math.max(0, (sub?.sessions_used_this_month || 1) - 1) }).eq('id', booking.subscription_id);
+    const { error: subErr } = await db.from('subscriptions').update({ sessions_used_this_month: Math.max(0, (sub?.sessions_used_this_month || 1) - 1) }).eq('id', booking.subscription_id);
+    if (subErr) return showToast('Réservation annulée mais recrédit abonnement échoué — vérifier manuellement', true);
   }
   showToast('Réservation annulée, séance restituée');
   viewInstance(instanceId);
@@ -1691,10 +1693,10 @@ function openTeacherModal(teacher) {
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">Modifier le profil prof</div>
     <div class="form-group"><label>Disciplines (séparées par des virgules)</label>
-      <input id="t-disciplines" value="${(teacher.teachers?.disciplines || []).join(', ')}">
+      <input id="t-disciplines" value="${esc((teacher.teachers?.disciplines || []).join(', '))}">
     </div>
     <div class="form-group"><label>Bio</label><textarea id="t-bio" rows="3">${esc(teacher.teachers?.bio || '')}</textarea></div>
-    <div class="form-group"><label>Instagram</label><input id="t-instagram" value="${teacher.teachers?.instagram || ''}" placeholder="@handle"></div>
+    <div class="form-group"><label>Instagram</label><input id="t-instagram" value="${esc(teacher.teachers?.instagram || '')}" placeholder="@handle"></div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-primary" onclick="saveTeacher('${teacher.id}')" style="flex:1">Enregistrer</button>
       <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
@@ -1970,7 +1972,7 @@ async function loadRevenus() {
         <thead><tr><th>Professeur</th><th>Cours donnés</th><th>Élèves</th></tr></thead>
         <tbody>
           ${Object.entries(byProfMap).map(([name, d]) => `<tr>
-            <td><strong>${name}</strong></td>
+            <td><strong>${esc(name)}</strong></td>
             <td>${d.classes}</td>
             <td>${d.students}</td>
           </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:24px">Pas de données ce mois</td></tr>'}
@@ -2030,7 +2032,7 @@ function openProductModal(p) {
   const isNew = !p;
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">${isNew ? 'Nouveau forfait' : 'Modifier le forfait'}</div>
-    <div class="form-group"><label>Nom</label><input id="p-name" value="${p?.name || ''}"></div>
+    <div class="form-group"><label>Nom</label><input id="p-name" value="${esc(p?.name || '')}"></div>
     <div class="form-row">
       <div class="form-group">
         <label>Type</label>

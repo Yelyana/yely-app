@@ -2360,6 +2360,7 @@ async function openComments(postId) {
 async function submitComment(postId) {
   const content = document.getElementById('comment-input').value.trim();
   if (!content) return;
+  if (content.length > 1000) return showToast('Commentaire trop long (max 1000 caractères)', true);
   await db.from('community_comments').insert({ post_id: postId, author_id: currentUser.id, content });
   openComments(postId);
 }
