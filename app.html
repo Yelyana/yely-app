@@ -1428,26 +1428,42 @@ async function loadBookingForm(ci) {
     const isAbo = p.type === 'abo_illimite' || p.type === 'abo_mensuel';
     const isIllimite = p.type === 'abo_illimite';
     const kidsTag = (p.for_kids || p.for_parent_enfant) ? `<span style="font-size:10px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:1px 6px;border-radius:4px;margin-left:6px">Pole Kids</span>` : '';
-    const sub = isAbo ? `<span style="font-size:11px;font-weight:400;color:var(--text3)">/mois</span>` : '';
-    const engagementLine = isAbo && p.engagement_price_cents ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${formatPrice(p.engagement_price_cents)}/mois avec engagement</div>` : '';
     const desc = isIllimite ? '+ practice libre ✨' : esc(p.description || '') + (p.sessions_count && p.type !== 'unite' ? ' · ' + p.sessions_count + ' cours' : '');
     const installmentPrice = p.allow_installments ? Math.ceil(p.price_cents / 3) : null;
-    buyHtml += `<div class="cours-card" style="margin-bottom:8px;padding:0;overflow:hidden">
-      <button style="width:100%;background:none;border:none;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;text-align:left" onclick="${isAbo ? `confirmAndPay(${p.id}, false)` : `buyAndBook(${ci.id}, ${p.id})`}">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${esc(p.name)}${kidsTag}</div>
-          ${desc ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${desc}</div>` : ''}
+
+    if (isAbo && p.engagement_price_cents) {
+      // Deux boutons côte à côte : sans engagement + avec engagement
+      buyHtml += `<div class="cours-card" style="margin-bottom:8px;padding:12px 14px">
+        <div style="font-size:14px;font-weight:500;color:var(--ivoire);margin-bottom:8px">${esc(p.name)}${kidsTag}</div>
+        ${desc ? `<div style="font-size:11px;color:var(--text3);margin-bottom:10px">${desc}</div>` : ''}
+        <div style="display:flex;gap:8px">
+          <button onclick="confirmAndPay(${p.id}, false)" style="flex:1;background:rgba(155,125,219,0.08);border:1px solid rgba(155,125,219,0.25);border-radius:10px;padding:10px 8px;cursor:pointer;text-align:center">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:3px">Sans engagement</div>
+            <div style="font-size:17px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}<span style="font-size:10px;font-weight:400">/mois</span></div>
+          </button>
+          <button onclick="confirmAndPay(${p.id}, true)" style="flex:1;background:rgba(155,125,219,0.18);border:1px solid var(--violet);border-radius:10px;padding:10px 8px;cursor:pointer;text-align:center">
+            <div style="font-size:11px;color:var(--violet-light);margin-bottom:3px">⭐ Engagement ${p.engagement_months} mois</div>
+            <div style="font-size:17px;font-weight:600;color:var(--ivoire)">${formatPrice(p.engagement_price_cents)}<span style="font-size:10px;font-weight:400">/mois</span></div>
+          </button>
         </div>
-        <div style="flex-shrink:0;text-align:right">
-          <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}${sub}</div>
-          ${engagementLine}
-        </div>
-      </button>
-      ${installmentPrice ? `<button style="width:100%;background:rgba(155,125,219,0.1);border:none;border-top:1px solid rgba(155,125,219,0.2);padding:8px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;color:var(--violet-light);font-size:12px" onclick="buyAndBookInstallments(${ci.id}, ${p.id})">
-        <span>Payer en 3 fois</span>
-        <span style="font-weight:600">${formatPrice(installmentPrice)}/mois × 3</span>
-      </button>` : ''}
-    </div>`;
+      </div>`;
+    } else {
+      buyHtml += `<div class="cours-card" style="margin-bottom:8px;padding:0;overflow:hidden">
+        <button style="width:100%;background:none;border:none;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;text-align:left" onclick="${isAbo ? `confirmAndPay(${p.id}, false)` : `buyAndBook(${ci.id}, ${p.id})`}">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:500;color:var(--ivoire)">${esc(p.name)}${kidsTag}</div>
+            ${desc ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${desc}</div>` : ''}
+          </div>
+          <div style="flex-shrink:0;text-align:right">
+            <div style="font-size:18px;font-weight:600;color:var(--violet-light)">${formatPrice(p.price_cents)}${isAbo ? `<span style="font-size:11px;font-weight:400;color:var(--text3)">/mois</span>` : ''}</div>
+          </div>
+        </button>
+        ${installmentPrice ? `<button style="width:100%;background:rgba(155,125,219,0.1);border:none;border-top:1px solid rgba(155,125,219,0.2);padding:8px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;color:var(--violet-light);font-size:12px" onclick="buyAndBookInstallments(${ci.id}, ${p.id})">
+          <span>Payer en 3 fois</span>
+          <span style="font-weight:600">${formatPrice(installmentPrice)}/mois × 3</span>
+        </button>` : ''}
+      </div>`;
+    }
   });
 
   const hasExisting = subs?.length || credits?.length;
@@ -2490,7 +2506,7 @@ async function loadBoutique() {
   const hcSection = heuresCruesforFaits.length ? `
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
       <div style="font-size:14px;font-weight:600;color:var(--text1);margin-bottom:4px">🌅 Heures Creuses</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Utilisable uniquement sur les cours éligibles, en semaine de 9h à 16h30.</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Utilisable uniquement sur les cours Heures Creuses.</div>
       ${heuresCruesforFaits.map(renderForfait).join('')}
     </div>` : '';
 
