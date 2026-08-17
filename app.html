@@ -1823,6 +1823,81 @@ async function getFreshSession() {
   return session;
 }
 
+function openGiftCardModal(productId) {
+  const p = window._boutiqueProducts?.[productId];
+  if (!p) return;
+  document.getElementById('modal-content').innerHTML = `
+    <h3 class="serif" style="font-size:22px;font-weight:300;margin-bottom:4px;color:var(--ivoire)">🎁 Offrir un forfait</h3>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:16px">${esc(p.name)} — ${(p.price_cents/100).toFixed(0)}€</p>
+    <div class="form-group">
+      <label style="font-size:12px;color:var(--text3)">Email de la personne à qui tu offres</label>
+      <input id="gift-email" type="email" placeholder="prenom@email.com" style="width:100%;margin-top:4px">
+    </div>
+    <div class="form-group">
+      <label style="font-size:12px;color:var(--text3)">Son prénom (optionnel)</label>
+      <input id="gift-name" type="text" placeholder="Léa" style="width:100%;margin-top:4px">
+    </div>
+    <p style="font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:16px">Un code cadeau sera envoyé par email à la destinataire. Elle pourra l'utiliser depuis l'app pour activer son forfait.</p>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" style="flex:1" onclick="submitGiftCard(${productId})">Payer & envoyer le cadeau →</button>
+      <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
+    </div>`;
+  document.getElementById('booking-modal').classList.add('open');
+}
+
+async function submitGiftCard(productId) {
+  const email = document.getElementById('gift-email')?.value?.trim();
+  const name = document.getElementById('gift-name')?.value?.trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showToast('Email invalide', true);
+  showToast('Redirection vers le paiement…');
+  const { data: { session } } = await db.auth.getSession();
+  const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-gift-card-checkout', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: productId, recipient_email: email, recipient_name: name }),
+  });
+  const data = await res.json();
+  if (data.url) window.location.href = data.url;
+  else showToast(data.error || 'Erreur', true);
+}
+
+function openRedeemGiftCard() {
+  document.getElementById('modal-content').innerHTML = `
+    <h3 class="serif" style="font-size:22px;font-weight:300;margin-bottom:8px;color:var(--ivoire)">🎁 Utiliser un code cadeau</h3>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:16px">Saisis le code reçu par email pour activer ton forfait.</p>
+    <input id="gift-code-input" type="text" placeholder="EX: ABC123DEF4" style="width:100%;text-transform:uppercase;letter-spacing:2px;font-size:18px;text-align:center;margin-bottom:16px">
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" style="flex:1" onclick="submitRedeemGiftCard()">Activer →</button>
+      <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
+    </div>`;
+  document.getElementById('booking-modal').classList.add('open');
+}
+
+async function submitRedeemGiftCard() {
+  const code = document.getElementById('gift-code-input')?.value?.trim().toUpperCase();
+  if (!code) return showToast('Saisis un code', true);
+  const { data: { session } } = await db.auth.getSession();
+  const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/redeem-gift-card', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  const data = await res.json();
+  if (data.ok) { closeModal(); showToast(`🎁 Code activé ! ${data.product_name} ajouté à tes crédits.`); loadProfil(); }
+  else showToast(data.error || 'Erreur', true);
+}
+
+async function handlePayWithCGV(productId, engagement, applyReferral, installments, applyStudentDiscount, applyDiscovery, childId) {
+  const cgvBox = document.getElementById('cgv-check');
+  if (cgvBox && !cgvBox.checked) return showToast('Tu dois accepter les CGV pour continuer', true);
+  if (cgvBox) {
+    // Enregistrer l'acceptation
+    await db.from('profiles').update({ cgv_accepted_at: new Date().toISOString() }).eq('id', currentUser.id);
+    if (currentProfile) currentProfile.cgv_accepted_at = new Date().toISOString();
+  }
+  redirectToStripe(productId, engagement, applyReferral, installments || false, applyStudentDiscount, applyDiscovery, childId);
+}
+
 async function redirectToStripe(productId, engagement, applyReferralDiscount = false, installments = false, applyStudentDiscount = false, applyDiscoveryDiscount = false, childId = null) {
   showToast('Redirection vers le paiement…');
   try {
@@ -2558,7 +2633,10 @@ async function loadBoutique() {
         <div style="text-align:right;flex-shrink:0">
           ${isStudent ? `<div style="font-size:12px;color:var(--text3);text-decoration:line-through">${(p.price_cents/100).toFixed(0)}€</div>` : ''}
           <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${(displayPrice/100).toFixed(0)}€</div>
-          <button class="btn btn-primary btn-sm" style="margin-top:6px;width:auto;padding:6px 14px" onclick="confirmAndPay(${p.id}, false, ${isStudent})">Acheter</button>
+          <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end">
+            <button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 10px;font-size:12px" onclick="openGiftCardModal(${p.id})">🎁 Offrir</button>
+            <button class="btn btn-primary btn-sm" style="width:auto;padding:6px 14px" onclick="confirmAndPay(${p.id}, false, ${isStudent})">Acheter</button>
+          </div>
         </div>
       </div>
       ${installmentPrice ? `<button style="width:100%;background:rgba(155,125,219,0.08);border:none;border-top:1px solid rgba(155,125,219,0.2);padding:9px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;color:var(--violet-light);font-size:12px" onclick="confirmAndPayInstallments(${p.id}, ${isStudent})">
@@ -2646,7 +2724,17 @@ async function loadBoutique() {
       ${heuresCruesforFaits.map(renderForfait).join('')}
     </div>` : '';
 
-  el.innerHTML = tabs + studentBanner +
+  const giftCardBanner = `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(155,125,219,0.07);border:1px solid rgba(155,125,219,0.2);border-radius:12px;margin-bottom:16px">
+      <span style="font-size:20px">🎁</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--text1)">Offrir un forfait</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:1px">Clique sur "Offrir" à côté d'un forfait, ou utilise un code cadeau reçu.</div>
+      </div>
+      <button onclick="openRedeemGiftCard()" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--violet-light);cursor:pointer;white-space:nowrap">J'ai un code</button>
+    </div>`;
+
+  el.innerHTML = tabs + studentBanner + giftCardBanner +
     (forfaits.length ? `<div class="section-label">Cartes & unités</div>${forfaits.map(renderForfait).join('')}` : '') +
     (abos.length ? `<div class="section-label" style="margin-top:16px">Abonnements</div>${abos.map(renderAbo).join('')}` : '') +
     hcSection +
@@ -2730,11 +2818,14 @@ async function confirmAndPay(productId, engagement, applyStudentDiscount = false
     <div style="font-size:22px;color:var(--violet-light);font-weight:600;margin-bottom:4px">${(displayPrice/100).toFixed(0)}€${isAbo ? '/mois' : ''}</div>
     ${engagementMention}
     <div style="margin:16px 0;padding:12px;background:rgba(255,255,255,0.04);border-radius:10px;font-size:12px;color:var(--text3);line-height:1.6">
-      En procédant au paiement, j'accepte les <a href="https://yelyintheair.com/cgv" target="_blank" style="color:var(--violet-light)">Conditions Générales de Vente</a> de Yely in the Air.
-      ${engagement ? '<br><br>• Engagement de 12 mois calendaires glissants à partir de la date de souscription<br>• Reconduction automatique, résiliable avant la date anniversaire' : ''}
+      ${engagement ? '• Engagement de 12 mois calendaires glissants à partir de la date de souscription<br>• Reconduction automatique, résiliable avant la date anniversaire<br><br>' : ''}
+      ${!currentProfile?.cgv_accepted_at ? `<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin-bottom:10px">
+        <input type="checkbox" id="cgv-check" style="width:16px;height:16px;margin-top:1px;flex-shrink:0;accent-color:var(--violet)">
+        <span>J'ai lu et j'accepte les <a href="https://yelyintheair.com/cgv" target="_blank" style="color:var(--violet-light)">Conditions Générales de Vente</a> de Yely in the Air.</span>
+      </label>` : `En procédant au paiement, j'accepte les <a href="https://yelyintheair.com/cgv" target="_blank" style="color:var(--violet-light)">CGV</a>.`}
     </div>
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="btn btn-primary" style="flex:1" onclick="redirectToStripe(${productId}, ${engagement}, ${applyReferral}, false, ${applyStudentDiscount}, ${applyDiscovery}, ${childId ? `'${childId}'` : 'null'})">Payer en sécurité →</button>
+      <button class="btn btn-primary" style="flex:1" onclick="handlePayWithCGV(${productId}, ${engagement}, ${applyReferral}, false, ${applyStudentDiscount}, ${applyDiscovery}, ${childId ? `'${childId}'` : 'null'})">Payer en sécurité →</button>
       <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
     </div>
   `;
