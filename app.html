@@ -2568,6 +2568,10 @@ function sortForfaits(a, b) {
 
 async function loadBoutique() {
   const el = document.getElementById('boutique-content');
+  if (location.hash.includes('gift_success=1')) {
+    showToast('🎁 Carte cadeau envoyée ! Le code arrivera par email à la destinataire.');
+    history.replaceState(null, '', location.hash.split('?')[0]);
+  }
   if (currentProfile?.full_name) {
     updateAvatarBtns(currentProfile.avatar_url, currentProfile.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2));
   }
