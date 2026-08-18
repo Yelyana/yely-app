@@ -2601,7 +2601,7 @@ async function loadBoutique() {
   }
   const [{ data: products }, promoRes] = await Promise.all([
     db.from('products').select('*').eq('is_active', true).order('sort_order'),
-    fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/get-promo-status').then(r => r.json()).catch(() => ({ active: false, remaining: 0 })),
+    getFreshSession().then(s => fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/get-promo-status', s ? { headers: { Authorization: `Bearer ${s.access_token}` } } : {}).then(r => r.json())).catch(() => ({ active: false, remaining: 0 })),
   ]);
   const _launchPromoActive = promoRes?.active === true;
   const _launchPromoRemaining = promoRes?.remaining ?? 0;
