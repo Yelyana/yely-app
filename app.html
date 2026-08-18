@@ -2599,7 +2599,12 @@ async function loadBoutique() {
   if (currentProfile?.full_name) {
     updateAvatarBtns(currentProfile.avatar_url, currentProfile.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2));
   }
-  const { data: products } = await db.from('products').select('*').eq('is_active', true).order('sort_order');
+  const [{ data: products }, promoRes] = await Promise.all([
+    db.from('products').select('*').eq('is_active', true).order('sort_order'),
+    fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/get-promo-status').then(r => r.json()).catch(() => ({ active: false, remaining: 0 })),
+  ]);
+  const _launchPromoActive = promoRes?.active === true;
+  const _launchPromoRemaining = promoRes?.remaining ?? 0;
   window._boutiqueProducts = {};
   (products || []).forEach(p => window._boutiqueProducts[p.id] = p);
 
@@ -2652,11 +2657,18 @@ async function loadBoutique() {
   const parentEnfant = (products || []).filter(p => p.for_parent_enfant);
 
   const isStudent = currentProfile?.is_student === true;
+  const applyLaunchInUI = _launchPromoActive && !isStudent;
   const renderForfait = p => {
     const isUnite = p.type === 'unite';
-    const displayPrice = isStudent ? Math.floor(p.price_cents * 0.9) : p.price_cents;
+    const hasDiscount = isStudent || applyLaunchInUI;
+    const displayPrice = hasDiscount ? Math.floor(p.price_cents * 0.9) : p.price_cents;
     const pricePerCourse = (!isUnite && p.sessions_count) ? (displayPrice / p.sessions_count / 100).toFixed(2).replace('.',',') : null;
     const installmentPrice = p.allow_installments ? Math.ceil(displayPrice / 3) : null;
+    const discountBadge = isStudent
+      ? `<div style="font-size:10px;color:var(--green);margin-top:3px;font-weight:600">🎓 Tarif étudiant -10%</div>`
+      : applyLaunchInUI
+      ? `<div style="font-size:10px;color:#f59e0b;margin-top:3px;font-weight:600">🚀 Promo lancement -10%</div>`
+      : '';
     return `
     <div class="card card-sm" style="margin-bottom:10px;padding:0;overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px">
@@ -2664,10 +2676,10 @@ async function loadBoutique() {
           <div style="font-size:15px;font-weight:500">${esc(p.name)}</div>
           <div style="font-size:12px;color:var(--text3);margin-top:3px">${esc(p.description || '')}${p.sessions_count && !isUnite ? ' · ' + p.sessions_count + ' cours' : ''}</div>
           ${pricePerCourse ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">soit ${pricePerCourse}€/cours</div>` : ''}
-          ${isStudent ? `<div style="font-size:10px;color:var(--green);margin-top:3px;font-weight:600">🎓 Tarif étudiant -10%</div>` : ''}
+          ${discountBadge}
         </div>
         <div style="text-align:right;flex-shrink:0">
-          ${isStudent ? `<div style="font-size:12px;color:var(--text3);text-decoration:line-through">${(p.price_cents/100).toFixed(0)}€</div>` : ''}
+          ${hasDiscount ? `<div style="font-size:12px;color:var(--text3);text-decoration:line-through">${(p.price_cents/100).toFixed(0)}€</div>` : ''}
           <div style="font-size:17px;font-weight:500;color:var(--violet-light)">${(displayPrice/100).toFixed(0)}€</div>
           <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end">
             <button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 10px;font-size:12px" onclick="openGiftCardModal(${p.id})">🎁 Offrir</button>
@@ -2676,7 +2688,7 @@ async function loadBoutique() {
         </div>
       </div>
       ${installmentPrice ? `<button style="width:100%;background:rgba(155,125,219,0.08);border:none;border-top:1px solid rgba(155,125,219,0.2);padding:9px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;color:var(--violet-light);font-size:12px" onclick="confirmAndPayInstallments(${p.id}, ${isStudent})">
-        <span>💳 Payer en 3 fois${isStudent ? ' 🎓' : ''}</span>
+        <span>💳 Payer en 3 fois${isStudent ? ' 🎓' : applyLaunchInUI ? ' 🚀' : ''}</span>
         <span style="font-weight:600">${formatPrice(installmentPrice)}/mois × 3</span>
       </button>` : ''}
     </div>`;
@@ -2688,23 +2700,28 @@ async function loadBoutique() {
     const is2x = !isIllimite && /2x|x2|2 fois|deux fois|2\/semaine/.test(nameLower);
     const coursesPerMonth = is2x ? 8 : 4;
     const freq = is2x ? '2 cours/semaine' : '1 cours/semaine';
-    const pricePerCourse = isIllimite ? null : (p.price_cents / coursesPerMonth / 100).toFixed(2).replace('.',',');
-    const engPricePerCourse = (isIllimite || !p.engagement_price_cents) ? null : (p.engagement_price_cents / coursesPerMonth / 100).toFixed(2).replace('.',',');
+    const aboDisplayPrice = applyLaunchInUI ? Math.floor(p.price_cents * 0.9) : p.price_cents;
+    const aboEngDisplayPrice = (applyLaunchInUI && p.engagement_price_cents) ? Math.floor(p.engagement_price_cents * 0.9) : p.engagement_price_cents;
+    const pricePerCourse = isIllimite ? null : (aboDisplayPrice / coursesPerMonth / 100).toFixed(2).replace('.',',');
+    const engPricePerCourse = (isIllimite || !aboEngDisplayPrice) ? null : (aboEngDisplayPrice / coursesPerMonth / 100).toFixed(2).replace('.',',');
     return `
     <div class="card card-sm" style="margin-bottom:12px">
       <div style="margin-bottom:10px">
         <div style="font-size:15px;font-weight:500">${esc(p.name)}</div>
         <div style="font-size:12px;color:var(--text3);margin-top:3px">${esc(p.description || '')}</div>
+        ${applyLaunchInUI ? `<div style="font-size:10px;color:#f59e0b;margin-top:3px;font-weight:600">🚀 Promo lancement -10%</div>` : ''}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${!p.engagement_only ? `<button class="btn btn-ghost btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border:1px solid var(--border);border-radius:12px" onclick="confirmAndPay(${p.id}, false)">
           <span style="font-size:13px;color:var(--text2)">Sans engagement</span>
-          <span style="font-size:18px;font-weight:600;color:var(--violet-light)">${(p.price_cents/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>
+          ${applyLaunchInUI ? `<span style="font-size:11px;color:var(--text3);text-decoration:line-through">${(p.price_cents/100).toFixed(0)}€/mois</span>` : ''}
+          <span style="font-size:18px;font-weight:600;color:var(--violet-light)">${(aboDisplayPrice/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>
           ${pricePerCourse ? `<span style="font-size:10px;color:var(--text3)">soit ${pricePerCourse}€/cours (${freq})</span>` : `<span style="font-size:10px;color:var(--text3)">+ practice libre ✨</span>`}
         </button>` : ''}
         ${p.engagement_price_cents ? `<button class="btn btn-primary btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border-radius:12px" onclick="confirmAndPay(${p.id}, true)">
           <span style="font-size:11px;opacity:0.85">Engagement ${p.engagement_months} mois ⭐</span>
-          <span style="font-size:18px;font-weight:600">${(p.engagement_price_cents/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>
+          ${applyLaunchInUI ? `<span style="font-size:11px;opacity:0.7;text-decoration:line-through">${(p.engagement_price_cents/100).toFixed(0)}€/mois</span>` : ''}
+          <span style="font-size:18px;font-weight:600">${(aboEngDisplayPrice/100).toFixed(0)}€<span style="font-size:11px;font-weight:400">/mois</span></span>
           ${engPricePerCourse ? `<span style="font-size:10px;opacity:0.75">soit ${engPricePerCourse}€/cours (${freq})</span>` : `<span style="font-size:10px;opacity:0.75">+ practice libre ✨</span>`}
           <span style="font-size:10px;opacity:0.7">12 mois · reconduction auto</span>
         </button>` : ''}
@@ -2747,7 +2764,16 @@ async function loadBoutique() {
       </div>`;
   };
 
-  const studentBanner = (!isStudent && currentProfile?.student_verification_status !== 'pending') ? `
+  const launchPromoBanner = (_launchPromoActive && !isStudent) ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);border-radius:12px;margin-bottom:14px">
+      <span style="font-size:20px">🚀</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:#f59e0b">Promo de lancement — <strong>-10%</strong> sur tout !</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Il reste <strong style="color:#f59e0b">${_launchPromoRemaining} place${_launchPromoRemaining > 1 ? 's' : ''}</strong> à prix réduit. Non cumulable avec d'autres offres.</div>
+      </div>
+    </div>` : '';
+
+  const studentBanner = (!isStudent && currentProfile?.student_verification_status !== 'pending' && !_launchPromoActive) ? `
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(125,191,155,0.07);border:1px solid rgba(125,191,155,0.2);border-radius:10px;margin-bottom:16px;cursor:pointer" onclick="navigate('profil')">
       <span style="font-size:18px">🎓</span>
       <div style="font-size:12px;color:var(--text3);line-height:1.5">Étudiante ? Envoie ta carte depuis ton profil pour bénéficier de <strong style="color:var(--green)">-10%</strong> sur tous les forfaits.</div>
@@ -2770,7 +2796,7 @@ async function loadBoutique() {
       <button onclick="openRedeemGiftCard()" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--violet-light);cursor:pointer;white-space:nowrap">J'ai un code</button>
     </div>`;
 
-  el.innerHTML = tabs + studentBanner + giftCardBanner +
+  el.innerHTML = tabs + launchPromoBanner + studentBanner + giftCardBanner +
     (forfaits.length ? `<div class="section-label">Cartes & unités</div>${forfaits.map(renderForfait).join('')}` : '') +
     (abos.length ? `<div class="section-label" style="margin-top:16px">Abonnements</div>${abos.map(renderAbo).join('')}` : '') +
     hcSection +
