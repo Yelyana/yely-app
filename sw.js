@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yely-v163';
+const CACHE_NAME = 'yely-v164';
 
 self.addEventListener('install', e => { self.skipWaiting(); });
 
