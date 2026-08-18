@@ -1404,7 +1404,8 @@ async function leaveWaitlist(instanceId) {
 async function loadBookingForm(ci) {
   const name = ci.custom_name || ci.discipline_name || 'Cours';
   // Déterminer les forfaits compatibles
-  const isReformer = ci.is_reformer;
+  // is_reformer vient du JOIN disciplines (peut être null si discipline_id non renseigné) → fallback sur custom_name
+  const isReformer = ci.is_reformer || /reformer/i.test(ci.custom_name || ci.discipline_name || '');
   const isKids = isKidsCourse(ci);
   const isPractice = ci.is_practice === true;
   const isParentEnfant = /parent.enfant/i.test(ci.custom_name || ci.discipline_name || '');
@@ -1439,7 +1440,7 @@ async function loadBookingForm(ci) {
   const availableProducts = (products || [])
     .filter(p => !p.one_time_only || !alreadyBoughtIds.has(p.id))
     .filter(p => {
-      if (isPractice) return p.for_practice || p.type === 'abo_illimite';
+      if (isPractice) return (p.for_practice && !p.heures_creuses) || p.type === 'abo_illimite';
       if (ciIsHC) return p.heures_creuses || p.type === 'abo_illimite' || p[flag];
       if (p.heures_creuses) return false;
       return p[flag];
