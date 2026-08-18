@@ -1411,8 +1411,9 @@ async function loadBookingForm(ci) {
   const isParentEnfant = /parent.enfant/i.test(ci.custom_name || ci.discipline_name || '');
   const flag = isPractice ? 'for_practice' : isKids ? 'for_kids' : isParentEnfant ? 'for_parent_enfant' : isReformer ? 'for_reformer' : 'for_collectif';
 
-  // Crédits disponibles — filtrés par le bon flag produit
-  const { data: creditsAll } = await db.from('student_credits').select('*, products(*)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).order('expires_at');
+  // Crédits disponibles — filtrés par le bon flag produit (non expirés)
+  const _today = new Date().toISOString().split('T')[0];
+  const { data: creditsAll } = await db.from('student_credits').select('*, products(*)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).or(`expires_at.is.null,expires_at.gte.${_today}`).order('expires_at');
   const ciIsHC = ci.heures_creuses === true;
   const credits = (creditsAll || []).filter(c => {
     const p = c.products;
@@ -1751,6 +1752,7 @@ async function _doBookWithCredit(instanceId, creditId, childId) {
   const { data: credit } = await db.from('student_credits').select('*, products(*)').eq('id', creditId).eq('student_id', currentUser.id).single();
   if (!credit) return showToast('Crédit introuvable', true);
   if (credit.sessions_remaining <= 0) return showToast('Plus de séances disponibles', true);
+  if (credit.expires_at && credit.expires_at < new Date().toISOString().split('T')[0]) return showToast('Ce forfait a expiré', true);
 
   // Vérifier la limite 1x/semaine pour les crédits heures creuses
   if (credit.products?.heures_creuses) {
