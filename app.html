@@ -2011,7 +2011,7 @@ async function confirmCancel(bookingId) {
   db.from('notifications').insert({
     student_id: currentUser.id,
     title: 'Réservation annulée',
-    body: `Ta réservation pour ${courseName}${dateStr ? ' le ' + dateStr : ''} a bien été annulée. Ton crédit a été recrédité.`,
+    message: `Ta réservation pour ${courseName}${dateStr ? ' le ' + dateStr : ''} a bien été annulée. Ton crédit a été recrédité.`,
     type: 'cancellation',
   }).catch(() => {});
   db.functions.invoke('send-push', {
