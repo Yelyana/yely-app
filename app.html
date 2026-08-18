@@ -2661,13 +2661,13 @@ async function loadBoutique() {
   const renderForfait = p => {
     const isUnite = p.type === 'unite';
     const hasDiscount = isStudent || applyLaunchInUI;
-    const displayPrice = hasDiscount ? Math.floor(p.price_cents * 0.9) : p.price_cents;
+    const displayPrice = applyLaunchInUI ? Math.floor(p.price_cents * 0.8) : (isStudent ? Math.floor(p.price_cents * 0.9) : p.price_cents);
     const pricePerCourse = (!isUnite && p.sessions_count) ? (displayPrice / p.sessions_count / 100).toFixed(2).replace('.',',') : null;
     const installmentPrice = p.allow_installments ? Math.ceil(displayPrice / 3) : null;
     const discountBadge = isStudent
       ? `<div style="font-size:10px;color:var(--green);margin-top:3px;font-weight:600">🎓 Tarif étudiant -10%</div>`
       : applyLaunchInUI
-      ? `<div style="font-size:10px;color:#f59e0b;margin-top:3px;font-weight:600">🚀 Promo lancement -10%</div>`
+      ? `<div style="font-size:10px;color:#f59e0b;margin-top:3px;font-weight:600">🚀 Promo lancement -20%</div>`
       : '';
     return `
     <div class="card card-sm" style="margin-bottom:10px;padding:0;overflow:hidden">
@@ -2700,8 +2700,8 @@ async function loadBoutique() {
     const is2x = !isIllimite && /2x|x2|2 fois|deux fois|2\/semaine/.test(nameLower);
     const coursesPerMonth = is2x ? 8 : 4;
     const freq = is2x ? '2 cours/semaine' : '1 cours/semaine';
-    const aboDisplayPrice = applyLaunchInUI ? Math.floor(p.price_cents * 0.9) : p.price_cents;
-    const aboEngDisplayPrice = (applyLaunchInUI && p.engagement_price_cents) ? Math.floor(p.engagement_price_cents * 0.9) : p.engagement_price_cents;
+    const aboDisplayPrice = applyLaunchInUI ? Math.floor(p.price_cents * 0.8) : p.price_cents;
+    const aboEngDisplayPrice = (applyLaunchInUI && p.engagement_price_cents) ? Math.floor(p.engagement_price_cents * 0.8) : p.engagement_price_cents;
     const pricePerCourse = isIllimite ? null : (aboDisplayPrice / coursesPerMonth / 100).toFixed(2).replace('.',',');
     const engPricePerCourse = (isIllimite || !aboEngDisplayPrice) ? null : (aboEngDisplayPrice / coursesPerMonth / 100).toFixed(2).replace('.',',');
     return `
@@ -2709,7 +2709,7 @@ async function loadBoutique() {
       <div style="margin-bottom:10px">
         <div style="font-size:15px;font-weight:500">${esc(p.name)}</div>
         <div style="font-size:12px;color:var(--text3);margin-top:3px">${esc(p.description || '')}</div>
-        ${applyLaunchInUI ? `<div style="font-size:10px;color:#f59e0b;margin-top:3px;font-weight:600">🚀 Promo lancement -10%</div>` : ''}
+        ${applyLaunchInUI ? `<div style="font-size:10px;color:#f59e0b;margin-top:3px;font-weight:600">🚀 Promo lancement -20%</div>` : ''}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${!p.engagement_only ? `<button class="btn btn-ghost btn-sm" style="flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;padding:10px 8px;border:1px solid var(--border);border-radius:12px" onclick="confirmAndPay(${p.id}, false)">
@@ -2768,7 +2768,7 @@ async function loadBoutique() {
     <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);border-radius:12px;margin-bottom:14px">
       <span style="font-size:20px">🚀</span>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;color:#f59e0b">Promo de lancement — <strong>-10%</strong> sur tout !</div>
+        <div style="font-size:13px;font-weight:700;color:#f59e0b">Promo de lancement — <strong>-20%</strong> sur tout !</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">Il reste <strong style="color:#f59e0b">${_launchPromoRemaining} place${_launchPromoRemaining > 1 ? 's' : ''}</strong> à prix réduit. Non cumulable avec d'autres offres.</div>
       </div>
     </div>` : '';
