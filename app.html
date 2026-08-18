@@ -798,6 +798,17 @@ function showApp() {
     navigate('boutique');
     if (typeof fbq !== 'undefined') fbq('track', 'Purchase', { currency: 'EUR' });
     setTimeout(() => showToast('🎉 Paiement confirmé ! Ton forfait est activé.'), 500);
+  } else if (hash.startsWith('#reserver') && hash.includes('course=')) {
+    const courseId = hash.replace(/.*course=/, '').split('&')[0];
+    window.location.hash = '';
+    navigate('reserver');
+    setTimeout(async () => {
+      const { data: ci } = await db.from('course_instances_with_availability').select('*').eq('id', courseId).single();
+      if (!ci) return;
+      const { data: myBooking } = await db.from('bookings').select('status').eq('course_instance_id', courseId).eq('student_id', currentUser.id).maybeSingle();
+      const { data: myWait } = await db.from('waitlist').select('position').eq('course_instance_id', courseId).eq('student_id', currentUser.id).maybeSingle();
+      openBookingModal(ci, myBooking?.status || '', !!myWait, myWait?.position || null);
+    }, 800);
   } else {
     navigate('home');
   }
