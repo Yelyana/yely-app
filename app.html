@@ -3103,9 +3103,9 @@ async function loadProfil() {
   el.innerHTML = `
     <div style="text-align:center;padding:20px 0">
       <div style="position:relative;width:72px;margin:0 auto 12px;cursor:pointer" onclick="document.getElementById('avatar-input').click()">
-        ${currentProfile.avatar_url
-          ? `<img src="${currentProfile.avatar_url}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--violet)">`
-          : `<div style="width:72px;height:72px;border-radius:50%;background:var(--violet-dark);border:2px solid var(--violet);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--violet-light)">${initials}</div>`}
+        ${currentProfile.avatar_url && safeUrl(currentProfile.avatar_url)
+          ? `<img src="${esc(currentProfile.avatar_url)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--violet)">`
+          : `<div style="width:72px;height:72px;border-radius:50%;background:var(--violet-dark);border:2px solid var(--violet);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--violet-light)">${esc(initials)}</div>`}
         <div style="position:absolute;bottom:0;right:0;width:22px;height:22px;background:var(--violet);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px">📷</div>
       </div>
       <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
@@ -3183,7 +3183,7 @@ async function loadProfil() {
         const price = o.products?.price ? (o.products.price / 100).toFixed(0) + ' €' : '';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
           <div>
-            <div style="font-size:13px;font-weight:500">${o.products?.name || '—'}</div>
+            <div style="font-size:13px;font-weight:500">${esc(o.products?.name || '—')}</div>
             <div style="font-size:11px;color:var(--text3)">${date}</div>
           </div>
           <div style="font-size:13px;font-weight:600;color:var(--text2)">${price}</div>
@@ -3394,8 +3394,12 @@ function updateAvatarBtns(avatarUrl, initials) {
   ['home-avatar','boutique-avatar','desk-avatar'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    if (avatarUrl) {
-      el.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    if (avatarUrl && safeUrl(avatarUrl)) {
+      const img = document.createElement('img');
+      img.src = avatarUrl;
+      img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover';
+      el.innerHTML = '';
+      el.appendChild(img);
     } else {
       el.textContent = initials;
     }
@@ -3449,8 +3453,8 @@ function editProfile() {
   document.getElementById('booking-modal').classList.add('open');
   document.getElementById('modal-content').innerHTML = `
     <h3 class="serif" style="font-size:22px;margin-bottom:16px">Mon profil</h3>
-    <div class="form-group"><label>Prénom et nom</label><input id="edit-name" value="${currentProfile.full_name}"></div>
-    <div class="form-group"><label>Téléphone</label><input id="edit-phone" type="tel" value="${currentProfile.phone || ''}"></div>
+    <div class="form-group"><label>Prénom et nom</label><input id="edit-name" value="${esc(currentProfile.full_name)}"></div>
+    <div class="form-group"><label>Téléphone</label><input id="edit-phone" type="tel" value="${esc(currentProfile.phone || '')}"></div>
     <button class="btn btn-primary" onclick="saveProfile()">Enregistrer</button>
     <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Annuler</button>
   `;
