@@ -710,7 +710,7 @@ async function exportMyData() {
   showToast('Préparation de tes données…');
   const uid = currentUser.id;
   const [{ data: profile }, { data: bookings }, { data: credits }, { data: subs }, { data: orders }, { data: journal }] = await Promise.all([
-    db.from('profiles').select('full_name, email, phone, birthday, created_at, is_student').eq('id', uid).single(),
+    db.from('profiles').select('full_name, email, phone, birthday, created_at, is_student, is_fondatrice').eq('id', uid).single(),
     db.from('bookings').select('status, booked_at, attended, course_instances(date, start_time, courses(custom_name, disciplines(name)))').eq('student_id', uid).order('booked_at', { ascending: false }),
     db.from('student_credits').select('sessions_remaining, expires_at, purchased_at, products(name)').eq('student_id', uid),
     db.from('subscriptions').select('status, started_at, products(name)').eq('student_id', uid),
@@ -3150,7 +3150,8 @@ async function loadProfil() {
       </div>
       <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
       <div class="serif" style="font-size:22px">${esc(currentProfile.full_name)}</div>
-      <div style="font-size:13px;color:var(--text3)">${esc(currentProfile.email)}</div>
+      ${currentProfile.is_fondatrice ? `<div style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,rgba(234,179,8,0.15),rgba(251,146,60,0.1));border:1px solid rgba(234,179,8,0.35);border-radius:20px;padding:3px 12px;margin-top:6px;font-size:11px;font-weight:600;color:#f59e0b;letter-spacing:0.05em">⭐ FONDATRICE</div>` : ''}
+      <div style="font-size:13px;color:var(--text3);margin-top:4px">${esc(currentProfile.email)}</div>
     </div>
 
     ${(!currentProfile.avatar_url || !currentProfile.phone) ? `
