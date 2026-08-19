@@ -326,13 +326,13 @@ async function loadDashboard() {
     { data: topCredits },
     { data: activePracticeSessions },
   ] = await Promise.all([
-    db.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
+    db.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student').neq('full_name', 'Compte supprimé'),
     db.from('bookings').select('*', { count: 'exact', head: true }).gte('booked_at', monthStart).eq('status', 'confirmed'),
     db.from('bookings').select('*', { count: 'exact', head: true }).gte('booked_at', lastMonthStart).lt('booked_at', lastMonthEnd).eq('status', 'confirmed'),
     db.from('bookings').select('*, profiles(full_name), course_instances(date, courses(custom_name, disciplines(name,color)))').eq('status', 'confirmed').order('booked_at', { ascending: false }).limit(6),
     db.from('course_instances').select('*, courses(custom_name, start_time, max_students, disciplines(name,color))').eq('date', today).neq('status','cancelled').order('courses(start_time)'),
     db.from('bookings').select('course_instance_id, course_instances(courses(custom_name, disciplines(name,color), max_students))').eq('status','confirmed').gte('booked_at', monthStart),
-    db.from('profiles').select('id, full_name, birthday, created_at').eq('role', 'student'),
+    db.from('profiles').select('id, full_name, birthday, created_at').eq('role', 'student').neq('full_name', 'Compte supprimé'),
     db.from('student_credits').select('products(name), sessions_total').gte('purchased_at', monthStart),
     db.from('practice_sessions').select('*, profiles(full_name)').eq('status', 'active'),
   ]);
@@ -809,7 +809,7 @@ async function cancelBookingAdmin(bookingId, instanceId) {
 }
 
 async function openAddStudentModal(instanceId) {
-  const { data: students } = await db.from('profiles').select('id, full_name').eq('role', 'student').order('full_name');
+  const { data: students } = await db.from('profiles').select('id, full_name').eq('role', 'student').neq('full_name', 'Compte supprimé').order('full_name');
   const { data: existing } = await db.from('bookings').select('student_id').eq('course_instance_id', instanceId).eq('status', 'confirmed');
   const alreadyIn = new Set((existing || []).map(b => b.student_id));
   const available = (students || []).filter(s => !alreadyIn.has(s.id));
@@ -1079,7 +1079,7 @@ async function loadEleves() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
   const threeWeeksAgo = new Date(Date.now() - 21*24*60*60*1000).toISOString().split('T')[0];
 
-  const { data: students } = await db.from('profiles').select('*').eq('role', 'student').order('full_name');
+  const { data: students } = await db.from('profiles').select('*').eq('role', 'student').neq('full_name', 'Compte supprimé').order('full_name');
   const { data: bookingStats } = await db.from('bookings')
     .select('student_id, booked_at, status')
     .eq('status', 'confirmed')
@@ -1504,7 +1504,7 @@ async function saveManualCredits(studentId) {
 
 async function openPaymentModal() {
   const [{ data: students }, { data: products }] = await Promise.all([
-    db.from('profiles').select('id, full_name').eq('role', 'student').order('full_name'),
+    db.from('profiles').select('id, full_name').eq('role', 'student').neq('full_name', 'Compte supprimé').order('full_name'),
     db.from('products').select('*').eq('is_active', true).in('type', ['carte']).order('sort_order'),
   ]);
   document.getElementById('modal-body').innerHTML = `
@@ -1888,7 +1888,7 @@ async function exportVentesCSV() {
 }
 
 async function exportStudentsCSV() {
-  const { data: students } = await db.from('profiles').select('full_name, email, created_at, is_fondatrice, is_student').eq('role', 'student').order('full_name');
+  const { data: students } = await db.from('profiles').select('full_name, email, created_at, is_fondatrice, is_student').eq('role', 'student').neq('full_name', 'Compte supprimé').order('full_name');
   const { data: subs } = await db.from('subscriptions').select('student_id, status, products(name)').eq('status', 'active');
   const { data: credits } = await db.from('student_credits').select('student_id, sessions_remaining, products(name)').gt('sessions_remaining', 0);
   const subMap = {};
