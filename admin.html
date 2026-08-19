@@ -1215,7 +1215,7 @@ async function openStudentDetail(studentId) {
   const [{ data: credits }, { data: subs }, { data: bookings }, { data: fullProfile }] = await Promise.all([
     db.from('student_credits').select('*, products(name)').eq('student_id', studentId).order('purchased_at', { ascending: false }),
     db.from('subscriptions').select('*, products(name)').eq('student_id', studentId).order('created_at', { ascending: false }),
-    db.from('bookings').select('*, course_instances(date, courses(custom_name, disciplines(name,color)))').eq('student_id', studentId).in('status',['confirmed','cancelled','cancelled_by_studio']).order('booked_at', { ascending: false }).limit(20),
+    db.from('bookings').select('*, course_instances(date, start_time, courses(custom_name, disciplines(name,color)))').eq('student_id', studentId).in('status',['confirmed','cancelled','cancelled_by_studio']).order('booked_at', { ascending: false }).limit(50),
     db.from('profiles').select('health_info').eq('id', studentId).single(),
   ]);
 
@@ -1310,22 +1310,33 @@ async function openStudentDetail(studentId) {
       <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addCreditsModal('${studentId}','${esc(name)}')">+ Ajouter des crédits</button>
     </div>
 
-    <div style="margin-bottom:16px">
-      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Historique des cours</div>
-      ${bookings?.length ? bookings.map(b => {
+    ${(() => {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const upcoming = (bookings||[]).filter(b => b.status === 'confirmed' && b.course_instances?.date && new Date(b.course_instances.date) >= today).sort((a,b) => new Date(a.course_instances.date) - new Date(b.course_instances.date));
+      const past = (bookings||[]).filter(b => !upcoming.includes(b));
+      const bookingRow = (b, future) => {
         const isCancelled = b.status !== 'confirmed';
         const color = b.course_instances?.courses?.disciplines?.color || '#a78bfa';
         const coursName = b.course_instances?.courses?.custom_name || b.course_instances?.courses?.disciplines?.name || 'Cours';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
           <div style="display:flex;align-items:center;gap:8px">
-            <div style="width:4px;height:4px;border-radius:50%;background:${isCancelled?'var(--text3)':color}"></div>
+            <div style="width:6px;height:6px;border-radius:50%;background:${isCancelled?'var(--text3)':color};flex-shrink:0"></div>
             <span style="font-size:13px;color:${isCancelled?'var(--text3)':'var(--text)'}">${esc(coursName)}</span>
             ${isCancelled?'<span style="font-size:10px;color:var(--text3)">annulé</span>':''}
           </div>
-          <span style="font-size:11px;color:var(--text3)">${formatDate(b.course_instances?.date)}</span>
+          <span style="font-size:11px;color:${future?color:'var(--text3)'}${future?';font-weight:600':''}">${formatDate(b.course_instances?.date)}</span>
         </div>`;
-      }).join('') : '<div style="color:var(--text3);font-size:13px">Pas encore de cours</div>'}
+      };
+      return `
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Cours à venir</div>
+      ${upcoming.length ? upcoming.map(b => bookingRow(b, true)).join('') : '<div style="color:var(--text3);font-size:13px">Aucun cours à venir</div>'}
     </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Historique des cours</div>
+      ${past.length ? past.map(b => bookingRow(b, false)).join('') : '<div style="color:var(--text3);font-size:13px">Pas encore de cours</div>'}
+    </div>`;
+    })()}
 
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-primary btn-sm" onclick="sendDirectMessage('${studentId}','${esc(name)}')">💬 Message</button>
