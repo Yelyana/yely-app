@@ -1460,7 +1460,7 @@ async function doSendMessage(studentIds) {
 }
 
 async function addCreditsModal(studentId, name) {
-  const { data: products } = await db.from('products').select('*').eq('is_active', true).in('type', ['carte']).order('sort_order');
+  const { data: products } = await db.from('products').select('*').eq('is_active', true).not('type', 'in', '("abo_illimite","abo_mensuel")').order('sort_order');
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">Enregistrer un paiement — ${esc(name)}</div>
     <div class="form-group"><label>Forfait</label>
@@ -1505,7 +1505,7 @@ async function saveManualCredits(studentId) {
 async function openPaymentModal() {
   const [{ data: students }, { data: products }] = await Promise.all([
     db.from('profiles').select('id, full_name').eq('role', 'student').neq('full_name', 'Compte supprimé').order('full_name'),
-    db.from('products').select('*').eq('is_active', true).in('type', ['carte']).order('sort_order'),
+    db.from('products').select('*').eq('is_active', true).not('type', 'in', '("abo_illimite","abo_mensuel")').order('sort_order'),
   ]);
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">Enregistrer un paiement</div>
