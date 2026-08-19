@@ -1502,10 +1502,9 @@ async function saveManualCredits(studentId) {
   const days = parseInt(opt.dataset.days);
   const priceCents = parseInt(opt.dataset.price) || 0;
   const method = document.getElementById('ac-method').value;
-  const expires = new Date(Date.now() + days * 86400000).toISOString();
-
+  // expires_at = null : la validité démarre au premier cours utilisé par l'élève
   const [creditResult, orderResult] = await Promise.all([
-    db.from('student_credits').insert({ student_id: studentId, product_id: productId, sessions_remaining: sessions, sessions_total: sessions, valid_for: validFor, expires_at: expires }),
+    db.from('student_credits').insert({ student_id: studentId, product_id: productId, sessions_remaining: sessions, sessions_total: sessions, valid_for: validFor, expires_at: null }),
     method !== 'offert' ? db.from('orders').insert({ student_id: studentId, product_id: productId, amount_cents: priceCents, status: 'paid', payment_method: method }) : Promise.resolve({ error: null }),
   ]);
   if (creditResult.error) return showToast(creditResult.error.message, true);
@@ -1552,10 +1551,9 @@ async function savePaymentModal() {
   const days = parseInt(opt.dataset.days);
   const priceCents = parseInt(opt.dataset.price) || 0;
   const method = document.getElementById('pm-method').value;
-  const expires = new Date(Date.now() + days * 86400000).toISOString();
-
+  // expires_at = null : la validité démarre au premier cours utilisé par l'élève
   const [creditResult, orderResult] = await Promise.all([
-    db.from('student_credits').insert({ student_id: studentId, product_id: productId, sessions_remaining: sessions, sessions_total: sessions, valid_for: validFor, expires_at: expires }),
+    db.from('student_credits').insert({ student_id: studentId, product_id: productId, sessions_remaining: sessions, sessions_total: sessions, valid_for: validFor, expires_at: null }),
     method !== 'offert' ? db.from('orders').insert({ student_id: studentId, product_id: productId, amount_cents: priceCents, status: 'paid', payment_method: method }) : Promise.resolve({ error: null }),
   ]);
   if (creditResult.error) return showToast(creditResult.error.message, true);

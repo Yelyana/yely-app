@@ -1841,7 +1841,19 @@ async function _doBookWithCredit(instanceId, creditId, childId) {
     p_child_id: childId || null,
   });
   if (error || result?.error) return showToast(result?.error || error?.message || 'Erreur réservation', true);
-  closeModal(); showToast('Réservation confirmée ! 🦇');
+  closeModal();
+  // Si c'est la première utilisation du crédit, fixer expires_at = date du cours + validity_days
+  if (!credit.expires_at && credit.products?.validity_days) {
+    const { data: ciForExpiry } = await db.from('course_instances').select('date').eq('id', instanceId).single();
+    if (ciForExpiry?.date) {
+      const exp = new Date(ciForExpiry.date);
+      exp.setDate(exp.getDate() + credit.products.validity_days);
+      await db.from('student_credits')
+        .update({ expires_at: exp.toISOString().split('T')[0] })
+        .eq('id', creditId)
+        .eq('student_id', currentUser.id);
+    }
+  }
   sendConfirmationEmail(instanceId);
   loadCoursesForDay(selectedDay || new Date());
   // Notif si dernier crédit restant
