@@ -1222,7 +1222,7 @@ async function openStudentDetail(studentId) {
   const [{ data: credits }, { data: subs }, bookingsRes, { data: fullProfile }] = await Promise.all([
     db.from('student_credits').select('*, products(name)').eq('student_id', studentId).order('purchased_at', { ascending: false }),
     db.from('subscriptions').select('*, products(name)').eq('student_id', studentId).order('created_at', { ascending: false }),
-    db.from('bookings').select('*, course_instances(date, start_time, courses(custom_name, disciplines(name,color)))').eq('student_id', studentId).order('booked_at', { ascending: false }).limit(50),
+    db.from('bookings').select('*, course_instances(date, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', studentId).order('booked_at', { ascending: false }).limit(50),
     db.from('profiles').select('health_info').eq('id', studentId).single(),
   ]);
   if (bookingsRes.error) console.error('bookings query error:', bookingsRes.error);
