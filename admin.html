@@ -1391,7 +1391,7 @@ async function openAddBookingForStudent(studentId, studentName) {
   // Charger les instances à venir avec places disponibles
   const now = new Date().toISOString();
   const { data: instances } = await db.from('course_instances')
-    .select('id, date, start_time, courses(custom_name, disciplines(name,color)), bookings(id)')
+    .select('id, date, courses(custom_name, start_time, disciplines(name,color)), bookings(id)')
     .gte('date', now.split('T')[0])
     .order('date', { ascending: true })
     .limit(40);
@@ -1410,7 +1410,7 @@ async function openAddBookingForStudent(studentId, studentName) {
             <div style="width:8px;height:8px;border-radius:50%;background:${color}"></div>
             <div>
               <div style="font-size:13px;font-weight:500">${esc(name)}</div>
-              <div style="font-size:11px;color:var(--text3)">${formatDate(ci.date)} · ${ci.start_time?.slice(0,5)||''}</div>
+              <div style="font-size:11px;color:var(--text3)">${formatDate(ci.date)} · ${ci.courses?.start_time?.slice(0,5)||''}</div>
             </div>
           </div>
           <span style="font-size:11px;color:var(--text3)">${countBooked} inscrits</span>
