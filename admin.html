@@ -1219,12 +1219,14 @@ function renderEleves() {
 async function openStudentDetail(studentId) {
   const student = _allStudentsData.find(s => s.id === studentId) || {};
   const name = student.full_name || '';
-  const [{ data: credits }, { data: subs }, { data: bookings }, { data: fullProfile }] = await Promise.all([
+  const [{ data: credits }, { data: subs }, bookingsRes, { data: fullProfile }] = await Promise.all([
     db.from('student_credits').select('*, products(name)').eq('student_id', studentId).order('purchased_at', { ascending: false }),
     db.from('subscriptions').select('*, products(name)').eq('student_id', studentId).order('created_at', { ascending: false }),
-    db.from('bookings').select('*, course_instances(date, start_time, courses(custom_name, disciplines(name,color)))').eq('student_id', studentId).in('status',['confirmed','cancelled','cancelled_by_studio']).order('booked_at', { ascending: false }).limit(50),
+    db.from('bookings').select('*, course_instances(date, start_time, courses(custom_name, disciplines(name,color)))').eq('student_id', studentId).order('booked_at', { ascending: false }).limit(50),
     db.from('profiles').select('health_info').eq('id', studentId).single(),
   ]);
+  if (bookingsRes.error) console.error('bookings query error:', bookingsRes.error);
+  const bookings = bookingsRes.data;
 
   const attended = (bookings||[]).filter(b => b.attended === true).length;
   const confirmed = (bookings||[]).filter(b => b.status === 'confirmed').length;
@@ -1374,10 +1376,12 @@ async function cancelBookingFromDetail(bookingId, instanceId, studentId) {
   const { error } = await db.from('bookings').update({ status: 'cancelled_by_studio' }).eq('id', bookingId);
   if (error) return showToast(error.message, true);
   if (booking?.credit_id) {
-    const { error: creditErr } = await db.rpc('increment_credit', { credit_id: booking.credit_id, amount: 1 });
+    const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).single();
+    const { error: creditErr } = await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id);
     if (creditErr) showToast('Réservation annulée mais recrédit échoué — vérifier manuellement', true);
   } else if (booking?.subscription_id) {
-    // abonnement : pas de recrédit séance
+    const { data: sub } = await db.from('subscriptions').select('sessions_used_this_month').eq('id', booking.subscription_id).single();
+    await db.from('subscriptions').update({ sessions_used_this_month: Math.max(0, (sub?.sessions_used_this_month || 1) - 1) }).eq('id', booking.subscription_id);
   }
   showToast('Réservation annulée ✓');
   openStudentDetail(studentId);
@@ -1393,7 +1397,7 @@ async function openAddBookingForStudent(studentId, studentName) {
     .limit(40);
   if (!instances?.length) return showToast('Aucun cours à venir', true);
 
-  const modalContent = document.getElementById('modal-content');
+  const modalContent = document.getElementById('modal-body');
   modalContent.innerHTML = `
     <div style="font-size:16px;font-weight:600;margin-bottom:16px">Inscrire ${esc(studentName)} à un cours</div>
     <div style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto">
