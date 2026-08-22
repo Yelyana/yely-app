@@ -1074,6 +1074,8 @@ async function deleteCourse(id) {
 let _allStudentsData = [];
 let _elevesFilter = 'all';
 let _elevesSort = 'name';
+let _elevesSearch = '';
+function searchEleves(val) { _elevesSearch = val.toLowerCase(); renderEleves(); }
 
 async function loadEleves() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
@@ -1131,6 +1133,7 @@ function renderEleves() {
     return s.created_at?.slice(0,10) >= oneMonthAgo;
   });
 
+  if (_elevesSearch) data = data.filter(s => (s.full_name||'').toLowerCase().includes(_elevesSearch) || (s.email||'').toLowerCase().includes(_elevesSearch));
   if (_elevesSort === 'name') data.sort((a,b) => a.full_name.localeCompare(b.full_name));
   else if (_elevesSort === 'cours') data.sort((a,b) => b.totalCours - a.totalCours);
   else if (_elevesSort === 'recent') data.sort((a,b) => (b.lastCours||'').localeCompare(a.lastCours||''));
@@ -1168,6 +1171,10 @@ function renderEleves() {
       <button class="btn btn-primary btn-sm" onclick="openGroupMessage()">📣 Message groupé</button>
     </div>
     ${pendingBanner}
+    <div style="margin-bottom:12px">
+      <input type="text" placeholder="🔍 Rechercher par nom ou email…" value="${_elevesSearch}" oninput="searchEleves(this.value)"
+        style="width:100%;box-sizing:border-box;padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:14px;font-family:inherit;outline:none">
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
       ${filterBtn('all','Toutes')}
       ${filterBtn('actives','✅ Actives')}
@@ -1319,17 +1326,23 @@ async function openStudentDetail(studentId) {
         const color = b.course_instances?.courses?.disciplines?.color || '#a78bfa';
         const coursName = b.course_instances?.courses?.custom_name || b.course_instances?.courses?.disciplines?.name || 'Cours';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
-          <div style="display:flex;align-items:center;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
             <div style="width:6px;height:6px;border-radius:50%;background:${isCancelled?'var(--text3)':color};flex-shrink:0"></div>
             <span style="font-size:13px;color:${isCancelled?'var(--text3)':'var(--text)'}">${esc(coursName)}</span>
             ${isCancelled?'<span style="font-size:10px;color:var(--text3)">annulé</span>':''}
           </div>
-          <span style="font-size:11px;color:${future?color:'var(--text3)'}${future?';font-weight:600':''}">${formatDate(b.course_instances?.date)}</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <span style="font-size:11px;color:${future?color:'var(--text3)'}${future?';font-weight:600':''}">${formatDate(b.course_instances?.date)}</span>
+            ${future && !isCancelled ? `<button onclick="cancelBookingFromDetail('${b.id}','${b.course_instance_id}','${studentId}')" style="font-size:10px;color:#e87a7a;background:transparent;border:1px solid #e87a7a;border-radius:6px;padding:2px 7px;cursor:pointer">Annuler</button>` : ''}
+          </div>
         </div>`;
       };
       return `
     <div style="margin-bottom:16px">
-      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Cours à venir</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Cours à venir</div>
+        <button class="btn btn-ghost btn-sm" onclick="openAddBookingForStudent('${studentId}','${esc(name)}')">+ Inscrire à un cours</button>
+      </div>
       ${upcoming.length ? upcoming.map(b => bookingRow(b, true)).join('') : '<div style="color:var(--text3);font-size:13px">Aucun cours à venir</div>'}
     </div>
     <div style="margin-bottom:16px">
@@ -1353,6 +1366,69 @@ async function saveStudentNotes(studentId) {
   const s = _allStudentsData.find(s => s.id === studentId);
   if (s) s.notes = notes;
   showToast('Note enregistrée !');
+}
+
+async function cancelBookingFromDetail(bookingId, instanceId, studentId) {
+  if (!confirm('Annuler ce cours et recréditer la séance ?')) return;
+  const { data: booking } = await db.from('bookings').select('credit_id, subscription_id').eq('id', bookingId).single();
+  const { error } = await db.from('bookings').update({ status: 'cancelled_by_studio' }).eq('id', bookingId);
+  if (error) return showToast(error.message, true);
+  if (booking?.credit_id) {
+    const { error: creditErr } = await db.rpc('increment_credit', { credit_id: booking.credit_id, amount: 1 });
+    if (creditErr) showToast('Réservation annulée mais recrédit échoué — vérifier manuellement', true);
+  } else if (booking?.subscription_id) {
+    // abonnement : pas de recrédit séance
+  }
+  showToast('Réservation annulée ✓');
+  openStudentDetail(studentId);
+}
+
+async function openAddBookingForStudent(studentId, studentName) {
+  // Charger les instances à venir avec places disponibles
+  const now = new Date().toISOString();
+  const { data: instances } = await db.from('course_instances')
+    .select('id, date, start_time, courses(custom_name, disciplines(name,color)), bookings(id)')
+    .gte('date', now.split('T')[0])
+    .order('date', { ascending: true })
+    .limit(40);
+  if (!instances?.length) return showToast('Aucun cours à venir', true);
+
+  const modalContent = document.getElementById('modal-content');
+  modalContent.innerHTML = `
+    <div style="font-size:16px;font-weight:600;margin-bottom:16px">Inscrire ${esc(studentName)} à un cours</div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto">
+      ${instances.map(ci => {
+        const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
+        const color = ci.courses?.disciplines?.color || '#a78bfa';
+        const countBooked = (ci.bookings||[]).length;
+        return `<div class="card" style="padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="confirmAddBooking('${ci.id}','${studentId}','${esc(studentName)}')">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:8px;height:8px;border-radius:50%;background:${color}"></div>
+            <div>
+              <div style="font-size:13px;font-weight:500">${esc(name)}</div>
+              <div style="font-size:11px;color:var(--text3)">${formatDate(ci.date)} · ${ci.start_time?.slice(0,5)||''}</div>
+            </div>
+          </div>
+          <span style="font-size:11px;color:var(--text3)">${countBooked} inscrits</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <button class="btn btn-ghost" style="margin-top:12px;width:100%" onclick="openStudentDetail('${studentId}')">← Retour</button>
+  `;
+  openModal();
+}
+
+async function confirmAddBooking(instanceId, studentId, studentName) {
+  if (!confirm(`Inscrire ${studentName} à ce cours ? (sans déduire de crédit)`)) return;
+  const { error } = await db.from('bookings').insert({
+    student_id: studentId,
+    course_instance_id: instanceId,
+    status: 'confirmed',
+    booked_at: new Date().toISOString(),
+  });
+  if (error) return showToast(error.message, true);
+  showToast('Élève inscrite au cours ✓');
+  openStudentDetail(studentId);
 }
 
 async function validateStudentDiscount(studentId, approve) {
