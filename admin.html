@@ -626,7 +626,7 @@ async function renderPlanning() {
 
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const { data: instances } = await db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name))')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name)), bookings(id,status)')
     .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
     .neq('status', 'cancelled').order('date').order('courses(start_time)');
 
@@ -645,10 +645,17 @@ async function renderPlanning() {
     const prof = c.profiles?.full_name?.split(' ')[0] || '';
     const tag = c.is_recurring ? '' : '<span style="font-size:9px;background:#f472b622;color:#f472b6;border-radius:4px;padding:1px 4px;margin-left:4px">⭐</span>';
     const levelTag = c.level ? `<span style="font-size:10px;font-weight:600;background:${discColor}33;color:${discColor};border-radius:4px;padding:2px 6px;margin-left:4px">${esc(c.level)}</span>` : '';
+    const enrolled = (ci.bookings || []).filter(b => b.status === 'confirmed').length;
+    const max = c.max_students || 0;
+    const isFull = max > 0 && enrolled >= max;
+    const countColor = isFull ? '#e87a7a' : enrolled > 0 ? '#7dbf9b' : 'var(--text3)';
     return `<div class="cours-pill" style="background:${salleColor}18;border-left:3px solid ${salleColor};cursor:pointer" onclick="viewInstance('${ci.id}')">
-      <div style="font-weight:500;font-size:12px;color:${salleColor}">${time} ${tag}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:500;font-size:12px;color:${salleColor}">${time} ${tag}</div>
+        <span style="font-size:11px;font-weight:600;color:${countColor}">${enrolled}${max ? '/'+max : ''}</span>
+      </div>
       <div style="font-size:11px;color:var(--text2);display:flex;align-items:center;flex-wrap:wrap;gap:2px">${esc(name)}${levelTag}</div>
-      ${prof ? `<div style="font-size:10px;color:var(--text3)">${esc(prof)} · ${c.max_students || ''}p</div>` : ''}
+      ${prof ? `<div style="font-size:10px;color:var(--text3)">${esc(prof)}</div>` : ''}
     </div>`;
   };
 
