@@ -800,7 +800,7 @@ async function markAttendance(bookingId, attended, instanceId) {
 async function cancelBookingAdmin(bookingId, instanceId) {
   if (!confirm('Annuler cette réservation et recréditer l\'élève ?')) return;
   const { data: booking } = await db.from('bookings').select('credit_id, subscription_id').eq('id', bookingId).single();
-  const { error } = await db.from('bookings').update({ status: 'cancelled_by_studio' }).eq('id', bookingId);
+  const { error } = await db.from('bookings').update({ status: 'cancelled' }).eq('id', bookingId);
   if (error) return showToast(error.message, true);
   if (booking?.credit_id) {
     const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).single();
@@ -1380,7 +1380,7 @@ async function saveStudentNotes(studentId) {
 async function cancelBookingFromDetail(bookingId, instanceId, studentId) {
   if (!confirm('Annuler ce cours et recréditer la séance ?')) return;
   const { data: booking } = await db.from('bookings').select('credit_id, subscription_id').eq('id', bookingId).single();
-  const { error } = await db.from('bookings').update({ status: 'cancelled_by_studio' }).eq('id', bookingId);
+  const { error } = await db.from('bookings').update({ status: 'cancelled' }).eq('id', bookingId);
   if (error) return showToast(error.message, true);
   if (booking?.credit_id) {
     const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).single();
