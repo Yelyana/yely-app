@@ -1735,7 +1735,7 @@ async function _doBookWithSub(instanceId, subId, childId) {
   if (!await checkReformerBookingWindow(instanceId)) return;
   const { data: sub } = await db.from('subscriptions').select('*, products(*)').eq('id', subId).eq('student_id', currentUser.id).single();
   if (!sub) return showToast('Abonnement introuvable', true);
-  if (sub.products.type === 'abo_mensuel' && sub.sessions_used_this_month >= sub.products.sessions_per_month) {
+  if (sub.products.type === 'abo_mensuel' && sub.products.sessions_per_month && sub.sessions_used_this_month >= sub.products.sessions_per_month) {
     return showToast('Tu as utilisé toutes tes séances ce mois', true);
   }
 
