@@ -810,8 +810,12 @@ async function cancelBookingAdmin(bookingId, instanceId) {
     const { data: sub } = await db.from('subscriptions').select('sessions_used_this_month').eq('id', booking.subscription_id).single();
     const { error: subErr } = await db.from('subscriptions').update({ sessions_used_this_month: Math.max(0, (sub?.sessions_used_this_month || 1) - 1) }).eq('id', booking.subscription_id);
     if (subErr) return showToast('Réservation annulée mais recrédit abonnement échoué — vérifier manuellement', true);
+  } else {
+    showToast('Réservation annulée (inscription manuelle — aucun recrédit automatique)');
+    viewInstance(instanceId);
+    return;
   }
-  showToast('Réservation annulée, séance restituée');
+  showToast('Réservation annulée, séance restituée ✓');
   viewInstance(instanceId);
 }
 
@@ -1388,11 +1392,14 @@ async function cancelBookingFromDetail(bookingId, instanceId, studentId) {
     const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', booking.credit_id).single();
     const { error: creditErr } = await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', booking.credit_id);
     if (creditErr) showToast('Réservation annulée mais recrédit échoué — vérifier manuellement', true);
+    else showToast('Réservation annulée et crédit recrédité ✓');
   } else if (booking?.subscription_id) {
     const { data: sub } = await db.from('subscriptions').select('sessions_used_this_month').eq('id', booking.subscription_id).single();
     await db.from('subscriptions').update({ sessions_used_this_month: Math.max(0, (sub?.sessions_used_this_month || 1) - 1) }).eq('id', booking.subscription_id);
+    showToast('Réservation annulée et séance rendue ✓');
+  } else {
+    showToast('Réservation annulée (inscription manuelle — aucun recrédit automatique)');
   }
-  showToast('Réservation annulée ✓');
   openStudentDetail(studentId);
 }
 
