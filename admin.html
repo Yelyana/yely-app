@@ -1089,8 +1089,9 @@ async function loadEleves() {
   const threeWeeksAgo = new Date(Date.now() - 21*24*60*60*1000).toISOString().split('T')[0];
 
   const { data: students } = await db.from('profiles').select('*').eq('role', 'student').neq('full_name', 'Compte supprimé').order('full_name');
+  const today = new Date().toISOString().split('T')[0];
   const { data: bookingStats } = await db.from('bookings')
-    .select('student_id, booked_at, status')
+    .select('student_id, status, course_instances(date)')
     .eq('status', 'confirmed')
     .in('student_id', (students||[]).map(s=>s.id));
   const { data: activeSubs } = await db.from('subscriptions').select('student_id').eq('status','active');
@@ -1101,10 +1102,11 @@ async function loadEleves() {
 
   const statsMap = {};
   (bookingStats||[]).forEach(b => {
+    const courseDate = b.course_instances?.date;
     if (!statsMap[b.student_id]) statsMap[b.student_id] = { total: 0, lastDate: null };
     statsMap[b.student_id].total++;
-    if (!statsMap[b.student_id].lastDate || b.booked_at > statsMap[b.student_id].lastDate)
-      statsMap[b.student_id].lastDate = b.booked_at?.slice(0,10);
+    if (courseDate && courseDate <= today && (!statsMap[b.student_id].lastDate || courseDate > statsMap[b.student_id].lastDate))
+      statsMap[b.student_id].lastDate = courseDate;
   });
 
   _allStudentsData = (students||[]).map(s => ({
