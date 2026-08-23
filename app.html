@@ -1469,11 +1469,19 @@ async function loadBookingForm(ci) {
   let subsHtml = '';
   if (subs?.length) {
     subs.forEach(s => {
-      const sessLeft = s.products.type === 'abo_mensuel' ? (s.products.sessions_per_month - s.sessions_used_this_month) : '∞';
-      const resetInfo = s.products.type === 'abo_mensuel' && s.started_at ? ` · reset le ${subResetDate(s.started_at)}` : '';
+      let sessLeft, sessInfo;
+      if (s.products.type === 'abo_mensuel' && s.products.sessions_per_month) {
+        sessLeft = s.products.sessions_per_month - s.sessions_used_this_month;
+        const resetInfo = s.started_at ? ` · reset le ${subResetDate(s.started_at)}` : '';
+        sessInfo = sessLeft + ' séance' + (sessLeft > 1 ? 's' : '') + ' restante' + (sessLeft > 1 ? 's' : '') + resetInfo;
+      } else if (s.products.sessions_per_week) {
+        sessInfo = `${s.products.sessions_per_week}x / semaine`;
+      } else {
+        sessInfo = 'Illimité';
+      }
       subsHtml += `<button class="cours-card" style="margin-bottom:8px" onclick="bookWithSub(${ci.id}, ${s.id})">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><div style="font-size:14px">${esc(s.products.name)}</div><div style="font-size:11px;color:var(--green)">Actif · ${sessLeft === '∞' ? 'Illimité' : sessLeft + ' séance' + (sessLeft > 1 ? 's' : '') + ' restante' + (sessLeft > 1 ? 's' : '') + resetInfo}</div></div>
+          <div><div style="font-size:14px">${esc(s.products.name)}</div><div style="font-size:11px;color:var(--green)">Actif · ${sessInfo}</div></div>
           <div style="color:var(--violet);font-size:13px">→</div>
         </div>
       </button>`;
@@ -3210,9 +3218,11 @@ async function loadProfil() {
     <div class="abo-card">
       <div style="font-size:10px;color:var(--violet-light);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Abonnement actif</div>
       <div style="font-size:18px;margin-bottom:4px">${esc(s.products.name)}</div>
-      ${s.products.type === 'abo_mensuel' && s.started_at ? `
-        <div style="font-size:13px;color:var(--green);margin-bottom:2px">${s.products.sessions_per_month - s.sessions_used_this_month} séance${(s.products.sessions_per_month - s.sessions_used_this_month) > 1 ? 's' : ''} restante${(s.products.sessions_per_month - s.sessions_used_this_month) > 1 ? 's' : ''}</div>
+      ${s.products.type === 'abo_mensuel' && s.products.sessions_per_month ? (() => { const left = s.products.sessions_per_month - s.sessions_used_this_month; return `
+        <div style="font-size:13px;color:var(--green);margin-bottom:2px">${left} séance${left > 1 ? 's' : ''} restante${left > 1 ? 's' : ''}</div>
         <div style="font-size:11px;color:var(--text3)">Reset le ${subResetDate(s.started_at)} · 4 semaines glissantes</div>
+      `; })() : s.products.type === 'abo_mensuel' && s.products.sessions_per_week ? `
+        <div style="font-size:13px;color:var(--green);margin-bottom:2px">${s.products.sessions_per_week}x / semaine</div>
       ` : `<div style="font-size:12px;color:var(--text2)">Illimité ✨</div>`}
       ${s.engagement_until ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">⭐ Engagement jusqu'au ${new Date(s.engagement_until).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>` : ''}
       <button onclick="openStripePortal()" style="margin-top:10px;width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px;color:var(--text3);font-size:12px;cursor:pointer">
