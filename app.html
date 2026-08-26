@@ -2020,8 +2020,9 @@ async function cancelBookingFromModal() {
   const courseDate = new Date(ci.date + 'T' + (ci.start_time || '00:00'));
   const hoursUntil = (courseDate - new Date()) / 3600000;
   if (hoursUntil < 24) return showToast('Annulation impossible à moins de 24h du cours', true);
-  const { data: booking } = await db.from('bookings').select('id').eq('student_id', currentUser.id).eq('course_instance_id', ci.id).single();
-  if (!booking) return;
+  const { data: booking } = await db.from('bookings').select('id, status').eq('student_id', currentUser.id).eq('course_instance_id', ci.id).single();
+  if (!booking) return showToast('Réservation introuvable — elle a peut-être déjà été annulée.', true);
+  if (booking.status === 'cancelled') { closeModal(); return showToast('Cette réservation a déjà été annulée.', true); }
   const { data: result, error } = await db.rpc('cancel_booking', { p_booking_id: booking.id });
   if (error || result?.error) return showToast(result?.error || error?.message || 'Erreur annulation', true);
   await notifyFirstWaitlisted(ci.id);
@@ -2050,7 +2051,8 @@ async function confirmCancel(bookingId) {
     .eq('id', bookingId)
     .eq('student_id', currentUser.id)
     .single();
-  if (!booking) return showToast('Réservation introuvable', true);
+  if (!booking) return showToast('Réservation introuvable — elle a peut-être déjà été annulée.', true);
+  if (booking.status === 'cancelled') { closeModal(); loadHome(); return showToast('Cette réservation a déjà été annulée.', true); }
   const courseDate = new Date(booking.course_instances.date + 'T' + (booking.course_instances.start_time || '00:00'));
   if ((courseDate - new Date()) / 3600000 < 24) return showToast('Annulation impossible à moins de 24h du cours', true);
 
