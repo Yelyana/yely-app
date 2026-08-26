@@ -1715,21 +1715,7 @@ async function bookWithSub(instanceId, subId) {
 
 async function checkReformerBookingWindow(instanceId) {
   const { data: ci } = await db.from('course_instances_with_availability').select('is_reformer, date').eq('id', instanceId).single();
-  if (!ci?.is_reformer) return true; // pas un cours reformer, pas de restriction
-  const courseDate = new Date(ci.date);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const daysAhead = Math.round((courseDate - today) / 86400000);
-  const isFondatrice = currentProfile?.is_fondatrice === true;
-  const maxDays = isFondatrice ? 14 : 10;
-  if (daysAhead > maxDays) {
-    const msg = isFondatrice
-      ? `Les fondatrices peuvent réserver le Reformer jusqu'à 14 jours à l'avance. Ce cours ouvre dans ${daysAhead - 14} jours.`
-      : `Les réservations Reformer ouvrent 10 jours avant le cours. Ce cours sera disponible dans ${daysAhead - 10} jours. Les fondatrices ont accès 14 jours à l'avance.`;
-    closeModal();
-    setTimeout(() => showToast(msg, true), 300);
-    return false;
-  }
-  return true;
+  return true; // si le cours est visible dans le planning, il est réservable
 }
 
 async function _doBookWithSub(instanceId, subId, childId) {
