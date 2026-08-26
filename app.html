@@ -1725,7 +1725,8 @@ async function checkReformerBookingWindow(instanceId) {
     const msg = isFondatrice
       ? `Les fondatrices peuvent réserver le Reformer jusqu'à 14 jours à l'avance. Ce cours ouvre dans ${daysAhead - 14} jours.`
       : `Les réservations Reformer ouvrent 10 jours avant le cours. Ce cours sera disponible dans ${daysAhead - 10} jours. Les fondatrices ont accès 14 jours à l'avance.`;
-    showToast(msg, true);
+    closeModal();
+    setTimeout(() => showToast(msg, true), 300);
     return false;
   }
   return true;
