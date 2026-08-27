@@ -819,22 +819,24 @@ function showApp() {
 async function tryClaimLaunchCredit() {
   const LAUNCH_END = new Date('2026-09-14T00:00:00Z');
   if (new Date() >= LAUNCH_END) return;
+  showToast('⏳ DEBUG : tryClaimLaunchCredit appelée…');
   try {
-    const { data: { session } } = await db.auth.getSession();
-    if (!session) return;
+    const { data: sessionData } = await db.auth.getSession();
+    const session = sessionData?.session;
+    if (!session) { showToast('DEBUG : pas de session', true); return; }
+    showToast('DEBUG : invoke en cours…');
     const res = await db.functions.invoke('claim-launch-credit', {});
+    showToast('DEBUG res : ' + JSON.stringify(res?.data) + ' / err: ' + JSON.stringify(res?.error));
     if (res.data?.success) {
-      setTimeout(() => showToast('🎁 Un cours offert a été ajouté à ton compte ! Réserve vite ta place.'), 600);
+      setTimeout(() => showToast('🎁 Un cours offert a été ajouté à ton compte ! Réserve vite ta place.'), 800);
     } else if (res.data?.already_claimed) {
-      // Déjà réclamé — silencieux
+      showToast('DEBUG : déjà réclamé');
     } else if (res.error || res.data?.error) {
       const msg = res.data?.error || res.error?.message || 'inconnu';
-      console.warn('claim-launch-credit:', msg);
-      // Afficher temporairement pour debug — à retirer après validation
-      showToast('Debug lancement : ' + msg, true);
+      showToast('Erreur lancement : ' + msg, true);
     }
   } catch (e) {
-    console.warn('claim-launch-credit exception:', e);
+    showToast('Exception : ' + e.message, true);
   }
 }
 
