@@ -1459,8 +1459,7 @@ async function loadBookingForm(ci) {
     // Crédit Semaine Lancement (valid_for='all') : uniquement sur les cours du 10-12 sept
     // Vérifié avant p car le produit is_active=false peut rendre la jointure nulle (RLS)
     if (c.valid_for === 'all' && !isPractice && !isKids && !isParentEnfant) {
-      const ciDate = new Date(ci.start_time);
-      return ciDate >= new Date('2026-09-10T00:00:00') && ciDate < new Date('2026-09-13T00:00:00');
+      return ci.date >= '2026-09-10' && ci.date <= '2026-09-12';
     }
     const p = c.products;
     if (!p) return false;
