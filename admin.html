@@ -1088,6 +1088,41 @@ let _elevesSort = 'name';
 let _elevesSearch = '';
 function searchEleves(val) { _elevesSearch = val.toLowerCase(); renderEleves(); }
 
+function exportElevesCSV() {
+  const data = _elevesFilter || _elevesSearch
+    ? (() => {
+        let d = [..._allStudentsData];
+        if (_elevesFilter === 'relancer') { const t = new Date(Date.now()-21*24*60*60*1000).toISOString().split('T')[0]; d = d.filter(s => s.lastCours && s.lastCours < t); }
+        else if (_elevesFilter === 'fideles') d = d.filter(s => s.totalCours >= 8);
+        else if (_elevesFilter === 'actives') d = d.filter(s => s.hasActive);
+        else if (_elevesFilter === 'nouvelles') { const t = new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0]; d = d.filter(s => s.created_at?.slice(0,10) >= t); }
+        if (_elevesSearch) d = d.filter(s => (s.full_name||'').toLowerCase().includes(_elevesSearch) || (s.email||'').toLowerCase().includes(_elevesSearch));
+        return d;
+      })()
+    : _allStudentsData;
+  const rows = [['Prénom Nom', 'Email', 'Téléphone', 'Inscrite le', 'Cours total', 'Dernier cours', 'Abonnement/crédit actif', 'Fondatrice', 'Étudiant']];
+  for (const s of data) {
+    rows.push([
+      s.full_name || '',
+      s.email || '',
+      s.phone || '',
+      s.created_at ? new Date(s.created_at).toLocaleDateString('fr-FR') : '',
+      s.totalCours || 0,
+      s.lastCours ? new Date(s.lastCours).toLocaleDateString('fr-FR') : '',
+      s.hasActive ? 'oui' : '',
+      s.is_fondatrice ? 'oui' : '',
+      s.is_student ? 'oui' : '',
+    ]);
+  }
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `yely-eleves-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast(`✅ ${data.length} élève${data.length>1?'s':''} exportée${data.length>1?'s':''}`);
+}
+
 async function loadEleves() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
   const threeWeeksAgo = new Date(Date.now() - 21*24*60*60*1000).toISOString().split('T')[0];
@@ -1181,7 +1216,10 @@ function renderEleves() {
   document.getElementById('main-content').innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
       <div><div class="page-title">Élèves</div><div class="page-sub">${_allStudentsData.length} inscrite${_allStudentsData.length>1?'s':''}</div></div>
-      <button class="btn btn-primary btn-sm" onclick="openGroupMessage()">📣 Message groupé</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" style="background:var(--bg2);border:1px solid var(--border);color:var(--text2)" onclick="exportElevesCSV()">📥 Exporter CSV</button>
+        <button class="btn btn-primary btn-sm" onclick="openGroupMessage()">📣 Message groupé</button>
+      </div>
     </div>
     ${pendingBanner}
     <div style="margin-bottom:12px">
