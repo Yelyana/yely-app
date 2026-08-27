@@ -1461,11 +1461,12 @@ async function loadBookingForm(ci) {
   const credits = (creditsAll || []).filter(c => {
     // Crédit Semaine Lancement (valid_for='all') : uniquement sur les cours du 10-12 sept
     // Vérifié avant p car le produit is_active=false peut rendre la jointure nulle (RLS)
-    // valid_for='all' sur produit actif = utilisable sur tout cours collectif/reformer
-    if (c.valid_for === 'all' && c.products && !isPractice && !isKids && !isParentEnfant) return true;
-    // Semaine Lancement : produit is_active=false → jointure nulle → restriction aux 3 jours
-    if (c.valid_for === 'all' && !c.products && !isPractice && !isKids && !isParentEnfant) {
-      return ci.date >= '2026-09-10' && ci.date <= '2026-09-12';
+    if (c.valid_for === 'all' && !isPractice && !isKids && !isParentEnfant) {
+      // Semaine Lancement → uniquement les 3 jours
+      if (c.products?.name === 'Semaine Lancement' || !c.products) {
+        return ci.date >= '2026-09-10' && ci.date <= '2026-09-12';
+      }
+      return true; // autre produit valid_for='all' (ex: cours découverte) → pas de restriction
     }
     const p = c.products;
     if (!p) return false;
