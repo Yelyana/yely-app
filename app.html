@@ -1746,11 +1746,29 @@ function showBookingSuccess(courseName, date, time, color) {
 
 async function bookWithSub(instanceId, subId) {
   const ci = window._currentCi;
-  if (isKidsCourse(ci)) {
-    selectChildForBooking(instanceId, (childId) => _doBookWithSub(instanceId, subId, childId));
-    return;
-  }
-  return _doBookWithSub(instanceId, subId, null);
+  const subBtn = document.querySelector(`[onclick="bookWithSub(${instanceId}, ${subId})"]`);
+  const subName = subBtn?.querySelector('div > div')?.firstChild?.textContent?.trim() || 'ton abonnement';
+  const courseName = ci ? (ci.custom_name || ci.discipline_name || 'ce cours') : 'ce cours';
+  const dateStr = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
+  const timeStr = ci?.start_time ? ci.start_time.slice(0,5) : '';
+
+  document.getElementById('modal-content').innerHTML = `
+    <h3 class="serif" style="font-size:20px;margin-bottom:8px">Confirmer la réservation</h3>
+    <div style="background:var(--bg2);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:15px;font-weight:500;margin-bottom:4px">${esc(courseName)}</div>
+      <div style="font-size:13px;color:var(--text2)">${dateStr}${timeStr ? ' · ' + timeStr : ''}</div>
+      <div style="font-size:12px;color:var(--violet-light);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">Abonnement utilisé : ${esc(subName)}</div>
+    </div>
+    <button class="btn btn-primary" id="confirm-book-btn" style="width:100%">Oui, réserver</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="openCourseModal(${instanceId})">← Retour</button>
+  `;
+  document.getElementById('confirm-book-btn').onclick = () => {
+    if (isKidsCourse(ci)) {
+      selectChildForBooking(instanceId, (childId) => _doBookWithSub(instanceId, subId, childId));
+    } else {
+      _doBookWithSub(instanceId, subId, null);
+    }
+  };
 }
 
 async function checkReformerBookingWindow(instanceId) {
@@ -1805,11 +1823,31 @@ async function _doBookWithSub(instanceId, subId, childId) {
 
 async function bookWithCredit(instanceId, creditId) {
   const ci = window._currentCi;
-  if (isKidsCourse(ci)) {
-    selectChildForBooking(instanceId, (childId) => _doBookWithCredit(instanceId, creditId, childId));
-    return;
-  }
-  return _doBookWithCredit(instanceId, creditId, null);
+  // Trouver le nom du crédit depuis les boutons déjà rendus
+  const creditBtn = document.querySelector(`[onclick="bookWithCredit(${instanceId}, ${creditId})"]`);
+  const creditName = creditBtn?.querySelector('div > div')?.firstChild?.textContent?.trim() || 'ton crédit';
+  const courseName = ci ? (ci.custom_name || ci.discipline_name || 'ce cours') : 'ce cours';
+  const dateStr = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
+  const timeStr = ci?.start_time ? ci.start_time.slice(0,5) : '';
+
+  // Remplacer le contenu du modal par la confirmation
+  document.getElementById('modal-content').innerHTML = `
+    <h3 class="serif" style="font-size:20px;margin-bottom:8px">Confirmer la réservation</h3>
+    <div style="background:var(--bg2);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:15px;font-weight:500;margin-bottom:4px">${esc(courseName)}</div>
+      <div style="font-size:13px;color:var(--text2)">${dateStr}${timeStr ? ' · ' + timeStr : ''}</div>
+      <div style="font-size:12px;color:var(--violet-light);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">Crédit utilisé : ${esc(creditName)}</div>
+    </div>
+    <button class="btn btn-primary" id="confirm-book-btn" style="width:100%">Oui, réserver</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="openCourseModal(${instanceId})">← Retour</button>
+  `;
+  document.getElementById('confirm-book-btn').onclick = () => {
+    if (isKidsCourse(ci)) {
+      selectChildForBooking(instanceId, (childId) => _doBookWithCredit(instanceId, creditId, childId));
+    } else {
+      _doBookWithCredit(instanceId, creditId, null);
+    }
+  };
 }
 
 async function _doBookWithCredit(instanceId, creditId, childId) {
