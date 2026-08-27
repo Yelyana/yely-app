@@ -820,7 +820,7 @@ let _launchCreditAttempted = false;
 async function tryClaimLaunchCredit() {
   if (_launchCreditAttempted) return;
   _launchCreditAttempted = true;
-  const LAUNCH_END = new Date('2026-09-14T00:00:00Z');
+  const LAUNCH_END = new Date('2026-09-13T00:00:00Z');
   if (new Date() >= LAUNCH_END) return;
   showToast('⏳ DEBUG : tryClaimLaunchCredit appelée…');
   try {
