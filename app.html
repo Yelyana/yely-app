@@ -815,7 +815,7 @@ function showApp() {
   }
 }
 
-// Tente automatiquement de réclamer le crédit semaine de lancement (silencieux si non éligible)
+// Tente automatiquement de réclamer le crédit semaine de lancement
 async function tryClaimLaunchCredit() {
   const LAUNCH_END = new Date('2026-09-14T00:00:00Z');
   if (new Date() >= LAUNCH_END) return;
@@ -825,8 +825,17 @@ async function tryClaimLaunchCredit() {
     const res = await db.functions.invoke('claim-launch-credit', {});
     if (res.data?.success) {
       setTimeout(() => showToast('🎁 Un cours offert a été ajouté à ton compte ! Réserve vite ta place.'), 600);
+    } else if (res.data?.already_claimed) {
+      // Déjà réclamé — silencieux
+    } else if (res.error || res.data?.error) {
+      const msg = res.data?.error || res.error?.message || 'inconnu';
+      console.warn('claim-launch-credit:', msg);
+      // Afficher temporairement pour debug — à retirer après validation
+      showToast('Debug lancement : ' + msg, true);
     }
-  } catch (_) { /* silencieux */ }
+  } catch (e) {
+    console.warn('claim-launch-credit exception:', e);
+  }
 }
 
 async function handleWaitlistResponse(token, action) {
