@@ -945,30 +945,33 @@ async function loadHome() {
   let nb = futureBookings[0] || null;
   let ci = nb?.course_instances || null;
   const el = document.getElementById('next-cours-content');
-  if (ci) {
-    const c = ci.courses;
-    const d = c?.disciplines;
-    const dt = new Date(ci.date + 'T' + c.start_time);
-    const diff = dt - new Date();
-    const hours = Math.floor(diff / 3600000);
-    const mins = Math.floor((diff % 3600000) / 60000);
-    const days = Math.floor(hours / 24);
-    const salleLabel = c?.salle === 'terre' ? '🌿 Salle Terre' : '🦇 Salle Air';
-    const teacherName = c?.profiles?.full_name || '';
-    el.innerHTML = `
-      <div style="margin-bottom:14px">
-        <div class="serif" style="font-size:26px;color:var(--ivoire);font-weight:300">${esc(d?.name || c?.custom_name || 'Cours')}</div>
-        <div style="font-size:13px;color:var(--text2);margin-top:4px">${formatDate(ci.date)} · ${formatTime(c.start_time)}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
-        ${c?.level ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Niveau</span><span style="color:var(--text1)">${esc(c.level)}</span></div>` : ''}
-        <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Salle</span><span style="color:var(--text1)">${salleLabel}</span></div>
-        ${c?.duration_minutes ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Durée</span><span style="color:var(--text1)">${c.duration_minutes} min</span></div>` : ''}
-        ${teacherName ? `<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--text3);width:60px">Prof</span><span style="color:var(--text1)">${esc(teacherName)}</span></div>` : ''}
-        ${c?.description ? `<div style="font-size:12px;color:var(--text3);margin-top:2px;font-style:italic">${esc(c.description)}</div>` : ''}
-      </div>
-      <div style="margin-top:8px;text-align:right"><button onclick="cancelBooking(${nb.id}, ${ci.id}, '${ci.date}', '${c?.start_time || ''}')" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;padding:0">Annuler ma réservation</button></div>
-    `;
+  if (futureBookings.length) {
+    el.innerHTML = futureBookings.map((bk, idx) => {
+      const fci = bk.course_instances;
+      const fc = fci.courses;
+      const fd = fc?.disciplines;
+      const color = fd?.color || 'var(--violet)';
+      const salleLabel = fc?.salle === 'terre' ? '🌿 Salle Terre' : '🦇 Salle Air';
+      const teacherName = fc?.profiles?.full_name || '';
+      const dt = new Date(fci.date + 'T' + (fc?.start_time || '00:00'));
+      const hoursUntil = (dt - new Date()) / 3600000;
+      const canCancel = hoursUntil >= 24;
+      const isFirst = idx === 0;
+      return `
+        <div style="${idx > 0 ? 'border-top:1px solid rgba(155,125,219,0.15);padding-top:14px;margin-top:14px' : ''}">
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:${canCancel ? '10' : '0'}px">
+            <div style="width:3px;border-radius:2px;background:${color};align-self:stretch;flex-shrink:0;min-height:36px"></div>
+            <div style="flex:1">
+              <div class="serif" style="font-size:${isFirst ? '20' : '16'}px;color:var(--ivoire);font-weight:300">${esc(fd?.name || fc?.custom_name || 'Cours')}</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:3px">${formatDate(fci.date)} · ${formatTime(fc?.start_time)}${teacherName ? ' · ' + esc(teacherName) : ''}${fc?.salle ? ' · ' + salleLabel : ''}</div>
+            </div>
+          </div>
+          ${canCancel ? `<button onclick="cancelBooking(${bk.id}, ${fci.id}, '${fci.date}', '${fc?.start_time || ''}')"
+            style="width:100%;padding:9px;border-radius:10px;border:1px solid rgba(232,122,122,0.35);background:rgba(232,122,122,0.07);color:#e87a7a;font-size:13px;cursor:pointer;font-family:inherit">
+            Annuler ce cours
+          </button>` : `<div style="font-size:11px;color:var(--text3);text-align:center;padding:4px 0">Annulation impossible — moins de 24h</div>`}
+        </div>`;
+    }).join('');
   } else {
     el.innerHTML = `<div style="text-align:center;padding:20px 0">
       <div style="font-size:32px;margin-bottom:8px">🦇</div>
@@ -1458,7 +1461,8 @@ async function loadBookingForm(ci) {
   const credits = (creditsAll || []).filter(c => {
     // Crédit Semaine Lancement (valid_for='all') : uniquement sur les cours du 10-12 sept
     // Vérifié avant p car le produit is_active=false peut rendre la jointure nulle (RLS)
-    if (c.valid_for === 'all' && !isPractice && !isKids && !isParentEnfant) {
+    // Semaine Lancement : produit is_active=false donc jointure nulle → restriction dates
+    if (c.valid_for === 'all' && !c.products && !isPractice && !isKids && !isParentEnfant) {
       return ci.date >= '2026-09-10' && ci.date <= '2026-09-12';
     }
     const p = c.products;
