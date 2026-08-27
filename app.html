@@ -817,7 +817,7 @@ function showApp() {
 
 // Tente automatiquement de réclamer le crédit semaine de lancement (silencieux si non éligible)
 async function tryClaimLaunchCredit() {
-  const LAUNCH_END = new Date('2026-09-15T00:00:00Z');
+  const LAUNCH_END = new Date('2026-09-14T00:00:00Z');
   if (new Date() >= LAUNCH_END) return;
   try {
     const { data: { session } } = await db.auth.getSession();
