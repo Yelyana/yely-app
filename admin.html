@@ -1372,6 +1372,9 @@ async function openStudentDetail(studentId) {
         </div>`).join('')||''}
       ${!credits?.some(c=>c.sessions_remaining>0) && !subs?.some(s=>s.status==='active') ? '<div style="color:var(--text3);font-size:13px">Aucun crédit actif</div>' : ''}
       <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addCreditsModal('${studentId}','${esc(name)}')">+ Ajouter des crédits</button>
+      ${!credits?.some(c=>c.products?.name==='Semaine Lancement') ? `
+      <button class="btn btn-sm" style="margin-top:6px;width:100%;background:rgba(255,180,50,0.12);border:1px solid rgba(255,180,50,0.35);color:#f5c842;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer" onclick="assignLaunchCredit('${studentId}','${esc(name)}')">🎁 Attribuer crédit Semaine Lancement</button>
+      ` : ''}
     </div>
 
     ${(() => {
@@ -1606,6 +1609,24 @@ async function doSendMessage(studentIds) {
   }).catch(() => {});
   showToast(`Message envoyé à ${studentIds.length} élève${studentIds.length>1?'s':''} !`);
   closeModal();
+}
+
+async function assignLaunchCredit(studentId, name) {
+  if (!confirm(`Attribuer le crédit Semaine Lancement à ${name} ?`)) return;
+  const { data: product } = await db.from('products').select('id,sessions_count').eq('name','Semaine Lancement').maybeSingle();
+  if (!product) return showToast('Produit "Semaine Lancement" introuvable en DB', true);
+  const { error: cErr } = await db.from('student_credits').insert({
+    student_id: studentId,
+    product_id: product.id,
+    sessions_remaining: product.sessions_count || 1,
+    sessions_total: product.sessions_count || 1,
+    valid_for: 'all',
+    expires_at: '2026-09-13',
+  });
+  if (cErr) return showToast('Erreur : ' + cErr.message, true);
+  await db.from('profiles').update({ launch_credit_claimed_at: new Date().toISOString() }).eq('id', studentId).is('launch_credit_claimed_at', null);
+  showToast(`Crédit attribué à ${name} ✓`);
+  openStudentDetail(studentId);
 }
 
 async function addCreditsModal(studentId, name) {
