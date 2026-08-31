@@ -792,6 +792,9 @@ function showApp() {
     handleWaitlistResponse(waitlistToken, waitlistAction);
     return;
   }
+  // Tenter le crédit lancement dans tous les cas (idempotent côté serveur)
+  tryClaimLaunchCredit();
+
   const hash = window.location.hash;
   if (hash.includes('boutique') && hash.includes('success=1')) {
     window.location.hash = '';
@@ -811,7 +814,6 @@ function showApp() {
     }, 800);
   } else {
     navigate('home');
-    tryClaimLaunchCredit();
   }
 }
 
@@ -822,24 +824,15 @@ async function tryClaimLaunchCredit() {
   _launchCreditAttempted = true;
   const LAUNCH_END = new Date('2026-09-13T00:00:00Z');
   if (new Date() >= LAUNCH_END) return;
-  showToast('⏳ DEBUG : tryClaimLaunchCredit appelée…');
   try {
     const { data: sessionData } = await db.auth.getSession();
-    const session = sessionData?.session;
-    if (!session) { showToast('DEBUG : pas de session', true); return; }
-    showToast('DEBUG : invoke en cours…');
+    if (!sessionData?.session) return;
     const res = await db.functions.invoke('claim-launch-credit', {});
-    showToast('DEBUG res : ' + JSON.stringify(res?.data) + ' / err: ' + JSON.stringify(res?.error));
     if (res.data?.success) {
       setTimeout(() => showToast('🎁 Un cours offert a été ajouté à ton compte ! Réserve vite ta place.'), 800);
-    } else if (res.data?.already_claimed) {
-      showToast('DEBUG : déjà réclamé');
-    } else if (res.error || res.data?.error) {
-      const msg = res.data?.error || res.error?.message || 'inconnu';
-      showToast('Erreur lancement : ' + msg, true);
     }
   } catch (e) {
-    showToast('Exception : ' + e.message, true);
+    // silencieux — ne pas déranger l'élève pour une erreur non bloquante
   }
 }
 
