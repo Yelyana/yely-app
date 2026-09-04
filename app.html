@@ -1802,6 +1802,27 @@ async function _doBookWithSub(instanceId, subId, childId) {
     if ((weekBookings || []).length >= limit) {
       return showToast(`Ton abonnement est limité à ${limit} cours/semaine — cette semaine est complète.`, true);
     }
+
+    // Vérification limite Reformer par semaine (ex: 2x/semaine hors creuses mais max 1 Reformer)
+    const maxReformer = sub.products.max_reformer_per_week;
+    if (maxReformer) {
+      const isCurrentReformer = window._currentCi?.is_reformer || /reformer/i.test(window._currentCi?.custom_name || window._currentCi?.discipline_name || '');
+      if (isCurrentReformer) {
+        const { data: reformerBookings } = await db.from('bookings')
+          .select('id, course_instances!inner(date, is_reformer, custom_name)')
+          .eq('student_id', currentUser.id)
+          .eq('status', 'confirmed')
+          .eq('subscription_id', subId)
+          .gte('course_instances.date', mondayStr)
+          .lte('course_instances.date', sundayStr);
+        const reformerCount = (reformerBookings || []).filter(b =>
+          b.course_instances?.is_reformer || /reformer/i.test(b.course_instances?.custom_name || '')
+        ).length;
+        if (reformerCount >= maxReformer) {
+          return showToast(`Ton abonnement autorise max ${maxReformer} cours Reformer/semaine — limite atteinte.`, true);
+        }
+      }
+    }
   }
 
   const { data: result, error } = await db.rpc('book_course', {
