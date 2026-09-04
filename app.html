@@ -2614,8 +2614,8 @@ async function submitPost() {
   }
   await db.from('community_posts').insert({ author_id: currentUser.id, content, media_url, media_type: postMediaType, audience: 'all' });
   postMediaFile = null; postMediaType = null;
-  const posterName = currentProfile?.full_name?.split(' ')[0] || 'Quelqu\'un';
-  callSendPush({ target: 'all_students', exclude_user_ids: [currentUser.id], title: `Nouveau message 🦇`, body: `${posterName} a publié dans la communauté`, url: '/app.html#communaute' });
+  const posterName = currentProfile?.full_name || 'Quelqu\'un';
+  db.functions.invoke('notify-community-post', { body: { poster_name: posterName, content } }).catch(() => {});
   closeModal(); showToast('Publié ! 🦇'); loadCommunaute();
 }
 
