@@ -2790,7 +2790,7 @@ async function loadBoutique() {
   const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.heures_creuses && !p.for_kids && !p.for_parent_enfant)
     .sort(sortForfaits);
   const heuresCruesforFaits = (products || []).filter(p => p.heures_creuses && !p.for_kids && !p.for_parent_enfant)
-    .sort((a, b) => (a.sessions_per_week || 0) - (b.sessions_per_week || 0) || (a.sort_order || 0) - (b.sort_order || 0));
+    .sort((a, b) => (a.sessions_per_week || 99) - (b.sessions_per_week || 99) || (a.sort_order || 0) - (b.sort_order || 0));
   const abos = (products || [])
     .filter(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') && !p.heures_creuses && !p.for_kids && !p.for_parent_enfant)
     .sort((a, b) => (a.sessions_per_week || 0) - (b.sessions_per_week || 0) || (a.sort_order || 0) - (b.sort_order || 0));
