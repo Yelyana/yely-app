@@ -2789,8 +2789,11 @@ async function loadBoutique() {
 
   const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.heures_creuses && !p.for_kids && !p.for_parent_enfant)
     .sort(sortForfaits);
-  const heuresCruesforFaits = (products || []).filter(p => p.heures_creuses && !p.for_kids && !p.for_parent_enfant).sort(sortForfaits);
-  const abos = (products || []).filter(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') && !p.for_kids && !p.for_parent_enfant);
+  const heuresCruesforFaits = (products || []).filter(p => p.heures_creuses && !p.for_kids && !p.for_parent_enfant)
+    .sort((a, b) => (a.sessions_per_week || 0) - (b.sessions_per_week || 0) || (a.sort_order || 0) - (b.sort_order || 0));
+  const abos = (products || [])
+    .filter(p => (p.type === 'abo_illimite' || p.type === 'abo_mensuel') && !p.heures_creuses && !p.for_kids && !p.for_parent_enfant)
+    .sort((a, b) => (a.sessions_per_week || 0) - (b.sessions_per_week || 0) || (a.sort_order || 0) - (b.sort_order || 0));
   const kidsOnly = (products || []).filter(p => p.for_kids);
   const parentEnfant = (products || []).filter(p => p.for_parent_enfant);
 
