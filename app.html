@@ -2107,14 +2107,14 @@ async function cancelBooking(bookingId, instanceId, dateStr, startTime = '00:00'
 async function confirmCancel(bookingId) {
   // Vérifier que le booking appartient à l'utilisatrice ET re-vérifier la contrainte 24h
   const { data: booking, error: bkErr } = await db.from('bookings')
-    .select('*, course_instances(date, start_time, courses(custom_name, disciplines(name)))')
+    .select('*, course_instances(date, courses(start_time, custom_name, disciplines(name)))')
     .eq('id', bookingId)
     .eq('student_id', currentUser.id)
     .maybeSingle();
   if (bkErr) return showToast('Erreur lors de la vérification : ' + bkErr.message, true);
   if (!booking) { loadHome(); return showToast('Réservation introuvable — peut-être déjà annulée par le studio. Ton crédit est intact.', true); }
   if (booking.status === 'cancelled') { closeModal(); loadHome(); return showToast('Cette réservation a déjà été annulée. Ton crédit a été recrédité.', true); }
-  const courseDate = new Date(booking.course_instances.date + 'T' + (booking.course_instances.start_time || '00:00'));
+  const courseDate = new Date(booking.course_instances.date + 'T' + (booking.course_instances.courses?.start_time || '00:00'));
   if ((courseDate - new Date()) / 3600000 < 24) return showToast('Annulation impossible à moins de 24h du cours', true);
 
   const { data: result, error } = await db.rpc('cancel_booking', { p_booking_id: bookingId });
