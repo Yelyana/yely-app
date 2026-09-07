@@ -1921,7 +1921,9 @@ async function openTeacherPlanning(teacherId) {
       </div>` : ''}
     </div>
     ${teacher?.teachers?.bio ? `<div style="font-size:13px;color:var(--text2);font-style:italic;margin-bottom:16px;padding:10px 14px;background:var(--bg3);border-radius:10px">"${esc(teacher.teachers.bio)}"</div>` : ''}
-    <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Planning — 6 prochaines semaines</div>
+    <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Rémunération</div>
+    <div id="trevenu-rows"><div class="loading"><div class="spinner"></div></div></div>
+    <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;margin-top:20px">Planning — 6 prochaines semaines</div>
     <div id="tplanning-rows"><div class="loading"><div class="spinner"></div></div></div>
     <button class="btn btn-ghost" onclick="closeModal()" style="width:100%;margin-top:16px">Fermer</button>
   `;
@@ -1929,6 +1931,49 @@ async function openTeacherPlanning(teacherId) {
 
   const today = new Date().toISOString().split('T')[0];
   const sixWeeks = new Date(Date.now() + 42 * 86400000).toISOString().split('T')[0];
+
+  // Cours donnés + rémunération
+  const { data: revenue } = await db.from('teacher_revenue').select('*').eq('teacher_id', teacherId).order('month', { ascending: false });
+  const revEl = document.getElementById('trevenu-rows');
+  if (revEl) {
+    if (!revenue?.length) {
+      revEl.innerHTML = `<div style="font-size:13px;color:var(--text3);font-style:italic;padding:8px 0">Aucun cours donné pour l'instant.</div>`;
+    } else {
+      // Cours passés détaillés (3 derniers mois)
+      const { data: pastCourses } = await db.from('course_instances_with_availability')
+        .select('id, date, discipline_name, custom_name, start_time, booked_count, cancelled')
+        .eq('teacher_id', teacherId)
+        .eq('cancelled', false)
+        .lt('date', today)
+        .order('date', { ascending: false })
+        .limit(50);
+
+      const jours2 = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+      revEl.innerHTML = revenue.map(r => {
+        const mois = new Date(r.month + 'T12:00:00').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        const monthStr = r.month?.slice(0,7);
+        const coursOfMonth = (pastCourses||[]).filter(ci => ci.date?.slice(0,7) === monthStr);
+        return `<div style="background:var(--bg3);border-radius:12px;padding:14px 16px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-size:14px;font-weight:600;text-transform:capitalize">${mois}</div>
+            <div style="text-align:right">
+              <div style="font-size:18px;font-weight:700;color:var(--accent)">${r.amount_owed} €</div>
+              <div style="font-size:11px;color:var(--text3)">${r.classes_given} cours · ${r.students_taught} élève${r.students_taught>1?'s':''}</div>
+            </div>
+          </div>
+          ${coursOfMonth.length ? coursOfMonth.map(ci => {
+            const d = new Date(ci.date + 'T12:00:00');
+            return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border);font-size:12px">
+              <span style="color:var(--text3);width:60px;flex-shrink:0">${jours2[d.getDay()]} ${d.getDate()} ${d.toLocaleDateString('fr-FR',{month:'short'})}</span>
+              <span style="color:var(--text2);flex:1">${esc(ci.custom_name||ci.discipline_name||'Cours')} · ${(ci.start_time||'').slice(0,5)}</span>
+              <span style="color:var(--text3)">${ci.booked_count||0} élève${(ci.booked_count||0)>1?'s':''}</span>
+              <span style="color:var(--accent);font-weight:600;width:40px;text-align:right">50 €</span>
+            </div>`;
+          }).join('') : ''}
+        </div>`;
+      }).join('');
+    }
+  }
 
   const { data: instances } = await db
     .from('course_instances_with_availability')
