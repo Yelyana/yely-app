@@ -356,7 +356,7 @@ function disciplineColor(name) {
 }
 
 function renderProfMiniCard(ci) {
-  const isMine = ci.teacher_id === currentUser.id;
+  const isMine = (ci.courses?.teacher_id || ci.teacher_id) === currentUser.id;
   const discName = ci.courses?.disciplines?.name || '';
   const color = ci.courses?.disciplines?.color || disciplineColor(discName);
   const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
@@ -387,18 +387,18 @@ async function loadPlanning() {
   const weekLabel = `${weekStart.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekEnd.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
 
   let instancesQuery = db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, salle, level, description, disciplines(name,color)), profiles(full_name)')
+    .select('*, courses!inner(id, custom_name, start_time, duration_minutes, max_students, salle, level, description, teacher_id, disciplines(name,color)), profiles(full_name)')
     .gte('date', fmt(weekStart))
     .lte('date', fmt(weekEnd))
     .neq('status','cancelled')
     .order('date').order('courses(start_time)');
-  if (!profStudioView) instancesQuery = instancesQuery.eq('teacher_id', currentUser.id);
+  if (!profStudioView) instancesQuery = instancesQuery.eq('courses.teacher_id', currentUser.id);
 
   const { data: instances } = await instancesQuery;
 
   const { data: allInstances } = await db.from('course_instances')
-    .select('id, date')
-    .eq('teacher_id', currentUser.id)
+    .select('id, date, courses!inner(teacher_id)')
+    .eq('courses.teacher_id', currentUser.id)
     .gte('date', fmt(today))
     .order('date').limit(20);
 
@@ -483,7 +483,7 @@ async function loadPlanning() {
       return allCours.map(ci => {
         const color = ci.courses?.disciplines?.color || '#a78bfa';
         const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
-        const isMine = ci.teacher_id === currentUser.id;
+        const isMine = (ci.courses?.teacher_id || ci.teacher_id) === currentUser.id;
         const teacherName = ci.profiles?.full_name || '';
         return `<div onclick="${isMine ? `openSeance('${ci.id}')` : ''}" style="background:var(--card);border-left:4px solid ${color};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:${isMine?'pointer':'default'};opacity:${isMine?'1':'0.75'}">
           <div style="display:flex;justify-content:space-between;align-items:center">
