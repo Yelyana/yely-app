@@ -1941,9 +1941,9 @@ async function openTeacherPlanning(teacherId) {
     } else {
       // Cours passés détaillés (3 derniers mois)
       const { data: pastCourses } = await db.from('course_instances_with_availability')
-        .select('id, date, discipline_name, custom_name, start_time, booked_count, cancelled')
+        .select('id, date, discipline_name, custom_name, start_time, booked_count, status')
         .eq('teacher_id', teacherId)
-        .eq('cancelled', false)
+        .neq('status', 'cancelled')
         .lt('date', today)
         .order('date', { ascending: false })
         .limit(50);
@@ -1979,7 +1979,7 @@ async function openTeacherPlanning(teacherId) {
     .from('course_instances_with_availability')
     .select('id, date, discipline_name, discipline_color, start_time, max_students, salle, level, custom_name, booked_count')
     .eq('teacher_id', teacherId)
-    .eq('cancelled', false)
+    .neq('status', 'cancelled')
     .gte('date', today)
     .lte('date', sixWeeks)
     .order('date')
