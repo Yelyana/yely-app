@@ -155,6 +155,7 @@
     <button class="nav-link active" id="nav-planning" onclick="showPage('planning')">📅 Planning</button>
     <button class="nav-link" id="nav-eleves" onclick="showPage('eleves')">👩 Mes élèves</button>
     <button class="nav-link" id="nav-communaute" onclick="showPage('communaute')">💬 Communauté</button>
+    <button class="nav-link" id="nav-reserver" onclick="showPage('reserver')">🎟️ Réserver</button>
     <button class="nav-link" id="nav-stats" onclick="showPage('stats')">📊 Mes stats</button>
     <button class="nav-link" id="nav-profil" onclick="showPage('profil')">⚙️ Mon profil</button>
     <div style="flex:1"></div>
@@ -172,6 +173,7 @@
       <button class="mobile-tab active" id="mob-planning" onclick="showPage('planning')"><span class="icon">📅</span>Planning</button>
       <button class="mobile-tab" id="mob-eleves" onclick="showPage('eleves')"><span class="icon">👩</span>Élèves</button>
       <button class="mobile-tab" id="mob-communaute" onclick="showPage('communaute')"><span class="icon">💬</span>Commu</button>
+      <button class="mobile-tab" id="mob-reserver" onclick="showPage('reserver')"><span class="icon">🎟️</span>Réserver</button>
       <button class="mobile-tab" id="mob-stats" onclick="showPage('stats')"><span class="icon">📊</span>Stats</button>
       <button class="mobile-tab" id="mob-profil" onclick="showPage('profil')"><span class="icon">⚙️</span>Profil</button>
     </div>
@@ -312,10 +314,10 @@ db.auth.onAuthStateChange(async (event, session) => {
 });
 
 // ── NAVIGATION ────────────────────────────────────────────
-const PAGE_TITLES = { planning: 'Mon Planning', eleves: 'Mes élèves', communaute: 'Communauté', stats: 'Mes stats', profil: 'Mon profil' };
+const PAGE_TITLES = { planning: 'Mon Planning', eleves: 'Mes élèves', communaute: 'Communauté', reserver: 'Réserver un cours', stats: 'Mes stats', profil: 'Mon profil' };
 
 function showPage(page) {
-  ['planning','eleves','communaute','stats','profil'].forEach(p => {
+  ['planning','eleves','communaute','reserver','stats','profil'].forEach(p => {
     document.getElementById('nav-'+p)?.classList.remove('active');
     document.getElementById('mob-'+p)?.classList.remove('active');
   });
@@ -323,7 +325,7 @@ function showPage(page) {
   document.getElementById('mob-'+page)?.classList.add('active');
   const titleEl = document.getElementById('mob-page-title');
   if (titleEl) titleEl.textContent = PAGE_TITLES[page] || '';
-  const pages = { planning: loadPlanning, eleves: loadEleves, communaute: loadCommunaute, stats: loadStats, profil: loadProfil };
+  const pages = { planning: loadPlanning, eleves: loadEleves, communaute: loadCommunaute, reserver: loadReserver, stats: loadStats, profil: loadProfil };
   if (pages[page]) pages[page]();
 }
 
@@ -1098,6 +1100,107 @@ async function profToggleLike(postId, btn) {
 }
 
 // ── MES STATS ─────────────────────────────────────────────
+let _reserverWeekOffset = 0;
+
+async function loadReserver() {
+  const el = document.getElementById('main-content');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+
+  const today = new Date();
+  const dow = today.getDay() === 0 ? 6 : today.getDay() - 1;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - dow + _reserverWeekOffset * 7);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const fmt = d => d.toISOString().slice(0,10);
+
+  const [{ data: instances }, { data: myBookings }] = await Promise.all([
+    db.from('course_instances')
+      .select('*, courses!inner(id, custom_name, start_time, duration_minutes, max_students, salle, level, teacher_id, disciplines(name,color), profiles(full_name))')
+      .gte('date', fmt(weekStart))
+      .lte('date', fmt(weekEnd))
+      .neq('status', 'cancelled')
+      .neq('courses.teacher_id', currentUser.id)
+      .order('date').order('courses(start_time)'),
+    db.from('bookings')
+      .select('course_instance_id')
+      .eq('student_id', currentUser.id)
+      .eq('status', 'confirmed')
+      .gte('course_instance_id', 0),
+  ]);
+
+  const bookedIds = new Set((myBookings || []).map(b => b.course_instance_id));
+
+  const weekLabel = `${weekStart.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekEnd.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
+  const jours = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+
+  // Grouper par jour
+  const byDay = {};
+  (instances || []).forEach(ci => {
+    if (!byDay[ci.date]) byDay[ci.date] = [];
+    byDay[ci.date].push(ci);
+  });
+
+  const rows = Object.entries(byDay).sort(([a],[b]) => a.localeCompare(b)).map(([date, cis]) => {
+    const d = new Date(date + 'T12:00:00');
+    const dayLabel = `${jours[d.getDay()]} ${d.getDate()} ${d.toLocaleDateString('fr-FR',{month:'long'})}`;
+    return `<div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)">${dayLabel}</div>
+      ${cis.map(ci => {
+        const color = ci.courses?.disciplines?.color || '#a78bfa';
+        const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
+        const teacher = ci.courses?.profiles?.full_name || '';
+        const booked = bookedIds.has(ci.id);
+        const full = ci.booked_count >= (ci.courses?.max_students || 99);
+        return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border-radius:12px;margin-bottom:8px;border-left:4px solid ${color};opacity:${booked||full?'0.65':'1'}">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600">${esc(name)}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">${(ci.courses?.start_time||'').slice(0,5)} · ${esc(teacher)}${ci.courses?.salle ? ` · ${esc(ci.courses.salle)}` : ''}</div>
+          </div>
+          ${booked
+            ? `<span style="font-size:12px;color:#7dbf9b;font-weight:600">✓ Inscrite</span>`
+            : full
+              ? `<span style="font-size:12px;color:var(--text3)">Complet</span>`
+              : `<button onclick="bookProfCourse('${ci.id}')" style="padding:7px 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Réserver</button>`
+          }
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('') || `<div style="text-align:center;color:var(--text3);padding:32px;font-size:14px">Aucun cours cette semaine</div>`;
+
+  el.innerHTML = `
+    <div class="page-header"><div class="page-title">Réserver un cours</div></div>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:16px">Inscris-toi gratuitement aux cours de tes collègues 🤍</p>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <button onclick="_reserverWeekOffset--;loadReserver()" style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);cursor:pointer">‹</button>
+      <span style="flex:1;text-align:center;font-size:13px;font-weight:500">${weekLabel}</span>
+      <button onclick="_reserverWeekOffset++;loadReserver()" style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);cursor:pointer">›</button>
+      ${_reserverWeekOffset !== 0 ? `<button onclick="_reserverWeekOffset=0;loadReserver()" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer">Aujourd'hui</button>` : ''}
+    </div>
+    ${rows}
+  `;
+}
+
+async function bookProfCourse(instanceId) {
+  // Trouver le crédit "Accès offert" (product_id=26)
+  const { data: credit } = await db.from('student_credits')
+    .select('id')
+    .eq('student_id', currentUser.id)
+    .eq('product_id', 26)
+    .gt('sessions_remaining', 0)
+    .maybeSingle();
+  if (!credit) return showToast('Crédit gratuit introuvable — contacte Ana.', true);
+
+  const { data: result, error } = await db.rpc('book_course', {
+    p_instance_id: instanceId,
+    p_credit_id: credit.id,
+    p_child_id: null,
+  });
+  if (error || result?.error) return showToast(result?.error || error?.message || 'Erreur', true);
+  showToast('Cours réservé ! 🎉');
+  loadReserver();
+}
+
 async function loadStats() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
 
