@@ -630,8 +630,17 @@ async function renderPlanning() {
     .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
     .neq('status', 'cancelled').order('date').order('courses(start_time)');
 
+  const nowMs = Date.now();
+  const visibleInstances = (instances || []).filter(ci => {
+    const [h, m] = (ci.courses?.start_time || '00:00').split(':').map(Number);
+    const dur = ci.courses?.duration_minutes || 0;
+    const courseEnd = new Date(ci.date + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00');
+    courseEnd.setMinutes(courseEnd.getMinutes() + dur);
+    return courseEnd.getTime() > nowMs;
+  });
+
   const byDate = {};
-  (instances || []).forEach(ci => {
+  visibleInstances.forEach(ci => {
     if (!byDate[ci.date]) byDate[ci.date] = [];
     byDate[ci.date].push(ci);
   });

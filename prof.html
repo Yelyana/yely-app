@@ -405,7 +405,16 @@ async function loadPlanning() {
     instancesData = [...(myRegular||[]), ...(myReplacement||[])].filter(ci => { if (seen.has(ci.id)) return false; seen.add(ci.id); return true; });
     myBookingsData = bk;
   }
-  const instances = instancesData;
+  // Filtrer les cours dont l'heure de fin est déjà passée
+  const nowMs = Date.now();
+  const filteredInstances = (instancesData || []).filter(ci => {
+    const [h, m] = (ci.courses?.start_time || '00:00').split(':').map(Number);
+    const dur = ci.courses?.duration_minutes || 0;
+    const courseEnd = new Date(ci.date + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00');
+    courseEnd.setMinutes(courseEnd.getMinutes() + dur);
+    return courseEnd.getTime() > nowMs;
+  });
+  const instances = filteredInstances;
 
   const [{ data: myBookings }] = [{ data: myBookingsData }];
   if (instances?.length) {
