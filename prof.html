@@ -386,18 +386,28 @@ async function loadPlanning() {
   const fmt = d => d.toISOString().slice(0,10);
   const weekLabel = `${weekStart.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekEnd.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
 
-  let instancesQuery = db.from('course_instances')
-    .select('*, courses!inner(id, custom_name, start_time, duration_minutes, max_students, salle, level, description, teacher_id, disciplines(name,color), profiles(full_name))')
-    .gte('date', fmt(weekStart))
-    .lte('date', fmt(weekEnd))
-    .neq('status','cancelled')
-    .order('date').order('courses(start_time)');
-  if (!profStudioView) instancesQuery = instancesQuery.eq('courses.teacher_id', currentUser.id);
+  const baseSelect = '*, courses!inner(id, custom_name, start_time, duration_minutes, max_students, salle, level, description, teacher_id, disciplines(name,color), profiles(full_name))';
+  const dateFilters = (q) => q.gte('date', fmt(weekStart)).lte('date', fmt(weekEnd)).neq('status','cancelled').order('date').order('courses(start_time)');
 
-  const [{ data: instances }, { data: myBookings }] = await Promise.all([
-    instancesQuery,
-    db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).eq('status', 'confirmed'),
-  ]);
+  let instancesData, myBookingsData;
+  if (profStudioView) {
+    [{ data: instancesData }, { data: myBookingsData }] = await Promise.all([
+      dateFilters(db.from('course_instances').select(baseSelect)),
+      db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).eq('status', 'confirmed'),
+    ]);
+  } else {
+    const [{ data: myRegular }, { data: myReplacement }, { data: bk }] = await Promise.all([
+      dateFilters(db.from('course_instances').select(baseSelect)).eq('courses.teacher_id', currentUser.id),
+      dateFilters(db.from('course_instances').select(baseSelect)).eq('replacement_teacher_id', currentUser.id),
+      db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).eq('status', 'confirmed'),
+    ]);
+    const seen = new Set();
+    instancesData = [...(myRegular||[]), ...(myReplacement||[])].filter(ci => { if (seen.has(ci.id)) return false; seen.add(ci.id); return true; });
+    myBookingsData = bk;
+  }
+  const instances = instancesData;
+
+  const [{ data: myBookings }] = [{ data: myBookingsData }];
   if (instances?.length) {
     const instanceIds = instances.map(ci => ci.id);
     const { data: weekBookings } = await db.from('bookings').select('course_instance_id').eq('status', 'confirmed').in('course_instance_id', instanceIds);
@@ -407,11 +417,12 @@ async function loadPlanning() {
   }
   window._profBookedIds = new Set((myBookings || []).map(b => b.course_instance_id));
 
-  const { data: allInstances } = await db.from('course_instances')
-    .select('id, date, courses!inner(teacher_id)')
-    .eq('courses.teacher_id', currentUser.id)
-    .gte('date', fmt(today))
-    .order('date').limit(20);
+  const [{ data: allRegular }, { data: allReplacing }] = await Promise.all([
+    db.from('course_instances').select('id, date, courses!inner(teacher_id)').eq('courses.teacher_id', currentUser.id).gte('date', fmt(today)).order('date').limit(20),
+    db.from('course_instances').select('id, date, courses!inner(teacher_id)').eq('replacement_teacher_id', currentUser.id).gte('date', fmt(today)).order('date').limit(20),
+  ]);
+  const seenAll = new Set();
+  const allInstances = [...(allRegular||[]), ...(allReplacing||[])].filter(ci => { if (seenAll.has(ci.id)) return false; seenAll.add(ci.id); return true; });
 
   const days = Array.from({length:7}, (_,i) => {
     const d = new Date(weekStart); d.setDate(weekStart.getDate()+i); return d;
@@ -494,7 +505,7 @@ async function loadPlanning() {
       return allCours.map(ci => {
         const color = ci.courses?.disciplines?.color || '#a78bfa';
         const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
-        const isMine = (ci.courses?.teacher_id || ci.teacher_id) === currentUser.id;
+        const isMine = (ci.courses?.teacher_id || ci.teacher_id) === currentUser.id || ci.replacement_teacher_id === currentUser.id;
         const teacherName = ci.courses?.profiles?.full_name || '';
         const isBooked = (window._profBookedIds || new Set()).has(ci.id);
         const badge = isMine
