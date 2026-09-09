@@ -386,7 +386,7 @@ async function loadPlanning() {
   const fmt = d => d.toISOString().slice(0,10);
   const weekLabel = `${weekStart.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekEnd.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
 
-  let instancesQuery = db.from('course_instances_with_availability')
+  let instancesQuery = db.from('course_instances')
     .select('*, courses!inner(id, custom_name, start_time, duration_minutes, max_students, salle, level, description, teacher_id, disciplines(name,color)), profiles(full_name)')
     .gte('date', fmt(weekStart))
     .lte('date', fmt(weekEnd))
@@ -398,6 +398,13 @@ async function loadPlanning() {
     instancesQuery,
     db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).eq('status', 'confirmed'),
   ]);
+  if (instances?.length) {
+    const instanceIds = instances.map(ci => ci.id);
+    const { data: weekBookings } = await db.from('bookings').select('course_instance_id').eq('status', 'confirmed').in('course_instance_id', instanceIds);
+    const bookedCountMap = {};
+    (weekBookings || []).forEach(b => { bookedCountMap[b.course_instance_id] = (bookedCountMap[b.course_instance_id] || 0) + 1; });
+    instances.forEach(ci => { ci.booked_count = bookedCountMap[ci.id] || 0; });
+  }
   window._profBookedIds = new Set((myBookings || []).map(b => b.course_instance_id));
 
   const { data: allInstances } = await db.from('course_instances')
