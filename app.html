@@ -1525,7 +1525,7 @@ async function loadBookingForm(ci) {
   let creditsHtml = '';
   if (credits?.length) {
     credits.forEach(c => {
-      const kidsTag = (c.products?.for_kids || c.products?.for_parent_enfant) ? `<span style="font-size:10px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:1px 6px;border-radius:4px;margin-left:6px">Pole Kids</span>` : '';
+      const kidsTag = (c.valid_for !== 'all' && (c.products?.for_kids || c.products?.for_parent_enfant)) ? `<span style="font-size:10px;background:rgba(155,125,219,0.2);color:var(--violet-light);padding:1px 6px;border-radius:4px;margin-left:6px">Pole Kids</span>` : '';
       creditsHtml += `<button class="cours-card" style="margin-bottom:8px" onclick="bookWithCredit(${ci.id}, ${c.id})">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div><div style="font-size:14px">${esc(c.products.name)}${kidsTag}</div><div style="font-size:11px;color:var(--violet-light)">${c.sessions_remaining} séance(s) restante(s)</div></div>
