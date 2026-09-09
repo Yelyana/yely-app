@@ -155,7 +155,6 @@
     <button class="nav-link active" id="nav-planning" onclick="showPage('planning')">📅 Planning</button>
     <button class="nav-link" id="nav-eleves" onclick="showPage('eleves')">👩 Mes élèves</button>
     <button class="nav-link" id="nav-communaute" onclick="showPage('communaute')">💬 Communauté</button>
-    <button class="nav-link" id="nav-reserver" onclick="showPage('reserver')">🎟️ Réserver</button>
     <button class="nav-link" id="nav-stats" onclick="showPage('stats')">📊 Mes stats</button>
     <button class="nav-link" id="nav-profil" onclick="showPage('profil')">⚙️ Mon profil</button>
     <div style="flex:1"></div>
@@ -173,7 +172,6 @@
       <button class="mobile-tab active" id="mob-planning" onclick="showPage('planning')"><span class="icon">📅</span>Planning</button>
       <button class="mobile-tab" id="mob-eleves" onclick="showPage('eleves')"><span class="icon">👩</span>Élèves</button>
       <button class="mobile-tab" id="mob-communaute" onclick="showPage('communaute')"><span class="icon">💬</span>Commu</button>
-      <button class="mobile-tab" id="mob-reserver" onclick="showPage('reserver')"><span class="icon">🎟️</span>Réserver</button>
       <button class="mobile-tab" id="mob-stats" onclick="showPage('stats')"><span class="icon">📊</span>Stats</button>
       <button class="mobile-tab" id="mob-profil" onclick="showPage('profil')"><span class="icon">⚙️</span>Profil</button>
     </div>
@@ -317,7 +315,7 @@ db.auth.onAuthStateChange(async (event, session) => {
 const PAGE_TITLES = { planning: 'Mon Planning', eleves: 'Mes élèves', communaute: 'Communauté', reserver: 'Réserver un cours', stats: 'Mes stats', profil: 'Mon profil' };
 
 function showPage(page) {
-  ['planning','eleves','communaute','reserver','stats','profil'].forEach(p => {
+  ['planning','eleves','communaute','stats','profil'].forEach(p => {
     document.getElementById('nav-'+p)?.classList.remove('active');
     document.getElementById('mob-'+p)?.classList.remove('active');
   });
@@ -325,7 +323,7 @@ function showPage(page) {
   document.getElementById('mob-'+page)?.classList.add('active');
   const titleEl = document.getElementById('mob-page-title');
   if (titleEl) titleEl.textContent = PAGE_TITLES[page] || '';
-  const pages = { planning: loadPlanning, eleves: loadEleves, communaute: loadCommunaute, reserver: loadReserver, stats: loadStats, profil: loadProfil };
+  const pages = { planning: loadPlanning, eleves: loadEleves, communaute: loadCommunaute, stats: loadStats, profil: loadProfil };
   if (pages[page]) pages[page]();
 }
 
@@ -396,7 +394,11 @@ async function loadPlanning() {
     .order('date').order('courses(start_time)');
   if (!profStudioView) instancesQuery = instancesQuery.eq('courses.teacher_id', currentUser.id);
 
-  const { data: instances } = await instancesQuery;
+  const [{ data: instances }, { data: myBookings }] = await Promise.all([
+    instancesQuery,
+    db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).eq('status', 'confirmed'),
+  ]);
+  window._profBookedIds = new Set((myBookings || []).map(b => b.course_instance_id));
 
   const { data: allInstances } = await db.from('course_instances')
     .select('id, date, courses!inner(teacher_id)')
@@ -487,14 +489,20 @@ async function loadPlanning() {
         const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
         const isMine = (ci.courses?.teacher_id || ci.teacher_id) === currentUser.id;
         const teacherName = ci.profiles?.full_name || '';
-        return `<div onclick="${isMine ? `openSeance('${ci.id}')` : ''}" style="background:var(--card);border-left:4px solid ${color};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:${isMine?'pointer':'default'};opacity:${isMine?'1':'0.75'}">
+        const isBooked = (window._profBookedIds || new Set()).has(ci.id);
+        const badge = isMine
+          ? `<div style="font-size:11px;background:${color}22;color:${color};padding:4px 8px;border-radius:6px;font-weight:600">Mon cours →</div>`
+          : isBooked
+            ? `<span style="font-size:12px;color:#7dbf9b;font-weight:600">✓ Inscrite</span>`
+            : `<button onclick="event.stopPropagation();bookProfCourse('${ci.id}')" style="padding:5px 12px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer">S'inscrire</button>`;
+        return `<div onclick="${isMine ? `openSeance('${ci.id}')` : ''}" style="background:var(--card);border-left:4px solid ${color};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:${isMine?'pointer':'default'}">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <div style="font-size:12px;font-weight:700;color:${color}">${ci.courses?.start_time?.slice(0,5)} · ${ci.courses?.duration_minutes} min</div>
               <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:2px;display:flex;align-items:center;gap:6px">${esc(name)}${ci.courses?.level ? `<span style="font-size:12px;font-weight:600;background:${color}33;color:${color};border-radius:6px;padding:3px 9px">${esc(ci.courses.level)}</span>` : ''}</div>
               ${profStudioView && !isMine && teacherName ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">👤 ${esc(teacherName)}</div>` : ''}
             </div>
-            ${isMine ? `<div style="font-size:11px;background:${color}22;color:${color};padding:4px 8px;border-radius:6px;font-weight:600">Mon cours →</div>` : ''}
+            ${badge}
           </div>
         </div>`;
       }).join('');
