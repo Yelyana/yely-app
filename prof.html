@@ -511,7 +511,7 @@ async function loadPlanning() {
         const badge = isMine
           ? `<div style="font-size:11px;background:${color}22;color:${color};padding:4px 8px;border-radius:6px;font-weight:600">Mon cours →</div>`
           : isBooked
-            ? `<span style="font-size:12px;color:#7dbf9b;font-weight:600">✓ Inscrite</span>`
+            ? `<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:#7dbf9b;font-weight:600">✓ Inscrite</span><button onclick="event.stopPropagation();cancelProfCourse('${ci.id}')" style="padding:3px 8px;border:1px solid #e87a7a44;border-radius:6px;background:transparent;color:#e87a7a;font-size:11px;cursor:pointer">Annuler</button></div>`
             : `<button onclick="event.stopPropagation();bookProfCourse('${ci.id}')" style="padding:5px 12px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer">S'inscrire</button>`;
         return `<div onclick="${isMine ? `openSeance('${ci.id}')` : ''}" style="background:var(--card);border-left:4px solid ${color};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:${isMine?'pointer':'default'}">
           <div style="display:flex;justify-content:space-between;align-items:center">
@@ -1208,6 +1208,15 @@ async function loadReserver() {
     </div>
     ${rows}
   `;
+}
+
+async function cancelProfCourse(instanceId) {
+  const { data: booking } = await db.from('bookings').select('id').eq('course_instance_id', instanceId).eq('student_id', currentUser.id).eq('status', 'confirmed').maybeSingle();
+  if (!booking) return showToast('Réservation introuvable', true);
+  const { error } = await db.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id);
+  if (error) return showToast(error.message, true);
+  showToast('Inscription annulée');
+  loadPlanning();
 }
 
 async function bookProfCourse(instanceId) {
