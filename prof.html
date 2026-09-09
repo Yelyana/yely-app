@@ -387,7 +387,7 @@ async function loadPlanning() {
   const weekLabel = `${weekStart.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekEnd.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
 
   let instancesQuery = db.from('course_instances')
-    .select('*, courses!inner(id, custom_name, start_time, duration_minutes, max_students, salle, level, description, teacher_id, disciplines(name,color)), profiles(full_name)')
+    .select('*, courses!inner(id, custom_name, start_time, duration_minutes, max_students, salle, level, description, teacher_id, disciplines(name,color), profiles(full_name))')
     .gte('date', fmt(weekStart))
     .lte('date', fmt(weekEnd))
     .neq('status','cancelled')
@@ -495,7 +495,7 @@ async function loadPlanning() {
         const color = ci.courses?.disciplines?.color || '#a78bfa';
         const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
         const isMine = (ci.courses?.teacher_id || ci.teacher_id) === currentUser.id;
-        const teacherName = ci.profiles?.full_name || '';
+        const teacherName = ci.courses?.profiles?.full_name || '';
         const isBooked = (window._profBookedIds || new Set()).has(ci.id);
         const badge = isMine
           ? `<div style="font-size:11px;background:${color}22;color:${color};padding:4px 8px;border-radius:6px;font-weight:600">Mon cours →</div>`
