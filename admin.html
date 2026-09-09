@@ -1987,7 +1987,7 @@ async function openTeacherPlanning(teacherId) {
         .select('id, date, discipline_name, custom_name, start_time, booked_count, status')
         .eq('teacher_id', teacherId)
         .neq('status', 'cancelled')
-        .lt('date', today)
+        .lte('date', today)
         .order('date', { ascending: false })
         .limit(50);
 
