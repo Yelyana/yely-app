@@ -626,7 +626,7 @@ async function renderPlanning() {
 
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const { data: instances } = await db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name)), bookings(id,status)')
+    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name)), bookings(id,status), replacement:replacement_teacher_id(full_name)')
     .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
     .neq('status', 'cancelled').order('date').order('courses(start_time)');
 
@@ -643,19 +643,23 @@ async function renderPlanning() {
     const name = c.custom_name || c.disciplines?.name || 'Cours';
     const time = c.start_time?.slice(0,5) || '';
     const prof = c.profiles?.full_name?.split(' ')[0] || '';
+    const replacement = ci.replacement?.full_name?.split(' ')[0] || '';
     const tag = c.is_recurring ? '' : '<span style="font-size:9px;background:#f472b622;color:#f472b6;border-radius:4px;padding:1px 4px;margin-left:4px">⭐</span>';
     const levelTag = c.level ? `<span style="font-size:10px;font-weight:600;background:${discColor}33;color:${discColor};border-radius:4px;padding:2px 6px;margin-left:4px">${esc(c.level)}</span>` : '';
     const enrolled = (ci.bookings || []).filter(b => b.status === 'confirmed').length;
     const max = c.max_students || 0;
     const isFull = max > 0 && enrolled >= max;
     const countColor = isFull ? '#e87a7a' : enrolled > 0 ? '#7dbf9b' : 'var(--text3)';
+    const profLine = replacement
+      ? `<div style="font-size:10px"><span style="color:var(--text3);text-decoration:line-through">${esc(prof)}</span> <span style="color:#f59e0b;font-weight:600">↔ ${esc(replacement)}</span></div>`
+      : (prof ? `<div style="font-size:10px;color:var(--text3)">${esc(prof)}</div>` : '');
     return `<div class="cours-pill" style="background:${salleColor}18;border-left:3px solid ${salleColor};cursor:pointer" onclick="viewInstance('${ci.id}')">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-weight:500;font-size:12px;color:${salleColor}">${time} ${tag}</div>
         <span style="font-size:11px;font-weight:600;color:${countColor}">${enrolled}${max ? '/'+max : ''}</span>
       </div>
       <div style="font-size:11px;color:var(--text2);display:flex;align-items:center;flex-wrap:wrap;gap:2px">${esc(name)}${levelTag}</div>
-      ${prof ? `<div style="font-size:10px;color:var(--text3)">${esc(prof)}</div>` : ''}
+      ${profLine}
     </div>`;
   };
 
@@ -741,9 +745,12 @@ async function renderPlanning() {
 }
 
 async function viewInstance(id) {
-  const { data: ci } = await db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, is_practice, event_date, disciplines(name,color), profiles(id, full_name))')
-    .eq('id', id).single();
+  const [{ data: ci }, { data: allTeachers }] = await Promise.all([
+    db.from('course_instances')
+      .select('*, replacement_teacher_id, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, is_practice, event_date, disciplines(name,color), profiles(id, full_name)), replacement:replacement_teacher_id(id, full_name)')
+      .eq('id', id).single(),
+    db.from('profiles').select('id, full_name').eq('role', 'teacher').order('full_name'),
+  ]);
   const { data: bookings } = await db.from('bookings')
     .select('*, profiles(full_name, email), children(first_name)')
     .eq('course_instance_id', id).eq('status', 'confirmed');
@@ -753,15 +760,32 @@ async function viewInstance(id) {
 
   const c = ci?.courses || {};
   window._currentViewCourse = c;
+  window._currentViewInstanceId = id;
   const name = c.custom_name || c.disciplines?.name || 'Cours';
   const color = c.disciplines?.color || '#a78bfa';
   const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
   const isCancelled = ci?.status === 'cancelled';
+  const regularProf = c.profiles?.full_name || '';
+  const currentReplacementId = ci?.replacement_teacher_id || '';
+  const teacherOptions = (allTeachers || []).map(t =>
+    `<option value="${t.id}" ${t.id === currentReplacementId ? 'selected' : ''}>${esc(t.full_name)}</option>`
+  ).join('');
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">${esc(name)}</div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:16px">${esc(date)} · ${c.start_time?.slice(0,5) || ''}</div>
     ${isCancelled ? `<div style="background:#e87a7a22;border:1px solid #e87a7a44;border-radius:10px;padding:12px;margin-bottom:16px;color:#e87a7a;font-size:13px">⚠️ Séance annulée${ci.cancellation_reason ? ' : ' + esc(ci.cancellation_reason) : ''}</div>` : ''}
+    ${!isCancelled ? `
+    <div style="background:${currentReplacementId ? '#f59e0b18' : 'var(--surface2,var(--border))'};border:1px solid ${currentReplacementId ? '#f59e0b44' : 'var(--border)'};border-radius:10px;padding:12px;margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">👤 Prof habituel : ${esc(regularProf)}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <select id="replacement-select" style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text1);font-size:13px">
+          <option value="">— Aucun remplacement —</option>
+          ${teacherOptions}
+        </select>
+        <button onclick="saveReplacement('${ci.id}')" style="padding:7px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;cursor:pointer;white-space:nowrap">Valider</button>
+      </div>
+    </div>` : ''}
     <div style="margin-bottom:20px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inscrits (${bookings?.length || 0}/${c.max_students || '?'})</div>
       ${bookings?.length ? bookings.map(b => `
@@ -789,6 +813,15 @@ async function viewInstance(id) {
     </div>
   `;
   openModal();
+}
+
+async function saveReplacement(instanceId) {
+  const val = document.getElementById('replacement-select')?.value || null;
+  const { error } = await db.from('course_instances').update({ replacement_teacher_id: val || null }).eq('id', instanceId);
+  if (error) return showToast('Erreur : ' + error.message, true);
+  showToast(val ? 'Remplacement enregistré ✓' : 'Remplacement retiré ✓');
+  await renderPlanning();
+  viewInstance(instanceId);
 }
 
 async function markAttendance(bookingId, attended, instanceId) {
