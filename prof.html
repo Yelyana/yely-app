@@ -1236,8 +1236,8 @@ async function bookProfCourse(instanceId) {
     p_child_id: null,
   });
   if (error || result?.error) return showToast(result?.error || error?.message || 'Erreur', true);
-  showToast('Cours réservé ! 🎉');
-  loadReserver();
+  showToast('Tu es bien inscrite ! 🎉');
+  loadPlanning();
 }
 
 async function loadStats() {
