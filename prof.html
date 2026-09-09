@@ -1225,11 +1225,20 @@ async function loadStats() {
   const today = new Date().toISOString().split('T')[0];
   const monthStart = today.slice(0,7) + '-01';
 
-  const { data: myInstances } = await db.from('course_instances')
-    .select('id, date, courses(custom_name, max_students, disciplines(name,color))')
-    .eq('teacher_id', currentUser.id)
-    .gte('date', monthStart).lte('date', today)
-    .neq('status','cancelled');
+  // Cours du mois en cours (pour stats de remplissage)
+  const [{ data: myInstances }, { data: allInstances }] = await Promise.all([
+    db.from('course_instances')
+      .select('id, date, courses(custom_name, max_students, disciplines(name,color))')
+      .eq('teacher_id', currentUser.id)
+      .gte('date', monthStart).lte('date', today)
+      .neq('status','cancelled'),
+    // Tous les cours donnés pour les revenus (historique complet)
+    db.from('course_instances')
+      .select('id, date')
+      .eq('teacher_id', currentUser.id)
+      .lte('date', today)
+      .neq('status','cancelled'),
+  ]);
 
   const instanceIds = (myInstances||[]).map(ci => ci.id);
   const { data: bookings } = instanceIds.length
@@ -1237,12 +1246,19 @@ async function loadStats() {
     : { data: [] };
 
   const totalCours = myInstances?.length || 0;
-  const totalEleves = new Set((bookings||[]).map(b => b.course_instance_id)).size;
   const totalPresent = (bookings||[]).filter(b => b.attended).length;
   const totalBookings = (bookings||[]).length;
   const presentRate = totalBookings > 0 ? Math.round(totalPresent / totalBookings * 100) : 0;
 
-  // Stats par cours
+  // Revenus par mois
+  const revenueByMonth = {};
+  (allInstances||[]).forEach(ci => {
+    const m = ci.date.slice(0,7);
+    revenueByMonth[m] = (revenueByMonth[m] || 0) + 1;
+  });
+  const sortedMonths = Object.keys(revenueByMonth).sort().reverse();
+
+  // Stats par cours (mois en cours)
   const courseStats = {};
   (myInstances||[]).forEach(ci => {
     const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
@@ -1253,17 +1269,44 @@ async function loadStats() {
     courseStats[name].bookings += (bookings||[]).filter(b => b.course_instance_id === ci.id).length;
   });
 
+  const fmtMonth = m => new Date(m + '-01').toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+
   document.getElementById('main-content').innerHTML = `
     <div class="page-title">Mes stats</div>
     <div class="page-sub">${new Date().toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}</div>
 
     <div class="grid-3">
-      <div class="stat-card"><div class="stat-val">${totalCours}</div><div class="stat-lbl">Cours donnés</div></div>
+      <div class="stat-card"><div class="stat-val">${totalCours}</div><div class="stat-lbl">Cours ce mois</div></div>
       <div class="stat-card"><div class="stat-val">${totalBookings}</div><div class="stat-lbl">Passages élèves</div></div>
       <div class="stat-card"><div class="stat-val">${presentRate}%</div><div class="stat-lbl">Taux de présence</div></div>
     </div>
 
-    <div class="section-title">Remplissage par cours</div>
+    <div class="section-title">Mes revenus</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:var(--surface2,var(--border))">
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--text2)">Mois</th>
+            <th style="padding:10px 14px;text-align:center;font-weight:600;color:var(--text2)">Cours donnés</th>
+            <th style="padding:10px 14px;text-align:right;font-weight:600;color:var(--text2)">Montant dû</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sortedMonths.length ? sortedMonths.map((m,i) => {
+            const count = revenueByMonth[m];
+            const amount = count * 50;
+            const isCurrentMonth = m === today.slice(0,7);
+            return `<tr style="border-top:1px solid var(--border);${isCurrentMonth ? 'font-weight:600' : ''}">
+              <td style="padding:10px 14px;color:${isCurrentMonth ? 'var(--accent)' : 'var(--text1)'}">${fmtMonth(m)}${isCurrentMonth ? ' ●' : ''}</td>
+              <td style="padding:10px 14px;text-align:center;color:var(--text2)">${count}</td>
+              <td style="padding:10px 14px;text-align:right;color:var(--accent);font-variant-numeric:tabular-nums">${amount} €</td>
+            </tr>`;
+          }).join('') : `<tr><td colspan="3" style="padding:16px 14px;color:var(--text3)">Aucun cours donné pour l'instant</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">Remplissage par cours — ce mois</div>
     <div class="card">
       ${Object.entries(courseStats).map(([name, s]) => {
         const avg = s.count > 0 ? Math.round(s.bookings / s.count) : 0;
