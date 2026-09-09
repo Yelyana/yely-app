@@ -1545,8 +1545,9 @@ async function toggleComplimentary(studentId, value) {
         student_id: studentId,
         product_id: product.id,
         sessions_remaining: 9999,
+        sessions_total: 9999,
         expires_at: expiresAt.toISOString().split('T')[0],
-        valid_for: { for_collectif: true, for_practice: true, for_kids: true, for_reformer: true, for_parent_enfant: true },
+        valid_for: 'all',
       });
     }
     showToast('🎁 Accès offert activé !');
