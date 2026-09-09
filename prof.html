@@ -1211,14 +1211,24 @@ async function loadReserver() {
 }
 
 async function bookProfCourse(instanceId) {
-  // Trouver le crédit "Accès offert" (product_id=26)
-  const { data: credit } = await db.from('student_credits')
+  // Trouver ou créer le crédit "Accès offert" (product_id=26) de la prof
+  let { data: credit } = await db.from('student_credits')
     .select('id')
     .eq('student_id', currentUser.id)
     .eq('product_id', 26)
     .gt('sessions_remaining', 0)
     .maybeSingle();
-  if (!credit) return showToast('Crédit gratuit introuvable — contacte Ana.', true);
+  if (!credit) {
+    const { data: newCredit, error: createErr } = await db.from('student_credits').insert({
+      student_id: currentUser.id,
+      product_id: 26,
+      sessions_total: 9999,
+      sessions_remaining: 9999,
+      valid_for: 'all',
+    }).select('id').single();
+    if (createErr) return showToast('Erreur lors de la création du crédit : ' + createErr.message, true);
+    credit = newCredit;
+  }
 
   const { data: result, error } = await db.rpc('book_course', {
     p_instance_id: instanceId,
