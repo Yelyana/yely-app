@@ -386,7 +386,7 @@ async function loadPlanning() {
   const fmt = d => d.toISOString().slice(0,10);
   const weekLabel = `${weekStart.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekEnd.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
 
-  let instancesQuery = db.from('course_instances')
+  let instancesQuery = db.from('course_instances_with_availability')
     .select('*, courses!inner(id, custom_name, start_time, duration_minutes, max_students, salle, level, description, teacher_id, disciplines(name,color)), profiles(full_name)')
     .gte('date', fmt(weekStart))
     .lte('date', fmt(weekEnd))
