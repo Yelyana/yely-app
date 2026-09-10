@@ -3609,10 +3609,11 @@ async function uploadStudentCard(input) {
   const { error } = await db.storage.from('student-cards').upload(path, file, { upsert: true });
   if (error) return showToast('Erreur upload : ' + error.message, true);
   const { data } = db.storage.from('student-cards').getPublicUrl(path);
-  await db.from('profiles').update({
+  const { error: updateErr } = await db.from('profiles').update({
     student_card_url: data.publicUrl,
     student_verification_status: 'pending',
   }).eq('id', currentUser.id);
+  if (updateErr) return showToast('Erreur lors de l\'envoi : ' + updateErr.message, true);
   currentProfile.student_verification_status = 'pending';
   // Notifier l'admin
   await db.functions.invoke('notify-student-verification', {
