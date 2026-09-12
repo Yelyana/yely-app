@@ -2751,8 +2751,8 @@ function sortForfaits(a, b) {
 
 const MERCH_COLORS = { Black: '#1a1a1a', Blush: '#f2c4ce', Moka: '#7a5c4a' };
 const MERCH_IMAGES = {
-  'Brassière Essentiel': 'https://peshstudio.fr/cdn/shop/files/11_06f327aa-bc04-414d-8667-07780a4d834f.png?v=1783350103&width=600',
-  'Short Essentiel': 'https://peshstudio.fr/cdn/shop/files/4_22c20e59-ed47-4f86-a72b-a417606e05b2.png?v=1783350283&width=600',
+  'Brassière Essentiel': 'https://peshstudio.fr/cdn/shop/files/6_2fcbe42d-662d-4278-9967-5c80bcb5f9db.png?v=1782814709&width=600',
+  'Short Essentiel': 'https://peshstudio.fr/cdn/shop/files/7_a65d8aa8-cca2-4d06-9bd8-754cbd79e7a3.png?v=1782814735&width=600',
 };
 
 async function loadMerchProducts(el, tabs) {
@@ -2771,7 +2771,7 @@ async function loadMerchProducts(el, tabs) {
     const imgUrl = MERCH_IMAGES[p.name] || '';
     return `
     <div class="card card-sm" style="margin-bottom:14px;overflow:hidden" id="merch-card-${pid}">
-      ${imgUrl ? `<img src="${imgUrl}" alt="${esc(p.name)}" style="width:100%;height:200px;object-fit:cover;object-position:top;display:block">` : ''}
+      ${imgUrl ? `<img src="${imgUrl}" alt="${esc(p.name)}" style="width:100%;height:220px;object-fit:cover;object-position:center;display:block">` : ''}
       <div style="padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
