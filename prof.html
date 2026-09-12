@@ -268,7 +268,7 @@ async function initProf(user) {
   currentUser = user;
   const { data } = await db.from('profiles').select('*').eq('id', user.id).single();
   currentProf = data;
-  if (!currentProf || !['teacher', 'admin'].includes(currentProf.role)) {
+  if (!currentProf || !['teacher', 'admin', 'assistant'].includes(currentProf.role)) {
     await db.auth.signOut();
     return showToast('Accès réservé aux professeurs', true);
   }
