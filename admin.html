@@ -603,7 +603,7 @@ async function loadPlanning() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
   const [{ data: disciplines }, { data: teachers }] = await Promise.all([
     db.from('disciplines').select('*').order('sort_order'),
-    db.from('profiles').select('id, full_name').eq('role', 'teacher'),
+    db.from('profiles').select('id, full_name').in('role', ['teacher','assistant']),
   ]);
   window._planningDisciplines = disciplines || [];
   window._planningTeachers = teachers || [];
@@ -758,7 +758,7 @@ async function viewInstance(id) {
     db.from('course_instances')
       .select('*, replacement_teacher_id, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, is_practice, event_date, disciplines(name,color), profiles(id, full_name)), replacement:replacement_teacher_id(id, full_name)')
       .eq('id', id).single(),
-    db.from('profiles').select('id, full_name').eq('role', 'teacher').order('full_name'),
+    db.from('profiles').select('id, full_name').in('role', ['teacher','assistant']).order('full_name'),
   ]);
   const { data: bookings } = await db.from('bookings')
     .select('*, profiles(full_name, email), children(first_name)')
@@ -1813,7 +1813,7 @@ async function savePaymentModal() {
 // ── PROFESSEURS ───────────────────────────────────────────
 async function loadProfs() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
-  const { data: teachers } = await db.from('profiles').select('*, teachers(*)').eq('role', 'teacher');
+  const { data: teachers } = await db.from('profiles').select('*, teachers(*)').in('role', ['teacher','assistant']);
   window._teacherCache = {};
   (teachers || []).forEach(t => window._teacherCache[t.id] = t);
   const isAdmin = currentProfile?.role === 'admin';
