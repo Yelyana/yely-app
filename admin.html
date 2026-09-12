@@ -1009,10 +1009,10 @@ function openCourseModal(course, disciplines, teachers) {
       </div>
     </div>
     <div class="form-group" style="margin-top:4px">
-      <label style="display:flex;justify-content:space-between;align-items:center">
-        <span>Description (visible par les élèves)</span>
-        <button type="button" onclick="prefillDescription()" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer">✨ Desc. officielle</button>
-      </label>
+      <label>Description (visible par les élèves)</label>
+      <select id="m-desc-picker" onchange="if(this.value){document.getElementById('m-description').value=COURSE_DESCRIPTIONS[this.value]||'';this.value=''}" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text2);font-family:inherit;font-size:13px;margin-bottom:6px">
+        <option value="">✨ Choisir une description officielle…</option>
+      </select>
       <textarea id="m-description" rows="3" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text1);font-family:inherit;font-size:0.9rem;resize:vertical">${course?.description || ''}</textarea>
     </div>
     <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-top:4px">
@@ -1034,6 +1034,16 @@ function openCourseModal(course, disciplines, teachers) {
     </div>
   `;
   openModal();
+  // Remplir le select des descriptions officielles
+  const sel = document.getElementById('m-desc-picker');
+  if (sel) {
+    Object.keys(COURSE_DESCRIPTIONS).filter(k => k !== 'pole dance').forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = k.charAt(0).toUpperCase() + k.slice(1);
+      sel.appendChild(opt);
+    });
+  }
 }
 
 const COURSE_DESCRIPTIONS = {
