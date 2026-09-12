@@ -2077,6 +2077,27 @@ async function redirectToStripe(productId, engagement, applyReferralDiscount = f
   }
 }
 
+async function cancelMySubscription(stripeSubId) {
+  if (!stripeSubId) return showToast('Abonnement introuvable', true);
+  if (!confirm('Confirmer l\'annulation ? Ton abonnement restera actif jusqu\'à la fin de la période en cours.')) return;
+  showToast('Annulation en cours…');
+  try {
+    const session = await getFreshSession();
+    if (!session) return showToast('Session expirée, reconnecte-toi 🔄', true);
+    const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/cancel-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ stripe_subscription_id: stripeSubId }),
+    });
+    const { ok, error } = await res.json();
+    if (error) return showToast('Erreur : ' + error, true);
+    showToast('Abonnement annulé — actif jusqu\'à la fin du mois en cours.');
+    loadProfil();
+  } catch(e) {
+    showToast('Erreur de connexion', true);
+  }
+}
+
 async function openStripePortal() {
   showToast('Chargement de tes factures…');
   try {
@@ -3316,9 +3337,10 @@ async function loadProfil() {
         <div style="font-size:13px;color:var(--green);margin-bottom:2px">${s.products.sessions_per_week}x / semaine</div>
       ` : `<div style="font-size:12px;color:var(--text2)">Illimité ✨</div>`}
       ${s.engagement_until ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">⭐ Engagement jusqu'au ${new Date(s.engagement_until).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>` : ''}
-      <button onclick="openStripePortal()" style="margin-top:10px;width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px;color:var(--text3);font-size:12px;cursor:pointer">
-        📄 Factures &amp; résiliation →
-      </button>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button onclick="openStripePortal()" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px;color:var(--text3);font-size:12px;cursor:pointer">📄 Factures →</button>
+        ${!s.engagement_until || new Date(s.engagement_until) <= new Date() ? `<button onclick="cancelMySubscription('${s.stripe_subscription_id}')" style="flex:1;background:rgba(232,122,122,0.1);border:1px solid rgba(232,122,122,0.3);border-radius:8px;padding:8px;color:#e87a7a;font-size:12px;cursor:pointer">Annuler l'abonnement</button>` : `<button disabled style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:8px;color:var(--text3);font-size:11px;cursor:not-allowed">Annulation possible après engagement</button>`}
+      </div>
     </div>`).join('') : ''}
 
     ${upcomingBookings?.length ? `
