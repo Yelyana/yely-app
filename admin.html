@@ -175,6 +175,10 @@ select option { background: var(--bg); }
           <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185z"/></svg>
           Forfaits
         </button>
+        <button class="nav-link" onclick="showPage('merch')" id="nav-merch">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
+          Merch
+        </button>
       </nav>
       <div class="sidebar-footer">
         <div style="font-size:12px;color:var(--text3)" id="admin-name">Admin</div>
@@ -311,7 +315,7 @@ function showPage(page) {
   document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
   const nav = document.getElementById('nav-' + page);
   if (nav) nav.classList.add('active');
-  const pages = { dashboard: loadDashboard, planning: loadPlanning, eleves: loadEleves, profs: loadProfs, revenus: loadRevenus, forfaits: loadForfaits };
+  const pages = { dashboard: loadDashboard, planning: loadPlanning, eleves: loadEleves, profs: loadProfs, revenus: loadRevenus, forfaits: loadForfaits, merch: loadMerch };
   if (pages[page]) pages[page]();
 }
 
@@ -2571,6 +2575,96 @@ function openModal() { document.getElementById('modal').classList.add('open'); }
 function closeModal(e) {
   if (e && e.target !== document.getElementById('modal')) return;
   document.getElementById('modal').classList.remove('open');
+}
+
+// ── MERCH ─────────────────────────────────────────────────
+async function loadMerch() {
+  const main = document.getElementById('main-content');
+  main.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+
+  const [{ data: orders }, { data: variants }] = await Promise.all([
+    db.from('merch_orders').select('*').order('created_at', { ascending: false }),
+    db.from('merch_variants').select('*, merch_products(name, price_cents)').order('id'),
+  ]);
+
+  const pendingCash = (orders||[]).filter(o => o.status === 'pending_cash');
+  const others = (orders||[]).filter(o => o.status !== 'pending_cash');
+
+  const statusLabel = { pending_cash:'⏳ Liquide en attente', paid:'✅ Payé (liquide)', cancelled:'❌ Annulé', stripe_pending:'⏳ Stripe en attente', stripe_paid:'✅ Payé (carte)' };
+
+  const renderOrder = (o, showConfirm = false) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px">${esc(o.product_name)} — ${esc(o.variant_label)}</div>
+        <div style="font-size:12px;color:var(--text3)">${esc(o.student_name||o.student_email||'')} · ${formatDate(o.created_at)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div style="font-size:12px;color:var(--text3)">${formatPrice(o.unit_price_cents)}</div>
+        <div style="font-size:11px;color:var(--text3)">${statusLabel[o.status]||o.status}</div>
+        ${showConfirm ? `<button onclick="confirmMerchPayment('${o.id}')" style="font-size:11px;padding:4px 10px;border-radius:7px;background:rgba(100,220,150,0.15);border:1px solid rgba(100,220,150,0.4);color:#64dc96;cursor:pointer">✓ Encaissé</button>` : ''}
+        <button onclick="cancelMerchOrder('${o.id}')" style="font-size:11px;padding:4px 10px;border-radius:7px;background:transparent;border:1px solid #e87a7a;color:#e87a7a;cursor:pointer">Annuler</button>
+      </div>
+    </div>`;
+
+  // Tableau de stock
+  const products = {};
+  (variants||[]).forEach(v => {
+    const pname = v.merch_products?.name || 'Inconnu';
+    if (!products[pname]) products[pname] = [];
+    products[pname].push(v);
+  });
+  const stockHtml = Object.entries(products).map(([pname, pvariants]) => `
+    <div style="margin-bottom:16px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px">${esc(pname)}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${pvariants.map(v => `
+          <div style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;text-align:center;min-width:60px">
+            <div style="font-weight:600">${v.size||''}</div>
+            <div style="font-size:10px;color:var(--text3)">${v.color||''}</div>
+            <div style="font-size:13px;font-weight:700;color:${v.stock<=0?'#e87a7a':v.stock===1?'#f5c842':'var(--violet-light)'}">${v.stock}</div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  main.innerHTML = `
+    <div class="page-header"><h1 class="page-title">Merch</h1></div>
+    <div style="max-width:800px">
+      ${pendingCash.length ? `
+        <div class="card" style="margin-bottom:20px;padding:20px">
+          <div style="font-size:15px;font-weight:700;margin-bottom:14px;color:#f5c842">💵 Commandes liquide en attente (${pendingCash.length})</div>
+          ${pendingCash.map(o => renderOrder(o, true)).join('')}
+        </div>` : ''}
+      <div class="card" style="margin-bottom:20px;padding:20px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:14px">📦 Stock</div>
+        ${stockHtml}
+      </div>
+      ${others.length ? `
+        <div class="card" style="padding:20px">
+          <div style="font-size:15px;font-weight:700;margin-bottom:14px">Historique</div>
+          ${others.map(o => renderOrder(o, false)).join('')}
+        </div>` : ''}
+    </div>`;
+}
+
+async function confirmMerchPayment(orderId) {
+  const { error } = await db.from('merch_orders').update({ status: 'paid' }).eq('id', orderId);
+  if (error) return showToast(error.message, true);
+  showToast('Paiement confirmé ✓');
+  loadMerch();
+}
+
+async function cancelMerchOrder(orderId) {
+  if (!confirm('Annuler cette commande et remettre en stock ?')) return;
+  const { data: order } = await db.from('merch_orders').select('variant_id, status').eq('id', orderId).single();
+  const { error } = await db.from('merch_orders').update({ status: 'cancelled' }).eq('id', orderId);
+  if (error) return showToast(error.message, true);
+  // Remettre en stock si pas encore livré
+  if (order && order.status !== 'cancelled') {
+    const { data: v } = await db.from('merch_variants').select('stock').eq('id', order.variant_id).single();
+    if (v) await db.from('merch_variants').update({ stock: v.stock + 1 }).eq('id', order.variant_id);
+  }
+  showToast('Commande annulée ✓');
+  loadMerch();
 }
 
 // ── UTILS ─────────────────────────────────────────────────

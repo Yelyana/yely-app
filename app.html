@@ -796,7 +796,11 @@ function showApp() {
   tryClaimLaunchCredit();
 
   const hash = window.location.hash;
-  if (hash.includes('boutique') && hash.includes('success=1')) {
+  if (hash.includes('boutique') && hash.includes('merch_success=1')) {
+    window.location.hash = '';
+    navigate('boutique');
+    setTimeout(() => { _boutiqueTab = 'merch'; showToast('🎉 Paiement confirmé ! Ton article sera prêt au studio.'); loadBoutique(); }, 500);
+  } else if (hash.includes('boutique') && hash.includes('success=1')) {
     window.location.hash = '';
     navigate('boutique');
     if (typeof fbq !== 'undefined') fbq('track', 'Purchase', { currency: 'EUR' });
@@ -2745,6 +2749,201 @@ function sortForfaits(a, b) {
   return priority(a) - priority(b);
 }
 
+const MERCH_COLORS = { Black: '#1a1a1a', Blush: '#e8b4a0', Moka: '#7a5c4a' };
+
+async function loadMerchProducts(el, tabs) {
+  const [{ data: products }, { data: myOrders }] = await Promise.all([
+    db.from('merch_products').select('*, merch_variants(*)').eq('active', true).order('sort_order'),
+    db.from('merch_orders').select('id, status, product_name, variant_label, created_at, unit_price_cents').eq('student_id', currentUser?.id).order('created_at', { ascending: false }).limit(5),
+  ]);
+
+  const renderProduct = (p) => {
+    const sizes = [...new Set((p.merch_variants || []).map(v => v.size).filter(Boolean))].sort((a,b) => {
+      const order = ['XS','S','M','L','XL','XXL'];
+      return order.indexOf(a) - order.indexOf(b);
+    });
+    const colors = [...new Set((p.merch_variants || []).map(v => v.color).filter(Boolean))];
+    const pid = p.id;
+    return `
+    <div class="card card-sm" style="margin-bottom:14px;padding:18px" id="merch-card-${pid}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+        <div>
+          <div style="font-size:16px;font-weight:700">${esc(p.name)}</div>
+          <div style="font-size:18px;font-weight:700;color:var(--violet-light);margin-top:2px">${(p.price_cents/100).toFixed(2).replace('.',',')} €</div>
+        </div>
+        <div style="font-size:28px">👕</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Couleur</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="merch-colors-${pid}">
+          ${colors.map(c => `
+            <button onclick="selectMerchColor(${pid},'${c}')" id="merch-color-${pid}-${c}"
+              style="width:28px;height:28px;border-radius:50%;background:${MERCH_COLORS[c]||'#888'};border:2px solid transparent;cursor:pointer;transition:all 0.15s;position:relative"
+              title="${c}">
+            </button>`).join('')}
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px;min-height:16px" id="merch-color-label-${pid}">Choisir une couleur</div>
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Taille</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap" id="merch-sizes-${pid}">
+          ${sizes.map(s => `
+            <button onclick="selectMerchSize(${pid},'${s}')" id="merch-size-${pid}-${s}"
+              style="padding:5px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;color:var(--text)">
+              ${s}
+            </button>`).join('')}
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;min-height:14px" id="merch-stock-${pid}"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="buyMerchCash(${pid})" id="merch-btn-cash-${pid}"
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid rgba(245,200,66,0.4);background:rgba(245,200,66,0.08);color:#f5c842;font-size:12px;font-weight:600;cursor:pointer"
+          disabled>💵 Liquide au studio</button>
+        <button onclick="buyMerchStripe(${pid})" id="merch-btn-stripe-${pid}"
+          style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer"
+          disabled>💳 Payer par carte</button>
+      </div>
+    </div>`;
+  };
+
+  const ordersHtml = myOrders?.length ? `
+    <div style="margin-top:20px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Mes commandes</div>
+      ${myOrders.map(o => {
+        const statusLabel = { pending_cash:'⏳ En attente (liquide)', paid:'✅ Payé', cancelled:'❌ Annulé', stripe_pending:'⏳ Paiement en cours', stripe_paid:'✅ Payé par carte' }[o.status] || o.status;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <div>
+            <div style="font-weight:600">${esc(o.product_name)} — ${esc(o.variant_label)}</div>
+            <div style="font-size:11px;color:var(--text3)">${new Date(o.created_at).toLocaleDateString('fr-FR')}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:var(--text3)">${(o.unit_price_cents/100).toFixed(2).replace('.',',')} €</div>
+            <div style="font-size:11px;color:var(--text3)">${statusLabel}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  const looseHtml = `
+    <div class="card card-sm" style="margin-top:14px;padding:16px;display:flex;gap:14px;align-items:center">
+      <div style="width:40px;height:40px;border-radius:12px;background:rgba(155,125,219,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🩱</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:600;margin-bottom:2px">Lou's Pole Wear</div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.5;margin-bottom:8px">-10% sur tout le site avec le code <span style="color:var(--violet-light);font-weight:700">YELY10</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <div style="background:rgba(155,125,219,0.12);border:1.5px dashed rgba(155,125,219,0.4);border-radius:6px;padding:4px 10px;font-size:13px;font-weight:700;color:var(--violet-light)">YELY10</div>
+          <button onclick="navigator.clipboard.writeText('YELY10').then(()=>showToast('Code copié ✓'))" style="background:rgba(155,125,219,0.15);border:none;border-radius:6px;padding:4px 10px;font-size:11px;color:var(--violet-light);cursor:pointer;font-weight:600">Copier</button>
+        </div>
+      </div>
+    </div>`;
+
+  el.innerHTML = tabs + (products||[]).map(renderProduct).join('') + ordersHtml + looseHtml + `<div style="height:12px"></div>`;
+
+  // Stocker les variants en mémoire pour les interactions
+  window._merchData = {};
+  (products||[]).forEach(p => { window._merchData[p.id] = { variants: p.merch_variants, selectedColor: null, selectedSize: null }; });
+}
+
+function selectMerchColor(pid, color) {
+  const d = window._merchData?.[pid]; if (!d) return;
+  d.selectedColor = color;
+  // Mettre à jour visuels couleurs
+  const colors = [...new Set(d.variants.map(v => v.color).filter(Boolean))];
+  colors.forEach(c => {
+    const btn = document.getElementById(`merch-color-${pid}-${c}`);
+    if (btn) btn.style.border = c === color ? '2.5px solid var(--violet-light)' : '2px solid transparent';
+  });
+  document.getElementById(`merch-color-label-${pid}`).textContent = color;
+  updateMerchSizes(pid);
+  updateMerchButtons(pid);
+}
+
+function selectMerchSize(pid, size) {
+  const d = window._merchData?.[pid]; if (!d) return;
+  d.selectedSize = size;
+  const sizes = [...new Set(d.variants.map(v => v.size).filter(Boolean))].sort((a,b) => { const o=['XS','S','M','L','XL','XXL']; return o.indexOf(a)-o.indexOf(b); });
+  sizes.forEach(s => {
+    const btn = document.getElementById(`merch-size-${pid}-${s}`);
+    if (btn) { btn.style.background = s === size ? 'rgba(155,125,219,0.2)' : 'var(--card)'; btn.style.borderColor = s === size ? 'var(--violet-light)' : 'var(--border)'; btn.style.color = s === size ? 'var(--violet-light)' : 'var(--text)'; }
+  });
+  updateMerchStock(pid);
+  updateMerchButtons(pid);
+}
+
+function updateMerchSizes(pid) {
+  const d = window._merchData?.[pid]; if (!d) return;
+  const sizes = [...new Set(d.variants.map(v => v.size).filter(Boolean))].sort((a,b) => { const o=['XS','S','M','L','XL','XXL']; return o.indexOf(a)-o.indexOf(b); });
+  sizes.forEach(s => {
+    const btn = document.getElementById(`merch-size-${pid}-${s}`);
+    if (!btn) return;
+    const variant = d.variants.find(v => v.color === d.selectedColor && v.size === s);
+    const inStock = !d.selectedColor || (variant && variant.stock > 0);
+    btn.disabled = !inStock;
+    btn.style.opacity = inStock ? '1' : '0.35';
+    if (d.selectedSize === s && !inStock) { d.selectedSize = null; }
+  });
+}
+
+function updateMerchStock(pid) {
+  const d = window._merchData?.[pid]; if (!d) return;
+  const el = document.getElementById(`merch-stock-${pid}`); if (!el) return;
+  if (!d.selectedColor || !d.selectedSize) { el.textContent = ''; return; }
+  const variant = d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize);
+  if (!variant) { el.textContent = ''; return; }
+  el.textContent = variant.stock <= 0 ? '❌ Plus en stock' : variant.stock === 1 ? '⚠️ Dernier article' : `✓ ${variant.stock} en stock`;
+  el.style.color = variant.stock <= 0 ? '#e87a7a' : variant.stock === 1 ? '#f5c842' : 'var(--text3)';
+}
+
+function updateMerchButtons(pid) {
+  const d = window._merchData?.[pid]; if (!d) return;
+  const ready = d.selectedColor && d.selectedSize;
+  const variant = ready ? d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize) : null;
+  const inStock = variant && variant.stock > 0;
+  const btnCash = document.getElementById(`merch-btn-cash-${pid}`);
+  const btnStripe = document.getElementById(`merch-btn-stripe-${pid}`);
+  if (btnCash) { btnCash.disabled = !(ready && inStock); btnCash.style.opacity = (ready && inStock) ? '1' : '0.45'; }
+  if (btnStripe) { btnStripe.disabled = !(ready && inStock); btnStripe.style.opacity = (ready && inStock) ? '1' : '0.45'; }
+}
+
+async function buyMerchCash(pid) {
+  const d = window._merchData?.[pid]; if (!d) return;
+  const variant = d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize);
+  if (!variant) return showToast('Sélectionne une taille et une couleur', true);
+  if (!confirm(`Réserver ${variant.color} taille ${variant.size} — à payer en liquide au studio ?`)) return;
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/merch-cash-order', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variant_id: variant.id }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Erreur');
+    // Mettre le stock local à jour
+    variant.stock--;
+    updateMerchStock(pid); updateMerchButtons(pid);
+    showToast('✅ Commande réservée ! On t\'attend au studio pour le paiement.');
+    setTimeout(() => { _boutiqueTab = 'merch'; loadBoutique(); }, 2000);
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function buyMerchStripe(pid) {
+  const d = window._merchData?.[pid]; if (!d) return;
+  const variant = d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize);
+  if (!variant) return showToast('Sélectionne une taille et une couleur', true);
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-merch-checkout', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variant_id: variant.id }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Erreur');
+    window.location.href = result.url;
+  } catch (e) { showToast(e.message, true); }
+}
+
 async function loadBoutique() {
   const el = document.getElementById('boutique-content');
   if (location.hash.includes('gift_success=1')) {
@@ -2778,33 +2977,8 @@ async function loadBoutique() {
     </div>`;
 
   if (_boutiqueTab === 'merch') {
-    el.innerHTML = tabs + `
-      <div class="card card-sm" style="margin-bottom:12px;padding:16px;display:flex;gap:14px;align-items:center">
-        <div style="width:48px;height:48px;border-radius:14px;background:rgba(155,125,219,0.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🩱</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:15px;font-weight:600;margin-bottom:2px">Lou's Pole Wear</div>
-          <div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px">Tenues pensées pour la pole dance — qualité et style. <span style="color:var(--violet-light);font-weight:600">-10% sur tout le site</span> avec le code exclusif Yely :</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-            <div style="background:rgba(155,125,219,0.12);border:1.5px dashed rgba(155,125,219,0.5);border-radius:8px;padding:6px 14px;font-size:15px;font-weight:700;letter-spacing:0.1em;color:var(--violet-light);">YELY10</div>
-            <button onclick="navigator.clipboard.writeText('YELY10').then(()=>showToast('Code copié ✓'))" style="background:rgba(155,125,219,0.15);border:none;border-radius:8px;padding:6px 12px;font-size:12px;color:var(--violet-light);cursor:pointer;font-weight:600;">Copier</button>
-          </div>
-          <a href="https://louspolewearstudios.com/fr/discount/YELY10" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:var(--accent);color:#fff;border-radius:10px;font-size:13px;font-weight:600;text-decoration:none">Shopper chez Lou's →</a>
-        </div>
-      </div>
-      <div class="card card-sm" style="margin-bottom:12px;padding:16px;display:flex;gap:14px;align-items:center">
-        <div style="width:48px;height:48px;border-radius:14px;background:rgba(255,200,100,0.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🧵</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:15px;font-weight:600;margin-bottom:2px">Pesh Studio</div>
-          <div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px">Des tenues confortables, flatteuses et pensées pour bouger avec toi — disponibles <span style="color:var(--violet-light);font-weight:600">directement au studio</span> !</div>
-          <a href="https://peshstudio.fr/" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:var(--accent);color:#fff;border-radius:10px;font-size:13px;font-weight:600;text-decoration:none">Découvrir Pesh Studio →</a>
-        </div>
-      </div>
-      <div class="card card-sm" style="text-align:center;padding:32px 16px">
-        <div style="font-size:36px;margin-bottom:10px">👕</div>
-        <div style="font-size:16px;font-weight:500;margin-bottom:8px">Merch Yely — bientôt</div>
-        <div style="font-size:13px;color:var(--text3);line-height:1.6">Leggings, crop tops, tote bags…<br>La collection Yely arrive !</div>
-      </div>
-      <div style="height:8px"></div>`;
+    el.innerHTML = tabs + `<div class="loading"><div class="spinner"></div></div>`;
+    await loadMerchProducts(el, tabs);
     return;
   }
 
