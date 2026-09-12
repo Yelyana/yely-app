@@ -2618,11 +2618,13 @@ async function loadMerch() {
       <div style="font-size:14px;font-weight:600;margin-bottom:8px">${esc(pname)}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${pvariants.map(v => `
-          <div style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;text-align:center;min-width:60px">
-            <div style="font-weight:600">${v.size||''}</div>
+          <button onclick="editMerchStock(${v.id},'${esc(v.color||'')}','${esc(v.size||'')}',${v.stock})"
+            style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;text-align:center;min-width:60px;cursor:pointer;background:var(--card);transition:all 0.15s"
+            title="Cliquer pour modifier le stock">
+            <div style="font-weight:600">${v.size||'—'}</div>
             <div style="font-size:10px;color:var(--text3)">${v.color||''}</div>
             <div style="font-size:13px;font-weight:700;color:${v.stock<=0?'#e87a7a':v.stock===1?'#f5c842':'var(--violet-light)'}">${v.stock}</div>
-          </div>`).join('')}
+          </button>`).join('')}
       </div>
     </div>`).join('');
 
@@ -2644,6 +2646,18 @@ async function loadMerch() {
           ${others.map(o => renderOrder(o, false)).join('')}
         </div>` : ''}
     </div>`;
+}
+
+async function editMerchStock(variantId, color, size, currentStock) {
+  const label = [color, size].filter(Boolean).join(' — ');
+  const val = prompt(`Stock pour ${label} :`, currentStock);
+  if (val === null) return;
+  const n = parseInt(val);
+  if (isNaN(n) || n < 0) return showToast('Valeur invalide', true);
+  const { error } = await db.from('merch_variants').update({ stock: n }).eq('id', variantId);
+  if (error) return showToast(error.message, true);
+  showToast(`Stock mis à jour : ${label} → ${n} ✓`);
+  loadMerch();
 }
 
 async function confirmMerchPayment(orderId) {
