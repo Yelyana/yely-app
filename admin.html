@@ -235,13 +235,21 @@ async function loadAdminUser(user) {
   currentUser = user;
   const { data } = await db.from('profiles').select('*').eq('id', user.id).single();
   currentProfile = data;
-  if (data?.role !== 'admin') {
+  if (data?.role !== 'admin' && data?.role !== 'assistant') {
     await db.auth.signOut();
     return showToast("Accès réservé à l'administration", true);
   }
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
   document.getElementById('admin-name').textContent = currentProfile.full_name;
+
+  // Masquer les sections réservées à l'admin pour les assistantes
+  if (data?.role === 'assistant') {
+    ['nav-revenus','nav-forfaits','nav-profs'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
 
   // Gestion boutons mail annulation/maintien cours
   const params = new URLSearchParams(window.location.search);
@@ -254,7 +262,9 @@ async function loadAdminUser(user) {
   }
 
   const hash = location.hash.replace('#', '') || 'dashboard';
-  const validPages = ['dashboard', 'planning', 'eleves', 'profs', 'revenus', 'forfaits'];
+  const validPages = currentProfile?.role === 'assistant'
+    ? ['dashboard', 'planning', 'eleves']
+    : ['dashboard', 'planning', 'eleves', 'profs', 'revenus', 'forfaits'];
   showPage(validPages.includes(hash) ? hash : 'dashboard');
 }
 
@@ -734,7 +744,7 @@ async function renderPlanning() {
   document.getElementById('main-content').innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
       <div class="page-title">Planning</div>
-      <button class="btn btn-primary" onclick="openCourseModal(null, window._planningDisciplines, window._planningTeachers)">+ Nouveau cours</button>
+      ${currentProfile?.role !== 'assistant' ? `<button class="btn btn-primary" onclick="openCourseModal(null, window._planningDisciplines, window._planningTeachers)">+ Nouveau cours</button>` : ''}
     </div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
       <div style="display:flex;background:var(--bg2);border-radius:10px;padding:3px;gap:2px">
@@ -815,7 +825,7 @@ async function viewInstance(id) {
       ${waitlist.map((w,i) => `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${i+1}. ${esc(w.profiles?.full_name)}</div>`).join('')}
     </div>` : ''}
     <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
-      ${!isCancelled ? `<button class="btn btn-primary btn-sm" onclick="closeModal();openCourseModal(window._currentViewCourse, window._planningDisciplines, window._planningTeachers)">✏️ Modifier le cours</button>` : ''}
+      ${!isCancelled && currentProfile?.role !== 'assistant' ? `<button class="btn btn-primary btn-sm" onclick="closeModal();openCourseModal(window._currentViewCourse, window._planningDisciplines, window._planningTeachers)">✏️ Modifier le cours</button>` : ''}
       ${!isCancelled ? `<button class="btn btn-sm" style="background:rgba(125,191,155,0.15);border:1px solid rgba(125,191,155,0.3);color:#7dbf9b" onclick="openAddStudentModal('${ci.id}')">➕ Ajouter une élève</button>` : ''}
       ${!isCancelled ? `<button class="btn btn-danger btn-sm" onclick="cancelInstance('${ci.id}')">Annuler la séance</button>` : ''}
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">Fermer</button>
