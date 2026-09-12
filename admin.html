@@ -1037,6 +1037,7 @@ function openCourseModal(course, disciplines, teachers) {
 }
 
 const COURSE_DESCRIPTIONS = {
+  'pole dance': "⚠️ Niveau à préciser : ce cours s'appelle désormais Pole Niveau 1 (0–6 mois) ou Pole Niveau 2 (6 mois–2 ans) selon les élèves qui y viennent. Modifie le nom en conséquence.",
   'pole découverte': "Votre premier contact avec la barre. On apprend à s'accrocher, à tourner, à tenir — et surtout on démystifie. Aucune force ni souplesse préalable n'est nécessaire : c'est précisément pour ça que ce cours existe.\n\nTenue : short et débardeur, pieds nus. Pas de crème ni d'huile le jour du cours.",
   'pole niveau 1': "Les fondations : premières montées, spins, transitions au sol. On construit la force progressivement et on apprend à enchaîner proprement plutôt qu'à forcer. Le cours à prendre quand vous avez fait vos premiers essais et que vous voulez une vraie progression.\n\n0 à 6 mois de pratique.",
   'pole niveau 2': "Inversions, combos, travail en hauteur. On y vient quand les bases sont solides et qu'on veut attaquer les figures qui font un peu peur. Le niveau se valide avec votre professeure, pas au chronomètre : si vous hésitez, demandez-lui.\n\n6 mois à 2 ans de pratique.",
@@ -1057,11 +1058,17 @@ const COURSE_DESCRIPTIONS = {
 
 function prefillDescription() {
   const name = (document.getElementById('m-name')?.value || '').toLowerCase().trim();
-  const desc = COURSE_DESCRIPTIONS[name];
+  // Correspondance exacte d'abord
+  let desc = COURSE_DESCRIPTIONS[name];
+  // Sinon cherche une clé dont le nom contient ou est contenu dans la saisie
+  if (!desc) {
+    const key = Object.keys(COURSE_DESCRIPTIONS).find(k => name.includes(k) || k.includes(name));
+    if (key) desc = COURSE_DESCRIPTIONS[key];
+  }
   if (desc) {
     document.getElementById('m-description').value = desc;
   } else {
-    showToast('Aucune description officielle trouvée pour ce nom', true);
+    showToast('Aucune description officielle trouvée — vérifie le nom du cours', true);
   }
 }
 
