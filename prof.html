@@ -1265,33 +1265,50 @@ async function loadStats() {
   const monthStart = today.slice(0,7) + '-01';
 
   // Cours du mois en cours (pour stats de remplissage)
-  const [{ data: myInstances }, { data: allInstances }] = await Promise.all([
+  const [{ data: myInstances }, { data: allInstances }, { data: myReplacingInstances }, { data: allReplacingInstances }] = await Promise.all([
     db.from('course_instances')
-      .select('id, date, courses(custom_name, max_students, disciplines(name,color))')
-      .eq('teacher_id', currentUser.id)
+      .select('id, date, courses!inner(teacher_id, custom_name, max_students, disciplines(name,color))')
+      .eq('courses.teacher_id', currentUser.id)
       .gte('date', monthStart).lte('date', today)
       .neq('status','cancelled'),
     // Tous les cours donnés pour les revenus (historique complet)
     db.from('course_instances')
+      .select('id, date, courses!inner(teacher_id)')
+      .eq('courses.teacher_id', currentUser.id)
+      .lte('date', today)
+      .neq('status','cancelled'),
+    // Cours en remplacement ce mois
+    db.from('course_instances')
+      .select('id, date, courses(custom_name, max_students, disciplines(name,color))')
+      .eq('replacement_teacher_id', currentUser.id)
+      .gte('date', monthStart).lte('date', today)
+      .neq('status','cancelled'),
+    // Tous les cours en remplacement pour les revenus
+    db.from('course_instances')
       .select('id, date')
-      .eq('teacher_id', currentUser.id)
+      .eq('replacement_teacher_id', currentUser.id)
       .lte('date', today)
       .neq('status','cancelled'),
   ]);
+  // Fusionner instances régulières + remplacements (sans doublons)
+  const seenStats = new Set();
+  const mergedInstances = [...(myInstances||[]), ...(myReplacingInstances||[])].filter(ci => { if (seenStats.has(ci.id)) return false; seenStats.add(ci.id); return true; });
+  const seenAll = new Set();
+  const mergedAllInstances = [...(allInstances||[]), ...(allReplacingInstances||[])].filter(ci => { if (seenAll.has(ci.id)) return false; seenAll.add(ci.id); return true; });
 
-  const instanceIds = (myInstances||[]).map(ci => ci.id);
+  const instanceIds = mergedInstances.map(ci => ci.id);
   const { data: bookings } = instanceIds.length
     ? await db.from('bookings').select('course_instance_id, attended').eq('status','confirmed').in('course_instance_id', instanceIds)
     : { data: [] };
 
-  const totalCours = myInstances?.length || 0;
+  const totalCours = mergedInstances.length;
   const totalPresent = (bookings||[]).filter(b => b.attended).length;
   const totalBookings = (bookings||[]).length;
   const presentRate = totalBookings > 0 ? Math.round(totalPresent / totalBookings * 100) : 0;
 
   // Revenus par mois
   const revenueByMonth = {};
-  (allInstances||[]).forEach(ci => {
+  mergedAllInstances.forEach(ci => {
     const m = ci.date.slice(0,7);
     revenueByMonth[m] = (revenueByMonth[m] || 0) + 1;
   });
@@ -1299,7 +1316,7 @@ async function loadStats() {
 
   // Stats par cours (mois en cours)
   const courseStats = {};
-  (myInstances||[]).forEach(ci => {
+  mergedInstances.forEach(ci => {
     const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
     const color = ci.courses?.disciplines?.color || '#a78bfa';
     const max = ci.courses?.max_students || 10;
