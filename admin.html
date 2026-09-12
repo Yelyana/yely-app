@@ -513,7 +513,7 @@ async function generateInstances() {
 }
 
 // ── PLANNING ──────────────────────────────────────────────
-let planningView = 'week';
+let planningView = 'month';
 let planningOffset = 0;
 let planningDay = (new Date().getDay() + 6) % 7; // 0=Lun … 5=Sam, défaut = aujourd'hui
 if (planningDay > 5) planningDay = 0;
@@ -582,12 +582,7 @@ function renderPlanningTemplate() {
   document.getElementById('main-content').innerHTML = `
     <div class="page-header"><div class="page-title">Planning — Vue type</div></div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <div style="display:flex;background:var(--bg2);border-radius:10px;padding:3px;gap:2px">
-        <button onclick="planningView='week';planningOffset=0;renderPlanning()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:transparent;color:var(--text2)">Semaine</button>
-        <button onclick="planningView='month';planningOffset=0;renderPlanning()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:transparent;color:var(--text2)">Mois</button>
-        <button style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:var(--accent);color:#fff">Vue type</button>
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-left:8px">${legendHtml}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">${legendHtml}</div>
       <span style="font-size:11px;color:var(--text3);margin-left:auto">🦇 Salle A — Pole & Aérien &nbsp;|&nbsp; 🌿 Salle B — Yoga · Souplesse · Reformer</span>
     </div>
     <div style="overflow-x:auto">
@@ -747,11 +742,6 @@ async function renderPlanning() {
       ${currentProfile?.role !== 'assistant' ? `<button class="btn btn-primary" onclick="openCourseModal(null, window._planningDisciplines, window._planningTeachers)">+ Nouveau cours</button>` : ''}
     </div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
-      <div style="display:flex;background:var(--bg2);border-radius:10px;padding:3px;gap:2px">
-        <button onclick="planningView='week';planningOffset=0;renderPlanning()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:${planningView==='week'?'var(--accent)':'transparent'};color:${planningView==='week'?'#fff':'var(--text2)'}">Semaine</button>
-        <button onclick="planningView='month';planningOffset=0;renderPlanning()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:${planningView==='month'?'var(--accent)':'transparent'};color:${planningView==='month'?'#fff':'var(--text2)'}">Mois</button>
-        <button onclick="renderPlanningTemplate()" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:transparent;color:var(--text2)">Vue type</button>
-      </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button onclick="planningOffset--;renderPlanning()" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer">‹</button>
         <span style="font-size:14px;font-weight:500;min-width:160px;text-align:center">${title}</span>
