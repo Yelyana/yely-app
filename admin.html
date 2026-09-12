@@ -1059,16 +1059,22 @@ const COURSE_DESCRIPTIONS = {
 function prefillDescription() {
   const name = (document.getElementById('m-name')?.value || '').toLowerCase().trim();
   // Correspondance exacte d'abord
-  let desc = COURSE_DESCRIPTIONS[name];
-  // Sinon cherche une clé dont le nom contient ou est contenu dans la saisie
-  if (!desc) {
-    const key = Object.keys(COURSE_DESCRIPTIONS).find(k => name.includes(k) || k.includes(name));
-    if (key) desc = COURSE_DESCRIPTIONS[key];
+  if (COURSE_DESCRIPTIONS[name]) {
+    document.getElementById('m-description').value = COURSE_DESCRIPTIONS[name];
+    return;
   }
-  if (desc) {
-    document.getElementById('m-description').value = desc;
+  // Trouver toutes les clés qui matchent (sauf 'pole dance' qui est un placeholder)
+  const matches = Object.entries(COURSE_DESCRIPTIONS).filter(([k]) => k !== 'pole dance' && (name.includes(k) || k.includes(name)));
+  if (matches.length === 1) {
+    document.getElementById('m-description').value = matches[0][1];
+  } else if (matches.length > 1) {
+    // Proposer un choix
+    const choice = matches.map(([k], i) => `${i+1}. ${k}`).join('\n');
+    const idx = prompt(`Plusieurs cours correspondent :\n${choice}\n\nEntrez le numéro :`);
+    const picked = matches[parseInt(idx) - 1];
+    if (picked) document.getElementById('m-description').value = picked[1];
   } else {
-    showToast('Aucune description officielle trouvée — vérifie le nom du cours', true);
+    showToast('Aucune description officielle — tape le nom exact (ex: Pole Découverte, Yoga Flow — accessible…)', true);
   }
 }
 
