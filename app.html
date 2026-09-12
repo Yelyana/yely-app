@@ -2173,7 +2173,7 @@ async function loadJournal() {
   const [{ data: entries }, { data: victories }, { data: bookings }] = await Promise.all([
     db.from('journal_entries').select('*, course_instances(date, courses(disciplines(name)))').eq('student_id', currentUser.id).order('created_at', { ascending: false }).limit(20),
     db.from('victories').select('*').eq('student_id', currentUser.id).order('created_at', { ascending: false }).limit(10),
-    db.from('bookings').select('*, course_instances(date, courses(disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').order('course_instances.date', { ascending: false }),
+    db.from('bookings').select('*, course_instances(date, courses(disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed'),
   ]);
 
   const FEELINGS = { fier: '💪 Fier·e', motive: '🔥 Motivé·e', fatigue: '😮‍💨 Fatigué·e', frustre: '😤 Frustré·e' };
