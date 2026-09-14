@@ -694,8 +694,11 @@ async function requestAccountDeletion() {
 }
 
 async function confirmAccountDeletion() {
-  const { error } = await db.functions.invoke('delete-account', {});
-  if (error) return showToast('Erreur : ' + error.message, true);
+  const { data, error } = await db.functions.invoke('delete-account', {});
+  if (error) {
+    const detail = data?.error || error.message;
+    return showToast('Erreur : ' + detail, true);
+  }
   await db.auth.signOut();
   currentUser = null; currentProfile = null;
   showToast('Compte supprimé. À bientôt 🦇');
