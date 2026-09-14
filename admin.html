@@ -1196,26 +1196,28 @@ async function saveCourse(id) {
   }
   if (error) return showToast(error.message, true);
 
-  // Si l'heure a changé sur un cours existant, mettre à jour les instances futures
+  // Si l'heure a changé sur un cours existant, protéger la prochaine séance
   if (id && oldStartTime && oldStartTime !== data.start_time) {
-    const now = new Date();
-    // Fin de la semaine courante (dimanche = jour 0 → traité comme 7)
-    const endOfWeek = new Date(now);
-    const dow = now.getDay() || 7;
-    endOfWeek.setDate(now.getDate() + (7 - dow));
-    const cutoff = endOfWeek.toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
 
-    // Figer TOUTES les instances jusqu'à fin de semaine (passées + cette semaine)
+    // Trouver la prochaine instance de ce cours (= "cette semaine")
+    const { data: nextInst } = await db.from('course_instances')
+      .select('date').eq('course_id', id).gte('date', todayStr)
+      .neq('status', 'cancelled').order('date').limit(1).single();
+
+    const protectUntil = nextInst?.date || todayStr;
+
+    // Figer toutes les instances jusqu'à la prochaine (incluse) à l'ancienne heure
     await db.from('course_instances')
       .update({ start_time: oldStartTime })
       .eq('course_id', id)
-      .lte('date', cutoff);
+      .lte('date', protectUntil);
 
-    // Appliquer la nouvelle heure uniquement à partir de la semaine prochaine
+    // Nouvelle heure uniquement pour les instances APRÈS la prochaine
     await db.from('course_instances')
       .update({ start_time: data.start_time })
       .eq('course_id', id)
-      .gt('date', cutoff);
+      .gt('date', protectUntil);
   }
 
   // Générer les instances automatiquement
