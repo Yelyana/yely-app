@@ -4021,14 +4021,11 @@ async function loadUserProfile(user) {
     // Appliquer le code parrainage stocké lors de l'inscription
     const pendingCode = localStorage.getItem('yely-referral-code');
     if (pendingCode && currentProfile && !currentProfile.referred_by) {
-      // Récupérer le parrain pour lui activer aussi le discount
-      const { data: parrain } = await db.from('profiles').select('id').eq('referral_code', pendingCode).single();
-      const { error } = await db.from('profiles').update({ referred_by: pendingCode, referral_discount_available: true }).eq('id', user.id);
+      const { error } = await db.rpc('apply_referral', { p_code: pendingCode, p_user_id: user.id });
       if (!error) {
         currentProfile.referred_by = pendingCode;
         currentProfile.referral_discount_available = true;
         localStorage.removeItem('yely-referral-code');
-        if (parrain) await db.from('profiles').update({ referral_discount_available: true }).eq('id', parrain.id);
       }
     }
   } catch(e) {
