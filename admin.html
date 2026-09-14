@@ -1187,23 +1187,31 @@ async function saveCourse(id) {
 
   if (id) {
     const fromDate = window.prompt(
-      'À partir de quelle date appliquer le changement ?\n\nFormat : YYYY-MM-DD (ex: 2026-10-05)\nLaisser vide = changer toutes les séances futures',
-      new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0]
+      'À partir de quelle date appliquer la nouvelle heure ?\n\nFormat : YYYY-MM-DD  (ex: 2026-10-05)\nLaisser VIDE = changer toutes les séances\nAnnuler = ne pas sauvegarder',
+      ''
     );
-    if (fromDate && fromDate.trim()) {
+    if (fromDate === null) return; // Annulé
+
+    const { start_time: _, ...dataWithoutTime } = data;
+
+    if (fromDate.trim()) {
+      // Changement à partir d'une date précise — tout via RPC SECURITY DEFINER
       const { error: rpcErr } = await db.rpc('apply_course_time_change', {
         p_course_id: id,
         p_new_time: data.start_time,
         p_from_date: fromDate.trim(),
       });
-      if (rpcErr) return showToast('Erreur RPC : ' + rpcErr.message, true);
-      const { start_time: _, ...dataWithoutTime } = data;
-      ({ error } = await db.from('courses').update(dataWithoutTime).eq('id', id));
-    } else if (fromDate !== null) {
-      ({ error } = await db.from('courses').update(data).eq('id', id));
+      if (rpcErr) return showToast('Erreur : ' + rpcErr.message, true);
     } else {
-      return; // Annulé
+      // Changer toutes les séances — via RPC SECURITY DEFINER
+      const { error: rpcErr } = await db.rpc('reset_course_start_time', {
+        p_course_id: id,
+        p_new_time: data.start_time,
+      });
+      if (rpcErr) return showToast('Erreur : ' + rpcErr.message, true);
     }
+    // Sauvegarder les autres champs (sans start_time, déjà géré par le RPC)
+    ({ error } = await db.from('courses').update(dataWithoutTime).eq('id', id));
   } else {
     const { data: inserted, error: insertErr } = await db.from('courses').insert(data).select('id').single();
     error = insertErr;
