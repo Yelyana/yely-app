@@ -1022,11 +1022,6 @@ function openCourseModal(course, disciplines, teachers) {
         <label>Heure de début</label>
         <input type="time" id="m-time" value="${course?.start_time?.slice(0,5) || '10:00'}">
       </div>
-      ${!isNew ? `<div class="form-group">
-        <label>Appliquer à partir du</label>
-        <input type="date" id="m-from-date" value="">
-        <div style="font-size:11px;color:var(--text3);margin-top:3px">Laisser vide = changer toutes les séances futures</div>
-      </div>` : ''}
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -1191,20 +1186,23 @@ async function saveCourse(id) {
   let error;
 
   if (id) {
-    const fromDate = document.getElementById('m-from-date')?.value;
-    if (fromDate) {
-      // Le RPC met à jour courses + instances en une seule transaction SECURITY DEFINER
+    const fromDate = window.prompt(
+      'À partir de quelle date appliquer le changement ?\n\nFormat : YYYY-MM-DD (ex: 2026-10-05)\nLaisser vide = changer toutes les séances futures',
+      new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0]
+    );
+    if (fromDate && fromDate.trim()) {
       const { error: rpcErr } = await db.rpc('apply_course_time_change', {
         p_course_id: id,
         p_new_time: data.start_time,
-        p_from_date: fromDate,
+        p_from_date: fromDate.trim(),
       });
-      if (rpcErr) return showToast('Erreur : ' + rpcErr.message, true);
-      // Sauvegarder les autres champs SANS toucher à start_time
+      if (rpcErr) return showToast('Erreur RPC : ' + rpcErr.message, true);
       const { start_time: _, ...dataWithoutTime } = data;
       ({ error } = await db.from('courses').update(dataWithoutTime).eq('id', id));
-    } else {
+    } else if (fromDate !== null) {
       ({ error } = await db.from('courses').update(data).eq('id', id));
+    } else {
+      return; // Annulé
     }
   } else {
     const { data: inserted, error: insertErr } = await db.from('courses').insert(data).select('id').single();
