@@ -1081,9 +1081,8 @@ function openCourseModal(course, disciplines, teachers) {
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🌅 Éligible aux forfaits Heures Creuses</label>
     </div>
     <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
-      ${!isNew ? `<button class="btn btn-primary" onclick="saveCourse(${course.id}, true)" style="flex:1;min-width:120px">Enregistrer</button>
-      <button class="btn btn-primary" onclick="saveCourse(${course.id}, false)" style="flex:1;min-width:160px;background:#888">Enregistrer (toutes les séances)</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : `<button class="btn btn-primary" onclick="saveCourse(null, false)" style="flex:1">Créer le cours</button>`}
+      ${!isNew ? `<button class="btn btn-primary" onclick="saveCourse(${course.id})" style="flex:1">Enregistrer</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : `<button class="btn btn-primary" onclick="saveCourse(null)" style="flex:1">Créer le cours</button>`}
       <button class="btn btn-ghost" onclick="closeModal()" style="width:auto">Annuler</button>
     </div>
   `;
@@ -1161,7 +1160,7 @@ function updateFreqFields() {
   document.getElementById('field-weeks').style.display = isUnique ? 'none' : '';
 }
 
-async function saveCourse(id, fromNext = false) {
+async function saveCourse(id) {
   const freq = document.getElementById('m-freq').value;
   const isUnique = freq === 'unique';
   const teacherId = document.getElementById('m-teacher').value || null;
@@ -1186,47 +1185,14 @@ async function saveCourse(id, fromNext = false) {
   let courseId = id;
   let error;
 
-  if (id && fromNext) {
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    // Récupérer l'ancienne heure AVANT de sauvegarder
-    const { data: existing } = await db.from('courses').select('start_time').eq('id', id).single();
-    const oldStartTime = existing?.start_time?.slice(0, 5);
-
-    // Trouver la prochaine instance (sans .single() pour éviter l'erreur si vide)
-    const { data: upcoming } = await db.from('course_instances')
-      .select('date').eq('course_id', id).gte('date', todayStr)
-      .neq('status', 'cancelled').order('date').limit(1);
-    const nextDate = upcoming?.[0]?.date;
-
-    // Sauvegarder le cours
+  if (id) {
     ({ error } = await db.from('courses').update(data).eq('id', id));
-    if (error) return showToast(error.message, true);
-
-    if (nextDate && oldStartTime) {
-      const { error: rpcErr } = await db.rpc('update_course_start_time', {
-        p_course_id: id,
-        p_old_time: oldStartTime,
-        p_new_time: data.start_time,
-        p_protect_until: nextDate,
-      });
-      if (rpcErr) return showToast('Erreur mise à jour instances : ' + rpcErr.message, true);
-    }
-  } else if (id) {
-    ({ error } = await db.from('courses').update(data).eq('id', id));
-    if (error) return showToast(error.message, true);
-    // Mettre à jour toutes les instances futures
-    const todayStr = new Date().toISOString().split('T')[0];
-    await db.from('course_instances')
-      .update({ start_time: data.start_time })
-      .eq('course_id', id)
-      .gte('date', todayStr);
   } else {
     const { data: inserted, error: insertErr } = await db.from('courses').insert(data).select('id').single();
     error = insertErr;
-    if (error) return showToast(error.message, true);
     if (inserted) courseId = inserted.id;
   }
+  if (error) return showToast(error.message, true);
 
   // Générer les instances automatiquement
   if (courseId) {
