@@ -1080,9 +1080,10 @@ function openCourseModal(course, disciplines, teachers) {
       <input type="checkbox" id="m-heures-creuses" ${course?.heures_creuses ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🌅 Éligible aux forfaits Heures Creuses</label>
     </div>
-    <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="btn btn-primary" onclick="saveCourse(${course?.id || 'null'})" style="flex:1">${isNew ? 'Créer le cours' : 'Enregistrer'}</button>
-      ${!isNew ? `<button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : ''}
+    <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
+      ${!isNew ? `<button class="btn btn-primary" onclick="saveCourse(${course.id}, false)" style="flex:1;min-width:120px">Enregistrer tout</button>
+      <button class="btn btn-primary" onclick="saveCourse(${course.id}, true)" style="flex:1;min-width:160px;background:var(--accent2,#7c6ef7)">À partir de la semaine prochaine</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : `<button class="btn btn-primary" onclick="saveCourse(null, false)" style="flex:1">Créer le cours</button>`}
       <button class="btn btn-ghost" onclick="closeModal()" style="width:auto">Annuler</button>
     </div>
   `;
@@ -1160,7 +1161,7 @@ function updateFreqFields() {
   document.getElementById('field-weeks').style.display = isUnique ? 'none' : '';
 }
 
-async function saveCourse(id) {
+async function saveCourse(id, fromNext = false) {
   const freq = document.getElementById('m-freq').value;
   const isUnique = freq === 'unique';
   const teacherId = document.getElementById('m-teacher').value || null;
@@ -1184,40 +1185,46 @@ async function saveCourse(id) {
 
   let courseId = id;
   let error;
-  let oldStartTime = null;
-  if (id) {
-    const { data: existing } = await db.from('courses').select('start_time').eq('id', id).single();
-    oldStartTime = existing?.start_time?.slice(0,5);
-    ({ error } = await db.from('courses').update(data).eq('id', id));
-  } else {
-    const { data: inserted, error: insertErr } = await db.from('courses').insert(data).select('id').single();
-    error = insertErr;
-    if (inserted) courseId = inserted.id;
-  }
-  if (error) return showToast(error.message, true);
 
-  // Si l'heure a changé sur un cours existant, protéger la prochaine séance
-  if (id && oldStartTime && oldStartTime !== data.start_time) {
+  if (id && fromNext) {
+    // "À partir de la semaine prochaine" : trouver la prochaine séance et la protéger
     const todayStr = new Date().toISOString().split('T')[0];
+    const { data: existing } = await db.from('courses').select('start_time').eq('id', id).single();
+    const oldStartTime = existing?.start_time?.slice(0,5);
 
-    // Trouver la prochaine instance de ce cours (= "cette semaine")
+    ({ error } = await db.from('courses').update(data).eq('id', id));
+    if (error) return showToast(error.message, true);
+
     const { data: nextInst } = await db.from('course_instances')
       .select('date').eq('course_id', id).gte('date', todayStr)
       .neq('status', 'cancelled').order('date').limit(1).single();
 
-    const protectUntil = nextInst?.date || todayStr;
-
-    // Figer toutes les instances jusqu'à la prochaine (incluse) à l'ancienne heure
-    await db.from('course_instances')
-      .update({ start_time: oldStartTime })
-      .eq('course_id', id)
-      .lte('date', protectUntil);
-
-    // Nouvelle heure uniquement pour les instances APRÈS la prochaine
+    if (nextInst && oldStartTime) {
+      // Figer la prochaine séance (et toutes les passées) à l'ancienne heure
+      await db.from('course_instances')
+        .update({ start_time: oldStartTime })
+        .eq('course_id', id)
+        .lte('date', nextInst.date);
+      // Appliquer la nouvelle heure à partir de la séance suivante
+      await db.from('course_instances')
+        .update({ start_time: data.start_time })
+        .eq('course_id', id)
+        .gt('date', nextInst.date);
+    }
+  } else if (id) {
+    ({ error } = await db.from('courses').update(data).eq('id', id));
+    if (error) return showToast(error.message, true);
+    // Mettre à jour toutes les instances futures
+    const todayStr = new Date().toISOString().split('T')[0];
     await db.from('course_instances')
       .update({ start_time: data.start_time })
       .eq('course_id', id)
-      .gt('date', protectUntil);
+      .gte('date', todayStr);
+  } else {
+    const { data: inserted, error: insertErr } = await db.from('courses').insert(data).select('id').single();
+    error = insertErr;
+    if (error) return showToast(error.message, true);
+    if (inserted) courseId = inserted.id;
   }
 
   // Générer les instances automatiquement
