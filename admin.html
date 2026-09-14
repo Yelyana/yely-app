@@ -659,7 +659,7 @@ async function renderPlanning() {
     const discColor = c.disciplines?.color || '#a78bfa';
     const salleColor = c.salle === 'terre' ? '#4a8a6a' : '#8B6B4E';
     const name = c.custom_name || c.disciplines?.name || 'Cours';
-    const time = c.start_time?.slice(0,5) || '';
+    const time = (ci.start_time || c.start_time)?.slice(0,5) || '';
     const prof = c.profiles?.full_name?.split(' ')[0] || '';
     const replacement = ci.replacement?.full_name?.split(' ')[0] || '';
     const tag = c.is_recurring ? '' : '<span style="font-size:9px;background:#f472b622;color:#f472b6;border-radius:4px;padding:1px 4px;margin-left:4px">⭐</span>';
