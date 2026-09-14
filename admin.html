@@ -1204,17 +1204,13 @@ async function saveCourse(id, fromNext = false) {
     if (error) return showToast(error.message, true);
 
     if (nextDate && oldStartTime) {
-      // Figer la prochaine séance (et passées) à l'ancienne heure
-      const { error: e1 } = await db.from('course_instances')
-        .update({ start_time: oldStartTime })
-        .eq('course_id', id)
-        .lte('date', nextDate);
-      // Nouvelle heure pour tout ce qui est après
-      const { error: e2 } = await db.from('course_instances')
-        .update({ start_time: data.start_time })
-        .eq('course_id', id)
-        .gt('date', nextDate);
-      if (e1 || e2) return showToast('Erreur mise à jour instances : ' + (e1||e2).message, true);
+      const { error: rpcErr } = await db.rpc('update_course_start_time', {
+        p_course_id: id,
+        p_old_time: oldStartTime,
+        p_new_time: data.start_time,
+        p_protect_until: nextDate,
+      });
+      if (rpcErr) return showToast('Erreur mise à jour instances : ' + rpcErr.message, true);
     }
   } else if (id) {
     ({ error } = await db.from('courses').update(data).eq('id', id));
