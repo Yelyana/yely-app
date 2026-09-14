@@ -1199,19 +1199,19 @@ async function saveCourse(id) {
   // Si l'heure a changé sur un cours existant, mettre à jour les instances futures
   if (id && oldStartTime && oldStartTime !== data.start_time) {
     const now = new Date();
-    // Fin de la semaine courante (dimanche soir)
+    // Fin de la semaine courante (dimanche = jour 0 → traité comme 7)
     const endOfWeek = new Date(now);
-    endOfWeek.setDate(now.getDate() + (7 - (now.getDay() || 7)));
+    const dow = now.getDay() || 7;
+    endOfWeek.setDate(now.getDate() + (7 - dow));
     const cutoff = endOfWeek.toISOString().split('T')[0];
 
-    // Figer l'instance de cette semaine à l'ancienne heure
+    // Figer TOUTES les instances jusqu'à fin de semaine (passées + cette semaine)
     await db.from('course_instances')
       .update({ start_time: oldStartTime })
       .eq('course_id', id)
-      .gt('date', now.toISOString().split('T')[0])
       .lte('date', cutoff);
 
-    // Appliquer la nouvelle heure à partir de la semaine prochaine
+    // Appliquer la nouvelle heure uniquement à partir de la semaine prochaine
     await db.from('course_instances')
       .update({ start_time: data.start_time })
       .eq('course_id', id)
