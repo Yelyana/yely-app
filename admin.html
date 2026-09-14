@@ -1022,6 +1022,11 @@ function openCourseModal(course, disciplines, teachers) {
         <label>Heure de début</label>
         <input type="time" id="m-time" value="${course?.start_time?.slice(0,5) || '10:00'}">
       </div>
+      ${!isNew ? `<div class="form-group">
+        <label>Appliquer à partir du</label>
+        <input type="date" id="m-from-date" value="">
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">Laisser vide = changer toutes les séances futures</div>
+      </div>` : ''}
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -1186,6 +1191,16 @@ async function saveCourse(id) {
   let error;
 
   if (id) {
+    const fromDate = document.getElementById('m-from-date')?.value;
+    if (fromDate) {
+      // Appliquer le changement d'heure à partir d'une date précise via RPC (SECURITY DEFINER)
+      const { error: rpcErr } = await db.rpc('apply_course_time_change', {
+        p_course_id: id,
+        p_new_time: data.start_time,
+        p_from_date: fromDate,
+      });
+      if (rpcErr) return showToast('Erreur : ' + rpcErr.message, true);
+    }
     ({ error } = await db.from('courses').update(data).eq('id', id));
   } else {
     const { data: inserted, error: insertErr } = await db.from('courses').insert(data).select('id').single();
