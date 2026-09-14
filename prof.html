@@ -364,7 +364,7 @@ function renderProfMiniCard(ci) {
   const opacity = isMine ? '1' : '0.5';
   return `<div onclick="${isMine ? `openSeance('${ci.id}')` : ''}"
     style="border-radius:8px;padding:5px 7px;background:${color}22;border-left:3px solid ${color};margin-bottom:3px;cursor:${isMine ? 'pointer' : 'default'};opacity:${opacity}">
-    <div style="font-size:10px;font-weight:700;color:${color};line-height:1;margin-bottom:2px">${(ci.courses?.start_time||'').slice(0,5)}</div>
+    <div style="font-size:10px;font-weight:700;color:${color};line-height:1;margin-bottom:2px">${(ci.start_time||ci.courses?.start_time||'').slice(0,5)}</div>
     <div style="font-size:10px;font-weight:600;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;color:var(--text)">${esc(name)}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:3px">
       <div style="width:5px;height:5px;border-radius:50%;background:${salleDot};flex-shrink:0"></div>
@@ -386,7 +386,7 @@ async function loadPlanning() {
   const fmt = d => d.toISOString().slice(0,10);
   const weekLabel = `${weekStart.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekEnd.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
 
-  const baseSelect = '*, courses!inner(id, custom_name, start_time, duration_minutes, max_students, salle, level, description, teacher_id, disciplines(name,color), profiles(full_name))';
+  const baseSelect = '*, start_time, courses!inner(id, custom_name, start_time, duration_minutes, max_students, salle, level, description, teacher_id, disciplines(name,color), profiles(full_name))';
   const dateFilters = (q) => q.gte('date', fmt(weekStart)).lte('date', fmt(weekEnd)).neq('status','cancelled').order('date').order('courses(start_time)');
 
   let instancesData, myBookingsData;
@@ -408,7 +408,7 @@ async function loadPlanning() {
   // Filtrer les cours dont l'heure de fin est déjà passée
   const nowMs = Date.now();
   const filteredInstances = (instancesData || []).filter(ci => {
-    const [h, m] = (ci.courses?.start_time || '00:00').split(':').map(Number);
+    const [h, m] = (ci.start_time||ci.courses?.start_time||'00:00').split(':').map(Number);
     const dur = ci.courses?.duration_minutes || 0;
     const courseEnd = new Date(ci.date + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00');
     courseEnd.setMinutes(courseEnd.getMinutes() + dur);
@@ -459,7 +459,7 @@ async function loadPlanning() {
     ${next ? `<div style="background:linear-gradient(135deg,var(--accent)22,var(--accent)11);border:1px solid var(--accent)44;border-radius:16px;padding:16px;margin-bottom:20px">
       <div style="font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Prochain cours</div>
       <div style="font-size:16px;font-weight:600">${esc(next.courses?.custom_name || 'Cours')}</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:4px">${new Date(next.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} · ${next.courses?.start_time?.slice(0,5)}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">${new Date(next.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} · ${(next.start_time||next.courses?.start_time)?.slice(0,5)}</div>
       <button onclick="openSeance('${next.id}')" style="margin-top:10px;padding:6px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:12px;font-weight:500">Voir les présences →</button>
     </div>` : ''}
 
@@ -525,7 +525,7 @@ async function loadPlanning() {
         return `<div onclick="${isMine ? `openSeance('${ci.id}')` : ''}" style="background:var(--card);border-left:4px solid ${color};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:${isMine?'pointer':'default'}">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
-              <div style="font-size:12px;font-weight:700;color:${color}">${ci.courses?.start_time?.slice(0,5)} · ${ci.courses?.duration_minutes} min</div>
+              <div style="font-size:12px;font-weight:700;color:${color}">${( ci.start_time||ci.courses?.start_time)?.slice(0,5)} · ${ci.courses?.duration_minutes} min</div>
               <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:2px;display:flex;align-items:center;gap:6px">${esc(name)}${ci.courses?.level ? `<span style="font-size:12px;font-weight:600;background:${color}33;color:${color};border-radius:6px;padding:3px 9px">${esc(ci.courses.level)}</span>` : ''}</div>
               ${profStudioView && !isMine && teacherName ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">👤 ${esc(teacherName)}</div>` : ''}
             </div>
@@ -544,7 +544,7 @@ async function loadPlanning() {
 // ── SÉANCE DÉTAIL + PRÉSENCES ─────────────────────────────
 async function openSeance(instanceId) {
   const { data: ci } = await db.from('course_instances')
-    .select('*, courses(custom_name, start_time, duration_minutes, max_students, level, description, disciplines(name,color))')
+    .select('*, start_time, courses(custom_name, start_time, duration_minutes, max_students, level, description, disciplines(name,color))')
     .eq('id', instanceId).single();
   const { data: bookings } = await db.from('bookings')
     .select('*, profiles(full_name, phone)')
@@ -562,7 +562,7 @@ async function openSeance(instanceId) {
       <div style="width:4px;height:40px;background:${color};border-radius:2px"></div>
       <div>
         <div class="modal-title" style="margin-bottom:0;display:flex;align-items:center;gap:8px">${esc(name)}${ci?.courses?.level ? `<span style="font-size:12px;font-weight:600;background:${color}33;color:${color};border-radius:6px;padding:3px 9px">${esc(ci.courses.level)}</span>` : ''}</div>
-        <div style="font-size:12px;color:var(--text3)">${date} · ${ci?.courses?.start_time?.slice(0,5)}</div>
+        <div style="font-size:12px;color:var(--text3)">${date} · ${(ci?.start_time||ci?.courses?.start_time)?.slice(0,5)}</div>
       </div>
     </div>
     ${ci?.courses?.description ? `<div style="font-size:13px;color:var(--text2);line-height:1.6;margin:12px 0 4px;padding:10px 14px;background:var(--bg);border-radius:10px">
@@ -1193,7 +1193,7 @@ async function loadReserver() {
         return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border-radius:12px;margin-bottom:8px;border-left:4px solid ${color};opacity:${booked||full?'0.65':'1'}">
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:600">${esc(name)}</div>
-            <div style="font-size:12px;color:var(--text3);margin-top:2px">${(ci.courses?.start_time||'').slice(0,5)} · ${esc(teacher)}${ci.courses?.salle ? ` · ${esc(ci.courses.salle)}` : ''}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">${(ci.start_time||ci.courses?.start_time||'').slice(0,5)} · ${esc(teacher)}${ci.courses?.salle ? ` · ${esc(ci.courses.salle)}` : ''}</div>
           </div>
           ${booked
             ? `<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:#7dbf9b;font-weight:600">✓ Inscrite</span><button onclick="cancelProfCourse('${ci.id}')" style="padding:3px 8px;border:1px solid #e87a7a44;border-radius:6px;background:transparent;color:#e87a7a;font-size:11px;cursor:pointer">Annuler</button></div>`

@@ -344,7 +344,7 @@ async function loadDashboard() {
     db.from('bookings').select('*', { count: 'exact', head: true }).gte('booked_at', monthStart).eq('status', 'confirmed'),
     db.from('bookings').select('*', { count: 'exact', head: true }).gte('booked_at', lastMonthStart).lt('booked_at', lastMonthEnd).eq('status', 'confirmed'),
     db.from('bookings').select('*, profiles(full_name), course_instances(date, courses(custom_name, disciplines(name,color)))').eq('status', 'confirmed').order('booked_at', { ascending: false }).limit(6),
-    db.from('course_instances').select('*, courses(custom_name, start_time, max_students, disciplines(name,color))').eq('date', today).neq('status','cancelled').order('courses(start_time)'),
+    db.from('course_instances').select('*, start_time, courses(custom_name, start_time, max_students, disciplines(name,color))').eq('date', today).neq('status','cancelled').order('courses(start_time)'),
     db.from('bookings').select('course_instance_id, course_instances(courses(custom_name, disciplines(name,color), max_students))').eq('status','confirmed').gte('booked_at', monthStart),
     db.from('profiles').select('id, full_name, birthday, created_at').eq('role', 'student').neq('full_name', 'Compte supprimé'),
     db.from('student_credits').select('products(name), sessions_total').gte('purchased_at', monthStart),
@@ -443,7 +443,7 @@ async function loadDashboard() {
               <div style="width:3px;height:36px;background:${color};border-radius:2px;flex-shrink:0"></div>
               <div style="flex:1">
                 <div style="font-size:13px;font-weight:500">${esc(name)}</div>
-                <div style="font-size:11px;color:var(--text3)">${ci.courses?.start_time?.slice(0,5)} · ${max} places</div>
+                <div style="font-size:11px;color:var(--text3)">${(ci.start_time||ci.courses?.start_time)?.slice(0,5)} · ${max} places</div>
               </div>
             </div>`;
           }).join('') : '<div style="color:var(--text3);padding:20px;text-align:center">Pas de cours aujourd\'hui</div>'}
@@ -635,13 +635,13 @@ async function renderPlanning() {
 
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const { data: instances } = await db.from('course_instances')
-    .select('*, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name)), bookings(id,status), replacement:replacement_teacher_id(full_name)')
+    .select('*, start_time, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name)), bookings(id,status), replacement:replacement_teacher_id(full_name)')
     .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
     .neq('status', 'cancelled').order('date').order('courses(start_time)');
 
   const nowMs = Date.now();
   const visibleInstances = (instances || []).filter(ci => {
-    const [h, m] = (ci.courses?.start_time || '00:00').split(':').map(Number);
+    const [h, m] = (ci.start_time || ci.courses?.start_time || '00:00').split(':').map(Number);
     const dur = ci.courses?.duration_minutes || 0;
     const courseEnd = new Date(ci.date + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00');
     courseEnd.setMinutes(courseEnd.getMinutes() + dur);
@@ -760,7 +760,7 @@ async function renderPlanning() {
 async function viewInstance(id) {
   const [{ data: ci }, { data: allTeachers }] = await Promise.all([
     db.from('course_instances')
-      .select('*, replacement_teacher_id, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, is_practice, event_date, disciplines(name,color), profiles(id, full_name)), replacement:replacement_teacher_id(id, full_name)')
+      .select('*, start_time, replacement_teacher_id, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, is_practice, event_date, disciplines(name,color), profiles(id, full_name)), replacement:replacement_teacher_id(id, full_name)')
       .eq('id', id).single(),
     db.from('profiles').select('id, full_name').in('role', ['teacher','assistant']).order('full_name'),
   ]);
@@ -786,7 +786,7 @@ async function viewInstance(id) {
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">${esc(name)}</div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">${esc(date)} · ${c.start_time?.slice(0,5) || ''}</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">${esc(date)} · ${(ci.start_time||c.start_time)?.slice(0,5) || ''}</div>
     ${isCancelled ? `<div style="background:#e87a7a22;border:1px solid #e87a7a44;border-radius:10px;padding:12px;margin-bottom:16px;color:#e87a7a;font-size:13px">⚠️ Séance annulée${ci.cancellation_reason ? ' : ' + esc(ci.cancellation_reason) : ''}</div>` : ''}
     ${!isCancelled ? `
     <div style="background:${currentReplacementId ? '#f59e0b18' : 'var(--surface2,var(--border))'};border:1px solid ${currentReplacementId ? '#f59e0b44' : 'var(--border)'};border-radius:10px;padding:12px;margin-bottom:16px">
@@ -1184,7 +1184,10 @@ async function saveCourse(id) {
 
   let courseId = id;
   let error;
+  let oldStartTime = null;
   if (id) {
+    const { data: existing } = await db.from('courses').select('start_time').eq('id', id).single();
+    oldStartTime = existing?.start_time?.slice(0,5);
     ({ error } = await db.from('courses').update(data).eq('id', id));
   } else {
     const { data: inserted, error: insertErr } = await db.from('courses').insert(data).select('id').single();
@@ -1192,6 +1195,28 @@ async function saveCourse(id) {
     if (inserted) courseId = inserted.id;
   }
   if (error) return showToast(error.message, true);
+
+  // Si l'heure a changé sur un cours existant, mettre à jour les instances futures
+  if (id && oldStartTime && oldStartTime !== data.start_time) {
+    const now = new Date();
+    // Fin de la semaine courante (dimanche soir)
+    const endOfWeek = new Date(now);
+    endOfWeek.setDate(now.getDate() + (7 - (now.getDay() || 7)));
+    const cutoff = endOfWeek.toISOString().split('T')[0];
+
+    // Figer l'instance de cette semaine à l'ancienne heure
+    await db.from('course_instances')
+      .update({ start_time: oldStartTime })
+      .eq('course_id', id)
+      .gt('date', now.toISOString().split('T')[0])
+      .lte('date', cutoff);
+
+    // Appliquer la nouvelle heure à partir de la semaine prochaine
+    await db.from('course_instances')
+      .update({ start_time: data.start_time })
+      .eq('course_id', id)
+      .gt('date', cutoff);
+  }
 
   // Générer les instances automatiquement
   if (courseId) {
@@ -1655,13 +1680,13 @@ async function openAddBookingForStudent(studentId, studentName) {
         const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
         const color = ci.courses?.disciplines?.color || '#a78bfa';
         const countBooked = (ci.bookings||[]).length;
-        const label = `${name} — ${formatDate(ci.date)} ${ci.courses?.start_time?.slice(0,5)||''}`;
+        const label = `${name} — ${formatDate(ci.date)} ${(ci.start_time||ci.courses?.start_time)?.slice(0,5)||''}`;
         return `<div class="card" style="padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="selectCreditForBooking('${ci.id}','${studentId}','${esc(studentName)}','${esc(label)}')">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="width:8px;height:8px;border-radius:50%;background:${color}"></div>
             <div>
               <div style="font-size:13px;font-weight:500">${esc(name)}</div>
-              <div style="font-size:11px;color:var(--text3)">${formatDate(ci.date)} · ${ci.courses?.start_time?.slice(0,5)||''}</div>
+              <div style="font-size:11px;color:var(--text3)">${formatDate(ci.date)} · ${(ci.start_time||ci.courses?.start_time)?.slice(0,5)||''}</div>
             </div>
           </div>
           <span style="font-size:11px;color:var(--text3)">${countBooked} inscrits</span>
