@@ -698,8 +698,8 @@ async function renderPlanning() {
       const key = fmt(d);
       const isToday = key === fmt(today);
       const data = byDateSalle[key] || { air: [], terre: [] };
-      const airCours = data.air.sort((a,b) => a.courses?.start_time?.localeCompare(b.courses?.start_time));
-      const terreCours = data.terre.sort((a,b) => a.courses?.start_time?.localeCompare(b.courses?.start_time));
+      const airCours = data.air.sort((a,b) => (a.start_time||a.courses?.start_time||'').localeCompare(b.start_time||b.courses?.start_time||''));
+      const terreCours = data.terre.sort((a,b) => (a.start_time||a.courses?.start_time||'').localeCompare(b.start_time||b.courses?.start_time||''));
       const hasCours = airCours.length || terreCours.length;
       return `
         <div style="min-width:0;flex:1">
