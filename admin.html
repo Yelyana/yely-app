@@ -1187,29 +1187,34 @@ async function saveCourse(id, fromNext = false) {
   let error;
 
   if (id && fromNext) {
-    // "À partir de la semaine prochaine" : trouver la prochaine séance et la protéger
     const todayStr = new Date().toISOString().split('T')[0];
-    const { data: existing } = await db.from('courses').select('start_time').eq('id', id).single();
-    const oldStartTime = existing?.start_time?.slice(0,5);
 
+    // Récupérer l'ancienne heure AVANT de sauvegarder
+    const { data: existing } = await db.from('courses').select('start_time').eq('id', id).single();
+    const oldStartTime = existing?.start_time?.slice(0, 5);
+
+    // Trouver la prochaine instance (sans .single() pour éviter l'erreur si vide)
+    const { data: upcoming } = await db.from('course_instances')
+      .select('date').eq('course_id', id).gte('date', todayStr)
+      .neq('status', 'cancelled').order('date').limit(1);
+    const nextDate = upcoming?.[0]?.date;
+
+    // Sauvegarder le cours
     ({ error } = await db.from('courses').update(data).eq('id', id));
     if (error) return showToast(error.message, true);
 
-    const { data: nextInst } = await db.from('course_instances')
-      .select('date').eq('course_id', id).gte('date', todayStr)
-      .neq('status', 'cancelled').order('date').limit(1).single();
-
-    if (nextInst && oldStartTime) {
-      // Figer la prochaine séance (et toutes les passées) à l'ancienne heure
-      await db.from('course_instances')
+    if (nextDate && oldStartTime) {
+      // Figer la prochaine séance (et passées) à l'ancienne heure
+      const { error: e1 } = await db.from('course_instances')
         .update({ start_time: oldStartTime })
         .eq('course_id', id)
-        .lte('date', nextInst.date);
-      // Appliquer la nouvelle heure à partir de la séance suivante
-      await db.from('course_instances')
+        .lte('date', nextDate);
+      // Nouvelle heure pour tout ce qui est après
+      const { error: e2 } = await db.from('course_instances')
         .update({ start_time: data.start_time })
         .eq('course_id', id)
-        .gt('date', nextInst.date);
+        .gt('date', nextDate);
+      if (e1 || e2) return showToast('Erreur mise à jour instances : ' + (e1||e2).message, true);
     }
   } else if (id) {
     ({ error } = await db.from('courses').update(data).eq('id', id));
