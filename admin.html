@@ -1081,8 +1081,8 @@ function openCourseModal(course, disciplines, teachers) {
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🌅 Éligible aux forfaits Heures Creuses</label>
     </div>
     <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
-      ${!isNew ? `<button class="btn btn-primary" onclick="saveCourse(${course.id}, false)" style="flex:1;min-width:120px">Enregistrer</button>
-      <button class="btn btn-primary" onclick="saveCourse(${course.id}, true)" style="flex:1;min-width:160px;background:var(--accent2,#7c6ef7)">Enregistrer (heure → sem. prochaine)</button>
+      ${!isNew ? `<button class="btn btn-primary" onclick="saveCourse(${course.id}, true)" style="flex:1;min-width:120px">Enregistrer</button>
+      <button class="btn btn-primary" onclick="saveCourse(${course.id}, false)" style="flex:1;min-width:160px;background:#888">Enregistrer (toutes les séances)</button>
       <button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : `<button class="btn btn-primary" onclick="saveCourse(null, false)" style="flex:1">Créer le cours</button>`}
       <button class="btn btn-ghost" onclick="closeModal()" style="width:auto">Annuler</button>
     </div>
