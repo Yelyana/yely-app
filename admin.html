@@ -1080,7 +1080,12 @@ function openCourseModal(course, disciplines, teachers) {
       <input type="checkbox" id="m-heures-creuses" ${course?.heures_creuses ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🌅 Éligible aux forfaits Heures Creuses</label>
     </div>
-    <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
+    ${!isNew ? `<div style="background:#fff3cd;border:2px solid #f0ad4e;border-radius:10px;padding:12px;margin-top:12px">
+      <div style="font-size:12px;font-weight:700;color:#856404;margin-bottom:6px">⏰ Changer l'heure à partir de :</div>
+      <input type="date" id="m-from-date" style="width:100%;padding:8px;border:1px solid #f0ad4e;border-radius:6px;font-size:14px;box-sizing:border-box">
+      <div style="font-size:11px;color:#856404;margin-top:4px">Laisser vide = changer toutes les séances futures</div>
+    </div>` : ''}
+    <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
       ${!isNew ? `<button class="btn btn-primary" onclick="saveCourse(${course.id})" style="flex:1">Enregistrer</button>
       <button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : `<button class="btn btn-primary" onclick="saveCourse(null)" style="flex:1">Créer le cours</button>`}
       <button class="btn btn-ghost" onclick="closeModal()" style="width:auto">Annuler</button>
@@ -1186,31 +1191,23 @@ async function saveCourse(id) {
   let error;
 
   if (id) {
-    const fromDate = window.prompt(
-      'À partir de quelle date appliquer la nouvelle heure ?\n\nFormat : YYYY-MM-DD  (ex: 2026-10-05)\nLaisser VIDE = changer toutes les séances\nAnnuler = ne pas sauvegarder',
-      ''
-    );
-    if (fromDate === null) return; // Annulé
-
+    const fromDate = (document.getElementById('m-from-date')?.value || '').trim();
     const { start_time: _, ...dataWithoutTime } = data;
 
-    if (fromDate.trim()) {
-      // Changement à partir d'une date précise — tout via RPC SECURITY DEFINER
+    if (fromDate) {
       const { error: rpcErr } = await db.rpc('apply_course_time_change', {
         p_course_id: id,
         p_new_time: data.start_time,
-        p_from_date: fromDate.trim(),
+        p_from_date: fromDate,
       });
       if (rpcErr) return showToast('Erreur : ' + rpcErr.message, true);
     } else {
-      // Changer toutes les séances — via RPC SECURITY DEFINER
       const { error: rpcErr } = await db.rpc('reset_course_start_time', {
         p_course_id: id,
         p_new_time: data.start_time,
       });
       if (rpcErr) return showToast('Erreur : ' + rpcErr.message, true);
     }
-    // Sauvegarder les autres champs (sans start_time, déjà géré par le RPC)
     ({ error } = await db.from('courses').update(dataWithoutTime).eq('id', id));
   } else {
     const { data: inserted, error: insertErr } = await db.from('courses').insert(data).select('id').single();
