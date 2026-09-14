@@ -694,10 +694,14 @@ async function requestAccountDeletion() {
 }
 
 async function confirmAccountDeletion() {
-  const { data, error } = await db.functions.invoke('delete-account', {});
-  if (error) {
-    const detail = data?.error || error.message;
-    return showToast('Erreur : ' + detail, true);
+  const session = (await db.auth.getSession()).data.session;
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/delete-account`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+  });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    return showToast('Erreur : ' + (body.error || resp.status), true);
   }
   await db.auth.signOut();
   currentUser = null; currentProfile = null;
