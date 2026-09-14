@@ -661,11 +661,7 @@ async function signup() {
   if (!name || !email || !password) return showToast('Remplis tous les champs', true);
   if (password.length < 8) return showToast('Mot de passe trop court', true);
   if (!document.getElementById('signup-cgv').checked) return showToast('Tu dois accepter les CGV pour continuer', true);
-  if (referralCode) {
-    const { data: refProfile } = await db.from('profiles').select('id').eq('referral_code', referralCode).single();
-    if (!refProfile) return showToast('Code parrainage invalide', true);
-    localStorage.setItem('yely-referral-code', referralCode);
-  }
+  if (referralCode) localStorage.setItem('yely-referral-code', referralCode);
   const { error } = await db.auth.signUp({ email, password, options: { data: { full_name: name, phone } } });
   if (error) return showToast(error.message || 'Erreur de connexion', true);
   if (typeof fbq !== 'undefined') fbq('track', 'CompleteRegistration');
