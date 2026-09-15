@@ -3142,7 +3142,13 @@ async function loadBoutique() {
       <button onclick="openRedeemGiftCard()" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--violet-light);cursor:pointer;white-space:nowrap">J'ai un code</button>
     </div>`;
 
-  el.innerHTML = tabs + launchPromoBanner + studentBanner + giftCardBanner +
+  const discoveryBanner = `
+    <div style="background:linear-gradient(135deg,rgba(155,125,219,0.15),rgba(125,191,155,0.1));border:1px solid rgba(155,125,219,0.3);border-radius:14px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;color:var(--violet-light);margin-bottom:4px">🦇 Cours découverte → ton premier forfait</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6">Commence par un cours découverte à <strong>18€</strong>. Si tu prends un abonnement ou une carte dans les 30 jours, les 18€ sont intégralement déduits.</div>
+    </div>`;
+
+  el.innerHTML = tabs + launchPromoBanner + studentBanner + giftCardBanner + discoveryBanner +
     (forfaits.length ? `<div class="section-label">Cartes & unités</div>${forfaits.map(renderForfait).join('')}` : '') +
     (abos.length ? `<div class="section-label" style="margin-top:16px">Abonnements</div>${abos.map(renderAbo).join('')}` : '') +
     hcSection +
