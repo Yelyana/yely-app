@@ -3181,18 +3181,21 @@ async function confirmAndPay(productId, engagement, applyStudentDiscount = false
   const isAbo = ['abo_illimite', 'abo_mensuel'].includes(p.type);
   const label = engagement ? `${p.name} — Engagement ${p.engagement_months} mois` : p.name;
   const engagementMention = engagement ? `<div style="font-size:12px;color:var(--text3);margin-top:4px">Engagement ${p.engagement_months} mois · reconduction automatique</div>` : '';
-  // Vérifier si l'élève a un pack découverte actif (pour -40€ sur le 1er mois d'abonnement)
+  // Déduction cours découverte : -18€ sur abonnement ou carte, dans les 30j (amnistie jusqu'au 30 sept)
   let hasDiscoveryPack = false;
-  if (isAbo) {
+  const isEligibleForDiscovery = p.type !== 'unite';
+  if (isEligibleForDiscovery) {
     try {
       const [creditsRes, profRes] = await Promise.all([
-        db.from('student_credits').select('sessions_remaining, expires_at, purchased_at, products(name)').eq('student_id', currentUser.id).gt('sessions_remaining', 0),
+        db.from('student_credits').select('sessions_remaining, purchased_at, products(name, id)').eq('student_id', currentUser.id),
         db.from('profiles').select('discovery_discount_used_at').eq('id', currentUser.id).single(),
       ]);
-      const PROMO_END = new Date('2026-09-30T23:59:59');
+      const NOW = new Date();
+      const AMNESTY_END = new Date('2026-09-30T23:59:59');
+      const isAmnesty = NOW <= AMNESTY_END;
+      const thirtyDaysAgo = new Date(NOW - 30 * 24 * 60 * 60 * 1000);
       const hasActivePack = (creditsRes.data || []).some(c => {
-        if (c.expires_at && new Date(c.expires_at) < new Date()) return false;
-        if (c.purchased_at && new Date(c.purchased_at) > PROMO_END) return false;
+        if (!isAmnesty && (!c.purchased_at || new Date(c.purchased_at) < thirtyDaysAgo)) return false;
         return /découverte/i.test(c.products?.name || '');
       });
       hasDiscoveryPack = hasActivePack && !profRes.data?.discovery_discount_used_at;
