@@ -3190,7 +3190,7 @@ async function confirmAndPay(productId, engagement, applyStudentDiscount = false
       </label>` : `En procédant au paiement, j'accepte les <a href="https://yelyintheair.com/cgv" target="_blank" style="color:var(--violet-light)">CGV</a>.`}
     </div>
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="btn btn-primary" style="flex:1" onclick="handlePayWithCGV(${productId}, ${engagement}, ${applyReferral}, false, ${applyStudentDiscount}, ${applyDiscovery}, ${childId ? `'${childId}'` : 'null'})">Payer en sécurité →</button>
+      <button class="btn btn-primary" style="flex:1" onclick="handlePayWithCGV(${productId}, ${engagement}, false, false, ${applyStudentDiscount}, ${applyDiscovery}, ${childId ? `'${childId}'` : 'null'})">Payer en sécurité →</button>
       <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
     </div>
   `;
