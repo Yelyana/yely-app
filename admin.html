@@ -803,9 +803,10 @@ async function viewInstance(id) {
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inscrits (${bookings?.length || 0}/${c.max_students || '?'})</div>
       ${bookings?.length ? bookings.map(b => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-          <span style="font-size:13px">${esc(b.profiles?.full_name)}${b.children?.first_name ? ` <span style="font-size:11px;color:var(--violet-light);background:rgba(155,125,219,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">👧 ${esc(b.children.first_name)}</span>` : ''}</span>
+          <span style="font-size:13px">${esc(b.profiles?.full_name)}${b.children?.first_name ? ` <span style="font-size:11px;color:var(--violet-light);background:rgba(155,125,219,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">👧 ${esc(b.children.first_name)}</span>` : ''}${b.payment_method === 'especes_pending' ? ` <span style="font-size:11px;color:#f5c842;background:rgba(245,200,66,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">💵 espèces</span>` : b.payment_method === 'especes' ? ` <span style="font-size:11px;color:#7dbf9b;background:rgba(125,191,155,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">💵 encaissé</span>` : ''}</span>
           <div style="display:flex;gap:6px;align-items:center">
             ${!isCancelled ? `
+              ${b.payment_method === 'especes_pending' ? `<button onclick="markCashPaid('${b.id}','${ci.id}')" style="padding:3px 8px;border-radius:6px;border:1px solid rgba(125,191,155,0.4);cursor:pointer;font-size:11px;background:rgba(125,191,155,0.15);color:#7dbf9b">✓ Encaissé</button>` : ''}
               <button onclick="markAttendance('${b.id}',true,'${ci.id}')" style="padding:3px 8px;border-radius:6px;border:none;cursor:pointer;font-size:11px;background:${b.attended===true?'#7dbf9b':'var(--bg)'};color:${b.attended===true?'#fff':'var(--text3)'}">✓ Présente</button>
               <button onclick="markAttendance('${b.id}',false,'${ci.id}')" style="padding:3px 8px;border-radius:6px;border:none;cursor:pointer;font-size:11px;background:${b.attended===false?'#e87a7a':'var(--bg)'};color:${b.attended===false?'#fff':'var(--text3)'}">✗ Absente</button>
               <button onclick="cancelBookingAdmin('${b.id}','${ci.id}')" style="font-size:11px;color:#e87a7a;background:transparent;border:none;cursor:pointer">Annuler</button>
@@ -840,6 +841,13 @@ async function saveReplacement(instanceId) {
 async function markAttendance(bookingId, attended, instanceId) {
   const { error } = await db.from('bookings').update({ attended }).eq('id', bookingId);
   if (error) return showToast(error.message, true);
+  viewInstance(instanceId);
+}
+
+async function markCashPaid(bookingId, instanceId) {
+  const { error } = await db.from('bookings').update({ payment_method: 'especes' }).eq('id', bookingId);
+  if (error) return showToast(error.message, true);
+  showToast('Espèces encaissées ✓');
   viewInstance(instanceId);
 }
 
@@ -923,7 +931,13 @@ async function selectCreditForBookingFromPlanning(instanceId, studentId, student
         </div>
       `).join('')}
       ${!(credits?.length) && !(subs?.length) ? '<div style="font-size:13px;color:var(--text3);padding:8px 0">Aucun crédit actif</div>' : ''}
-      <div class="card" style="padding:12px 14px;cursor:pointer;border:1px dashed var(--border)" onclick="addStudentToInstance('${instanceId}','${studentId}',null,null)">
+      <div class="card" style="padding:12px 14px;cursor:pointer;background:rgba(245,200,66,0.06);border:1px solid rgba(245,200,66,0.3)" onclick="addStudentToInstance('${instanceId}','${studentId}',null,null,'especes')">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:13px;font-weight:500;color:#f5c842">💵 Payer en espèces</div>
+          <span style="font-size:11px;color:var(--text3)">à encaisser</span>
+        </div>
+      </div>
+      <div class="card" style="padding:12px 14px;cursor:pointer;border:1px dashed var(--border)" onclick="addStudentToInstance('${instanceId}','${studentId}',null,null,null)">
         <div style="font-size:13px;color:var(--text3)">Sans déduire de crédit</div>
       </div>
     </div>
@@ -931,7 +945,7 @@ async function selectCreditForBookingFromPlanning(instanceId, studentId, student
   `;
 }
 
-async function addStudentToInstance(instanceId, studentId, creditId, subscriptionId) {
+async function addStudentToInstance(instanceId, studentId, creditId, subscriptionId, paymentMethod = null) {
   const student = _allStudentsData.find(s => s.id === studentId);
   const bookingData = {
     course_instance_id: instanceId,
@@ -941,6 +955,7 @@ async function addStudentToInstance(instanceId, studentId, creditId, subscriptio
   };
   if (creditId && creditId !== 'null') bookingData.credit_id = creditId;
   if (subscriptionId && subscriptionId !== 'null') bookingData.subscription_id = subscriptionId;
+  if (paymentMethod) bookingData.payment_method = paymentMethod === 'especes' ? 'especes_pending' : paymentMethod;
 
   const { error } = await db.from('bookings').insert(bookingData);
   if (error) return showToast(error.message, true);
@@ -959,7 +974,7 @@ async function addStudentToInstance(instanceId, studentId, creditId, subscriptio
     body: 'Tu as été inscrite à un cours par le studio. À très vite !',
     type: 'booking',
   });
-  const label = creditId && creditId !== 'null' ? 'crédit déduit ✓' : subscriptionId && subscriptionId !== 'null' ? 'séance abonnement déduite ✓' : 'sans déduction de crédit';
+  const label = creditId && creditId !== 'null' ? 'crédit déduit ✓' : subscriptionId && subscriptionId !== 'null' ? 'séance abonnement déduite ✓' : paymentMethod === 'especes' ? '💵 espèces à encaisser' : 'sans déduction de crédit';
   showToast(`${student?.full_name || 'Élève'} inscrite — ${label}`);
   viewInstance(instanceId);
 }
