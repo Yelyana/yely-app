@@ -2963,10 +2963,14 @@ async function loadBoutique() {
   if (currentProfile?.full_name) {
     updateAvatarBtns(currentProfile.avatar_url, currentProfile.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2));
   }
-  const [{ data: products }, promoRes] = await Promise.all([
+  const [{ data: products }, promoRes, { data: pastOrders }] = await Promise.all([
     db.from('products').select('*').eq('is_active', true).order('sort_order'),
     getFreshSession().then(s => fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/get-promo-status', s ? { headers: { Authorization: `Bearer ${s.access_token}` } } : {}).then(r => r.json())).catch(() => ({ active: false, remaining: 0 })),
+    db.from('student_credits').select('product_id').eq('student_id', currentUser.id),
   ]);
+  const DECOUVERTE_IDS = new Set([10, 14]);
+  const boughtDecouverteIds = new Set((pastOrders || []).map(o => o.product_id).filter(id => DECOUVERTE_IDS.has(id)));
+  const hasAnyDecouverte = boughtDecouverteIds.size > 0;
   const _launchPromoActive = promoRes?.active === true;
   const _launchPromoRemaining = promoRes?.remaining ?? 0;
   window._boutiqueProducts = {};
@@ -2992,7 +2996,7 @@ async function loadBoutique() {
     return;
   }
 
-  const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.heures_creuses && !p.for_kids && !p.for_parent_enfant)
+  const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.heures_creuses && !p.for_kids && !p.for_parent_enfant && !(hasAnyDecouverte && DECOUVERTE_IDS.has(p.id) && !boughtDecouverteIds.has(p.id)))
     .sort(sortForfaits);
   const heuresCruesforFaits = (products || []).filter(p => p.heures_creuses && !p.for_kids && !p.for_parent_enfant)
     .sort((a, b) => (a.sessions_per_week || 99) - (b.sessions_per_week || 99) || (a.sort_order || 0) - (b.sort_order || 0));
