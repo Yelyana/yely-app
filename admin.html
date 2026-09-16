@@ -982,10 +982,22 @@ async function addStudentToInstance(instanceId, studentId, creditId, subscriptio
 async function cancelInstance(instanceId) {
   const reason = prompt('Motif d\'annulation (optionnel) :') ?? null;
   if (reason === null) return;
-  // Récupérer les élèves inscrites avant d'annuler (pour la push)
-  const { data: enrolledBookings } = await db.from('bookings').select('student_id').eq('course_instance_id', instanceId).eq('status', 'confirmed');
+  // Récupérer les réservations confirmées AVANT d'annuler (crédits + abos à rembourser)
+  const { data: enrolledBookings } = await db.from('bookings')
+    .select('id, student_id, credit_id, subscription_id')
+    .eq('course_instance_id', instanceId).eq('status', 'confirmed');
   const { error } = await db.rpc('cancel_course_instance', { instance_id: parseInt(instanceId), reason: reason || '' });
   if (error) return showToast(error.message, true);
+  // Rembourser les crédits et abonnements de chaque élève inscrite
+  await Promise.allSettled((enrolledBookings || []).map(async b => {
+    if (b.credit_id) {
+      const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', b.credit_id).single();
+      await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', b.credit_id);
+    } else if (b.subscription_id) {
+      const { data: sub } = await db.from('subscriptions').select('sessions_used_this_month').eq('id', b.subscription_id).single();
+      await db.from('subscriptions').update({ sessions_used_this_month: Math.max(0, (sub?.sessions_used_this_month || 1) - 1) }).eq('id', b.subscription_id);
+    }
+  }));
   // Push aux élèves inscrites
   const studentIds = (enrolledBookings || []).map(b => b.student_id).filter(Boolean);
   if (studentIds.length) {
