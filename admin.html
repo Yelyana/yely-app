@@ -982,9 +982,9 @@ async function addStudentToInstance(instanceId, studentId, creditId, subscriptio
 async function cancelInstance(instanceId) {
   const reason = prompt('Motif d\'annulation (optionnel) :') ?? null;
   if (reason === null) return;
-  // Récupérer les réservations confirmées AVANT d'annuler (crédits + abos à rembourser)
+  // Récupérer les réservations confirmées AVANT d'annuler (crédits + emails)
   const { data: enrolledBookings } = await db.from('bookings')
-    .select('id, student_id, credit_id, subscription_id')
+    .select('id, student_id, credit_id, subscription_id, profiles(full_name, email)')
     .eq('course_instance_id', instanceId).eq('status', 'confirmed');
   const { error } = await db.rpc('cancel_course_instance', { instance_id: parseInt(instanceId), reason: reason || '' });
   if (error) return showToast(error.message, true);
@@ -1011,7 +1011,11 @@ async function cancelInstance(instanceId) {
     fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/send-cancellation', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instance_id: parseInt(instanceId), reason: reason || '' }),
+      body: JSON.stringify({
+        instance_id: parseInt(instanceId),
+        reason: reason || '',
+        student_emails: (enrolledBookings || []).map(b => b.profiles).filter(p => p?.email),
+      }),
     }).then(r => r.json()).then(d => {
       const n = d.students_notified ?? 0;
       const prof = d.teacher_notified ? ' + prof' : '';
