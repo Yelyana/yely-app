@@ -982,17 +982,31 @@ async function addStudentToInstance(instanceId, studentId, creditId, subscriptio
 async function cancelInstance(instanceId) {
   const reason = prompt('Motif d\'annulation (optionnel) :') ?? null;
   if (reason === null) return;
-  // Récupérer les élèves inscrites avant d'annuler
+  // Récupérer les élèves inscrites avant d'annuler (pour la push)
   const { data: enrolledBookings } = await db.from('bookings').select('student_id').eq('course_instance_id', instanceId).eq('status', 'confirmed');
   const { error } = await db.rpc('cancel_course_instance', { instance_id: parseInt(instanceId), reason: reason || '' });
   if (error) return showToast(error.message, true);
-  showToast('Séance annulée — élèves notifiés et crédits restitués');
   // Push aux élèves inscrites
   const studentIds = (enrolledBookings || []).map(b => b.student_id).filter(Boolean);
   if (studentIds.length) {
     db.functions.invoke('send-push', {
       body: { user_ids: studentIds, title: 'Cours annulé 😔', body: reason ? `Cours annulé : ${reason}` : 'Une séance a été annulée — ton crédit a été restitué.', url: '/app.html#cours' },
     }).catch(() => {});
+  }
+  // Email aux élèves + au prof
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/send-cancellation', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ instance_id: parseInt(instanceId), reason: reason || '' }),
+    }).then(r => r.json()).then(d => {
+      const n = d.students_notified ?? 0;
+      const prof = d.teacher_notified ? ' + prof' : '';
+      showToast(`Séance annulée — ${n} élève${n>1?'s':''} prévenue${n>1?'s':''}${prof} par email ✓`);
+    }).catch(() => showToast('Séance annulée — erreur envoi emails', true));
+  } else {
+    showToast('Séance annulée');
   }
   closeModal();
   renderPlanning();

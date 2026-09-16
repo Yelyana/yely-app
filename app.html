@@ -1262,28 +1262,36 @@ async function loadCoursesForDay(date) {
   (practiceFlags || []).forEach(c => { practiceMap[c.id] = c.is_practice; hcMapDay[c.id] = c.heures_creuses; });
   (data || []).forEach(ci => { ci.is_practice = practiceMap[ci.course_id] || false; ci.heures_creuses = hcMapDay[ci.course_id] || false; });
 
-  const cancelledCards = (cancelledData || []).map(ci => {
-    const wasEnrolled = myCancelledSet.has(ci.id);
-    return `
+  const allCards = [
+    ...(data || []).map(ci => ({
+      time: ci.start_time || '00:00',
+      html: renderCourseCard(ci, myBookingMap[ci.id], myWaitlistSet.has(ci.id), myWaitlistPos[ci.id]),
+    })),
+    ...(cancelledData || []).map(ci => {
+      const wasEnrolled = myCancelledSet.has(ci.id);
+      return {
+        time: ci.start_time || '00:00',
+        html: `
     <div class="cours-card" style="opacity:0.55;cursor:default;border-color:rgba(232,122,122,0.3);background:rgba(232,122,122,0.04)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:10px">
           <div class="cours-bar" style="background:var(--red)"></div>
           <div>
             <div style="font-size:15px;font-weight:500">${esc(ci.courses?.custom_name || ci.courses?.disciplines?.name || ci.custom_name || ci.discipline_name || 'Cours')}</div>
-            <div style="font-size:12px;color:var(--text3)">${(ci.start_time || ci.courses?.start_time || '')?.slice(0,5) || ''}</div>
+            <div style="font-size:12px;color:var(--text3)">${(ci.start_time || '')?.slice(0,5) || ''}</div>
           </div>
         </div>
         <span style="font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(232,122,122,0.15);color:var(--red);font-weight:600">Pas ce jour</span>
       </div>
       <div style="font-size:11px;color:var(--text3);margin-top:4px">${wasEnrolled ? 'Ta séance t\'a été rendue automatiquement.' : 'Ce cours n\'a pas lieu aujourd\'hui.'}</div>
-    </div>`;
-  }).join('');
+    </div>`,
+      };
+    }),
+  ].sort((a, b) => a.time.localeCompare(b.time));
 
   document.getElementById('cours-list').innerHTML = `
     <div class="section-label">${JOURS_FULL[(date.getDay() || 7) - 1]} ${date.getDate()} ${date.toLocaleString('fr', { month: 'long' })}</div>
-    ${(data || []).map(ci => renderCourseCard(ci, myBookingMap[ci.id], myWaitlistSet.has(ci.id), myWaitlistPos[ci.id])).join('')}
-    ${cancelledCards}
+    ${allCards.map(c => c.html).join('')}
   `;
 }
 
