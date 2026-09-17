@@ -1328,7 +1328,10 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
   const isBooked = myStatus === 'confirmed';
   const isWaiting = myWaitlist === true;
   const spotsClass = ci.spots_remaining > 3 ? '' : ci.spots_remaining > 0 ? 'low' : 'full';
-  const spotsText = isFull ? 'Complet' : ci.spots_remaining === 1 ? '1 place' : `${ci.spots_remaining} places`;
+  const enrolled = ci.max_students != null ? ci.max_students - (ci.spots_remaining || 0) : null;
+  const spotsText = isFull
+    ? (enrolled != null ? `${enrolled}/${ci.max_students} · Complet` : 'Complet')
+    : (enrolled != null ? `${enrolled}/${ci.max_students}` : ci.spots_remaining === 1 ? '1 place' : `${ci.spots_remaining} places`);
   const salleInfo = { air: { label: 'Air', color: '#5B9BD5', emoji: '🦇' }, terre: { label: 'Terre', color: '#5A9370', emoji: '🌿' } }[ci.salle] || { label: ci.salle || 'Salle', color: 'var(--text3)', emoji: '' };
   const salleBg = ci.salle === 'air' ? 'rgba(91,155,213,0.06)' : ci.salle === 'terre' ? 'rgba(90,147,112,0.06)' : 'transparent';
   return `
