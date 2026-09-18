@@ -2240,13 +2240,19 @@ async function openTeacherPlanning(teacherId) {
       revEl.innerHTML = `<div style="font-size:13px;color:var(--text3);font-style:italic;padding:8px 0">Aucun cours donné pour l'instant.</div>`;
     } else {
       // Cours passés détaillés (3 derniers mois)
-      const { data: pastCourses } = await db.from('course_instances_with_availability')
-        .select('id, date, discipline_name, custom_name, start_time, booked_count, status, teacher_fee_waived')
-        .eq('teacher_id', teacherId)
+      const { data: pastCourses } = await db.from('course_instances')
+        .select('id, date, start_time, teacher_fee_waived, status, courses!inner(custom_name, disciplines(name)), booked_count:bookings(count)')
+        .eq('courses.teacher_id', teacherId)
         .neq('status', 'cancelled')
         .lte('date', today)
         .order('date', { ascending: false })
         .limit(50);
+      // Normaliser les champs pour compatibilité avec le rendu
+      (pastCourses || []).forEach(ci => {
+        ci.discipline_name = ci.courses?.disciplines?.name || '';
+        ci.custom_name = ci.courses?.custom_name || '';
+        ci.booked_count = Array.isArray(ci.booked_count) ? ci.booked_count[0]?.count : (ci.booked_count || 0);
+      });
 
       const jours2 = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
       revEl.innerHTML = revenue.map(r => {
