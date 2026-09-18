@@ -760,7 +760,7 @@ async function renderPlanning() {
 async function viewInstance(id) {
   const [{ data: ci }, { data: allTeachers }] = await Promise.all([
     db.from('course_instances')
-      .select('*, start_time, replacement_teacher_id, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, is_practice, event_date, disciplines(name,color), profiles(id, full_name)), replacement:replacement_teacher_id(id, full_name)')
+      .select('*, start_time, replacement_teacher_id, teacher_fee_waived, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, is_practice, event_date, disciplines(name,color), profiles(id, full_name)), replacement:replacement_teacher_id(id, full_name)')
       .eq('id', id).single(),
     db.from('profiles').select('id, full_name').in('role', ['teacher','assistant']).order('full_name'),
   ]);
@@ -786,7 +786,7 @@ async function viewInstance(id) {
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">${esc(name)}</div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">${esc(date)} · ${(ci.start_time||c.start_time)?.slice(0,5) || ''}</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">${esc(date)} · ${(ci.start_time||c.start_time)?.slice(0,5) || ''}${ci.teacher_fee_waived ? ' <span style="display:inline-block;font-size:11px;background:rgba(245,200,66,0.15);color:#f5c842;padding:2px 8px;border-radius:6px;margin-left:6px;font-weight:600">🎁 Offert au prof</span>' : ''}</div>
     ${isCancelled ? `<div style="background:#e87a7a22;border:1px solid #e87a7a44;border-radius:10px;padding:12px;margin-bottom:16px;color:#e87a7a;font-size:13px">⚠️ Séance annulée${ci.cancellation_reason ? ' : ' + esc(ci.cancellation_reason) : ''}</div>` : ''}
     ${!isCancelled ? `
     <div style="background:${currentReplacementId ? '#f59e0b18' : 'var(--surface2,var(--border))'};border:1px solid ${currentReplacementId ? '#f59e0b44' : 'var(--border)'};border-radius:10px;padding:12px;margin-bottom:16px">
@@ -822,6 +822,7 @@ async function viewInstance(id) {
     <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
       ${!isCancelled && currentProfile?.role !== 'assistant' ? `<button class="btn btn-primary btn-sm" onclick="closeModal();openCourseModal(window._currentViewCourse, window._planningDisciplines, window._planningTeachers)">✏️ Modifier le cours</button>` : ''}
       ${!isCancelled ? `<button class="btn btn-sm" style="background:rgba(125,191,155,0.15);border:1px solid rgba(125,191,155,0.3);color:#7dbf9b" onclick="openAddStudentModal('${ci.id}')">➕ Ajouter une élève</button>` : ''}
+      ${!isCancelled && currentProfile?.role !== 'assistant' ? `<button class="btn btn-sm" style="background:rgba(245,200,66,0.12);border:1px solid rgba(245,200,66,0.3);color:#f5c842" onclick="toggleFeeWaived('${ci.id}', ${!!ci.teacher_fee_waived})">${ci.teacher_fee_waived ? '↩ Rétablir rémunération' : '🎁 Offrir au prof'}</button>` : ''}
       ${!isCancelled ? `<button class="btn btn-danger btn-sm" onclick="cancelInstance('${ci.id}')">Annuler la séance</button>` : ''}
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">Fermer</button>
     </div>
@@ -976,6 +977,15 @@ async function addStudentToInstance(instanceId, studentId, creditId, subscriptio
   });
   const label = creditId && creditId !== 'null' ? 'crédit déduit ✓' : subscriptionId && subscriptionId !== 'null' ? 'séance abonnement déduite ✓' : paymentMethod === 'especes' ? '💵 espèces à encaisser' : 'sans déduction de crédit';
   showToast(`${student?.full_name || 'Élève'} inscrite — ${label}`);
+  viewInstance(instanceId);
+}
+
+async function toggleFeeWaived(instanceId, currentValue) {
+  const newValue = !currentValue;
+  const { error } = await db.from('course_instances').update({ teacher_fee_waived: newValue }).eq('id', instanceId);
+  if (error) return showToast('Erreur : ' + error.message, true);
+  showToast(newValue ? '🎁 Cours offert au prof — non comptabilisé' : 'Rémunération rétablie');
+  closeModal();
   viewInstance(instanceId);
 }
 
@@ -2231,7 +2241,7 @@ async function openTeacherPlanning(teacherId) {
     } else {
       // Cours passés détaillés (3 derniers mois)
       const { data: pastCourses } = await db.from('course_instances_with_availability')
-        .select('id, date, discipline_name, custom_name, start_time, booked_count, status')
+        .select('id, date, discipline_name, custom_name, start_time, booked_count, status, teacher_fee_waived')
         .eq('teacher_id', teacherId)
         .neq('status', 'cancelled')
         .lte('date', today)
@@ -2257,7 +2267,7 @@ async function openTeacherPlanning(teacherId) {
               <span style="color:var(--text3);width:60px;flex-shrink:0">${jours2[d.getDay()]} ${d.getDate()} ${d.toLocaleDateString('fr-FR',{month:'short'})}</span>
               <span style="color:var(--text2);flex:1">${esc(ci.custom_name||ci.discipline_name||'Cours')} · ${(ci.start_time||'').slice(0,5)}</span>
               <span style="color:var(--text3)">${ci.booked_count||0} élève${(ci.booked_count||0)>1?'s':''}</span>
-              <span style="color:var(--accent);font-weight:600;width:40px;text-align:right">50 €</span>
+              ${ci.teacher_fee_waived ? `<span style="font-size:10px;background:rgba(245,200,66,0.15);color:#f5c842;padding:1px 6px;border-radius:5px;font-weight:600">🎁 Offert</span>` : `<span style="color:var(--accent);font-weight:600;width:40px;text-align:right">50 €</span>`}
             </div>`;
           }).join('') : ''}
         </div>`;
