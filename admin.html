@@ -761,9 +761,9 @@ async function renderPlanning() {
 async function viewInstance(id) {
   const [{ data: ci }, { data: allTeachers }] = await Promise.all([
     db.from('course_instances')
-      .select('*, start_time, replacement_teacher_id, teacher_fee_waived, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, is_practice, event_date, disciplines(name,color), profiles(id, full_name)), replacement:replacement_teacher_id(id, full_name)')
+      .select('*, start_time, replacement_teacher_id, teacher_fee_waived, teacher_fee_override_cents, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, is_practice, event_date, disciplines(name,color), profiles(id, full_name)), replacement:replacement_teacher_id(id, full_name)')
       .eq('id', id).single(),
-    db.from('profiles').select('id, full_name').in('role', ['teacher','assistant']).order('full_name'),
+    db.from('profiles').select('id, full_name, teacher_rate_grid').in('role', ['teacher','assistant']).order('full_name'),
   ]);
   const [{ data: bookings }, { data: classpassVisits }] = await Promise.all([
     db.from('bookings').select('*, profiles(full_name, email), children(first_name), guest_name').eq('course_instance_id', id).eq('status', 'confirmed'),
@@ -786,9 +786,23 @@ async function viewInstance(id) {
     `<option value="${t.id}" ${t.id === currentReplacementId ? 'selected' : ''}>${esc(t.full_name)}</option>`
   ).join('');
 
+  // Grille tarifaire variable (ex: Melissa)
+  const activeTeacherId = ci?.replacement_teacher_id || c.teacher_id;
+  const activeTeacher = (allTeachers || []).find(t => t.id === activeTeacherId);
+  const rateGrid = activeTeacher?.teacher_rate_grid;
+  let suggestedFeeCents = null;
+  if (rateGrid && !ci?.teacher_fee_waived) {
+    const count = bookings?.length || 0;
+    const entries = Object.entries(rateGrid).map(([k,v]) => [parseInt(k), v]).sort((a,b) => a[0]-b[0]);
+    for (const [threshold, amount] of entries) {
+      if (count >= threshold) suggestedFeeCents = amount;
+    }
+  }
+  const overrideCents = ci?.teacher_fee_override_cents;
+
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-title">${esc(name)}</div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">${esc(date)} · ${(ci.start_time||c.start_time)?.slice(0,5) || ''}${ci.teacher_fee_waived ? ' <span style="display:inline-block;font-size:11px;background:rgba(245,200,66,0.15);color:#f5c842;padding:2px 8px;border-radius:6px;margin-left:6px;font-weight:600">🎁 Offert au prof</span>' : ''}</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">${esc(date)} · ${(ci.start_time||c.start_time)?.slice(0,5) || ''}${ci.teacher_fee_waived ? ' <span style="display:inline-block;font-size:11px;background:rgba(245,200,66,0.15);color:#f5c842;padding:2px 8px;border-radius:6px;margin-left:6px;font-weight:600">🎁 Offert au prof</span>' : overrideCents != null ? ` <span style="display:inline-block;font-size:11px;background:rgba(99,202,183,0.15);color:#63cab7;padding:2px 8px;border-radius:6px;margin-left:6px;font-weight:600">💰 ${overrideCents/100} €</span>` : ''}</div>
     ${isCancelled ? `<div style="background:#e87a7a22;border:1px solid #e87a7a44;border-radius:10px;padding:12px;margin-bottom:16px;color:#e87a7a;font-size:13px">⚠️ Séance annulée${ci.cancellation_reason ? ' : ' + esc(ci.cancellation_reason) : ''}</div>` : ''}
     ${!isCancelled ? `
     <div style="background:${currentReplacementId ? '#f59e0b18' : 'var(--surface2,var(--border))'};border:1px solid ${currentReplacementId ? '#f59e0b44' : 'var(--border)'};border-radius:10px;padding:12px;margin-bottom:16px">
@@ -842,6 +856,7 @@ async function viewInstance(id) {
       ${!isCancelled && currentProfile?.role !== 'assistant' ? `<button class="btn btn-primary btn-sm" onclick="closeModal();openCourseModal(window._currentViewCourse, window._planningDisciplines, window._planningTeachers)">✏️ Modifier le cours</button>` : ''}
       ${!isCancelled ? `<button class="btn btn-sm" style="background:rgba(125,191,155,0.15);border:1px solid rgba(125,191,155,0.3);color:#7dbf9b" onclick="openAddStudentModal('${ci.id}')">➕ Ajouter une élève</button>` : ''}
       ${!isCancelled && currentProfile?.role !== 'assistant' ? `<button class="btn btn-sm" style="background:rgba(245,200,66,0.12);border:1px solid rgba(245,200,66,0.3);color:#f5c842" onclick="toggleFeeWaived('${ci.id}', ${!!ci.teacher_fee_waived})">${ci.teacher_fee_waived ? '↩ Rétablir rémunération' : '🎁 Offrir au prof'}</button>` : ''}
+      ${!isCancelled && !ci.teacher_fee_waived && rateGrid && currentProfile?.role !== 'assistant' ? `<button class="btn btn-sm" style="background:rgba(99,202,183,0.12);border:1px solid rgba(99,202,183,0.3);color:#63cab7" onclick="applyFeeOverride('${ci.id}', ${suggestedFeeCents ?? 'null'}, '${esc(activeTeacher?.full_name||'')}')">${suggestedFeeCents !== null ? '💰 Grille ' + esc(activeTeacher?.full_name?.split(' ')[0]||'prof') + ' : ' + (suggestedFeeCents/100) + ' €' : '💰 Grille ' + esc(activeTeacher?.full_name?.split(' ')[0]||'prof') + ' (pas assez d\'élèves)'}</button>` : ''}
       ${!isCancelled ? `<button class="btn btn-danger btn-sm" onclick="cancelInstance('${ci.id}')">Annuler la séance</button>` : ''}
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">Fermer</button>
     </div>
@@ -1001,10 +1016,22 @@ async function addStudentToInstance(instanceId, studentId, creditId, subscriptio
 
 async function toggleFeeWaived(instanceId, currentValue) {
   const newValue = !currentValue;
-  const { error } = await db.from('course_instances').update({ teacher_fee_waived: newValue }).eq('id', instanceId);
+  const update = newValue ? { teacher_fee_waived: true, teacher_fee_override_cents: null } : { teacher_fee_waived: false };
+  const { error } = await db.from('course_instances').update(update).eq('id', instanceId);
   if (error) return showToast('Erreur : ' + error.message, true);
   showToast(newValue ? '🎁 Cours offert au prof — non comptabilisé' : 'Rémunération rétablie');
   closeModal();
+  viewInstance(instanceId);
+}
+
+async function applyFeeOverride(instanceId, cents, teacherName) {
+  if (cents === null) return showToast('Pas assez d\'élèves pour appliquer la grille', true);
+  const label = `${cents/100} €`;
+  const confirm = window.confirm(`Appliquer la grille ${teacherName} : ${label} pour ce cours ?`);
+  if (!confirm) return;
+  const { error } = await db.from('course_instances').update({ teacher_fee_override_cents: cents, teacher_fee_waived: false }).eq('id', instanceId);
+  if (error) return showToast('Erreur : ' + error.message, true);
+  showToast(`💰 Grille appliquée : ${label}`);
   viewInstance(instanceId);
 }
 
@@ -2296,7 +2323,7 @@ async function openTeacherPlanning(teacherId) {
     } else {
       // Cours passés détaillés (3 derniers mois)
       const { data: pastCourses } = await db.from('course_instances')
-        .select('id, date, start_time, teacher_fee_waived, status, courses!inner(custom_name, disciplines(name)), booked_count:bookings(count)')
+        .select('id, date, start_time, teacher_fee_waived, teacher_fee_override_cents, status, courses!inner(custom_name, disciplines(name)), booked_count:bookings(count)')
         .eq('courses.teacher_id', teacherId)
         .neq('status', 'cancelled')
         .lte('date', today)
@@ -2318,7 +2345,7 @@ async function openTeacherPlanning(teacherId) {
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <div style="font-size:14px;font-weight:600;text-transform:capitalize">${mois}</div>
             <div style="text-align:right">
-              <div style="font-size:18px;font-weight:700;color:var(--accent)">${r.amount_owed} €</div>
+              <div style="font-size:18px;font-weight:700;color:var(--accent)">${r.amount_owed_cents != null ? r.amount_owed_cents/100 : r.amount_owed ?? 0} €</div>
               <div style="font-size:11px;color:var(--text3)">${r.classes_given} cours · ${r.students_taught} élève${r.students_taught>1?'s':''}</div>
             </div>
           </div>
@@ -2328,7 +2355,7 @@ async function openTeacherPlanning(teacherId) {
               <span style="color:var(--text3);width:60px;flex-shrink:0">${jours2[d.getDay()]} ${d.getDate()} ${d.toLocaleDateString('fr-FR',{month:'short'})}</span>
               <span style="color:var(--text2);flex:1">${esc(ci.custom_name||ci.discipline_name||'Cours')} · ${(ci.start_time||'').slice(0,5)}</span>
               <span style="color:var(--text3)">${ci.booked_count||0} élève${(ci.booked_count||0)>1?'s':''}</span>
-              ${ci.teacher_fee_waived ? `<span style="font-size:10px;background:rgba(245,200,66,0.15);color:#f5c842;padding:1px 6px;border-radius:5px;font-weight:600">🎁 Offert</span>` : `<span style="color:var(--accent);font-weight:600;width:40px;text-align:right">50 €</span>`}
+              ${ci.teacher_fee_waived ? `<span style="font-size:10px;background:rgba(245,200,66,0.15);color:#f5c842;padding:1px 6px;border-radius:5px;font-weight:600">🎁 Offert</span>` : ci.teacher_fee_override_cents != null ? `<span style="color:#63cab7;font-weight:600;width:40px;text-align:right">${ci.teacher_fee_override_cents/100} €</span>` : `<span style="color:var(--accent);font-weight:600;width:40px;text-align:right">50 €</span>`}
             </div>`;
           }).join('') : ''}
         </div>`;
