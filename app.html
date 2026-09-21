@@ -2750,6 +2750,7 @@ const MERCH_COLORS = { Black: '#1a1a1a', Blush: '#f48fb1', Moka: '#7a5c4a' };
 const MERCH_IMAGES = {
   'Brassière Essentiel': 'https://peshstudio.fr/cdn/shop/files/6_2fcbe42d-662d-4278-9967-5c80bcb5f9db.png?v=1782814709&width=600',
   'Short Essentiel': 'https://peshstudio.fr/cdn/shop/files/7_a65d8aa8-cca2-4d06-9bd8-754cbd79e7a3.png?v=1782814735&width=600',
+  'BO$$ GRIP': 'https://la-piri.com/cdn/shop/files/boss_grip_poledance_magnesie_dry_hands_monkeyhands_4.png?v=1782418633&width=1946',
 };
 
 async function loadMerchProducts(el, tabs) {
@@ -2764,8 +2765,18 @@ async function loadMerchProducts(el, tabs) {
       return order.indexOf(a) - order.indexOf(b);
     });
     const colors = [...new Set((p.merch_variants || []).map(v => v.color).filter(Boolean))];
+    const isSingleSku = colors.length === 0 && sizes.length === 0;
     const pid = p.id;
     const imgUrl = MERCH_IMAGES[p.name] || '';
+    const subtitle = isSingleSku ? 'La Piri × Yely' : 'Pesh Studio × Yely';
+    const singleVariant = isSingleSku ? (p.merch_variants || [])[0] : null;
+    const singleStockText = singleVariant
+      ? (singleVariant.stock <= 0 ? '❌ Plus en stock' : singleVariant.stock === 1 ? '⚠️ Dernier article' : `✓ ${singleVariant.stock} en stock`)
+      : '';
+    const singleStockColor = singleVariant
+      ? (singleVariant.stock <= 0 ? '#e87a7a' : singleVariant.stock === 1 ? '#f5c842' : 'var(--text3)')
+      : 'var(--text3)';
+    const initiallyReady = isSingleSku && singleVariant && singleVariant.stock > 0;
     return `
     <div class="card card-sm" style="margin-bottom:14px;overflow:hidden" id="merch-card-${pid}">
       ${imgUrl ? `<img src="${imgUrl}" alt="${esc(p.name)}" style="width:100%;height:220px;object-fit:cover;object-position:center;display:block">` : ''}
@@ -2773,10 +2784,13 @@ async function loadMerchProducts(el, tabs) {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
           <div style="font-size:16px;font-weight:700">${esc(p.name)}</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:1px">Pesh Studio × Yely</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:1px">${subtitle}</div>
           <div style="font-size:18px;font-weight:700;color:var(--violet-light);margin-top:4px">${(p.price_cents/100).toFixed(2).replace('.',',')} €</div>
         </div>
       </div>
+      ${isSingleSku ? `
+      <div style="font-size:11px;margin-bottom:14px;color:${singleStockColor}" id="merch-stock-${pid}">${singleStockText}</div>
+      ` : `
       <div style="margin-bottom:12px">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Couleur</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap" id="merch-colors-${pid}">
@@ -2800,13 +2814,14 @@ async function loadMerchProducts(el, tabs) {
         <div style="font-size:11px;color:var(--text3);margin-top:4px;min-height:14px" id="merch-stock-${pid}"></div>
       </div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:10px" id="merch-hint-${pid}">👆 Choisis une couleur pour commencer</div>
+      `}
       <div style="display:flex;gap:8px">
         <button onclick="buyMerchCash(${pid})" id="merch-btn-cash-${pid}"
-          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid rgba(245,200,66,0.4);background:rgba(245,200,66,0.08);color:#f5c842;font-size:12px;font-weight:600;cursor:pointer;opacity:0.45"
-          disabled>💵 Liquide au studio</button>
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid rgba(245,200,66,0.4);background:rgba(245,200,66,0.08);color:#f5c842;font-size:12px;font-weight:600;cursor:pointer;opacity:${initiallyReady?'1':'0.45'}"
+          ${initiallyReady?'':'disabled'}>💵 Liquide au studio</button>
         <button onclick="buyMerchStripe(${pid})" id="merch-btn-stripe-${pid}"
-          style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;opacity:0.45"
-          disabled>💳 Payer par carte</button>
+          style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;opacity:${initiallyReady?'1':'0.45'}"
+          ${initiallyReady?'':'disabled'}>💳 Payer par carte</button>
       </div>
       </div>
     </div>`;
@@ -2847,7 +2862,7 @@ async function loadMerchProducts(el, tabs) {
 
   // Stocker les variants en mémoire pour les interactions
   window._merchData = {};
-  (products||[]).forEach(p => { window._merchData[p.id] = { variants: p.merch_variants, selectedColor: null, selectedSize: null }; });
+  (products||[]).forEach(p => { window._merchData[p.id] = { variants: p.merch_variants, selectedColor: null, selectedSize: null, name: p.name }; });
 }
 
 function selectMerchColor(pid, color) {
@@ -2897,17 +2912,22 @@ function updateMerchSizes(pid) {
 function updateMerchStock(pid) {
   const d = window._merchData?.[pid]; if (!d) return;
   const el = document.getElementById(`merch-stock-${pid}`); if (!el) return;
-  if (!d.selectedColor || !d.selectedSize) { el.textContent = ''; return; }
-  const variant = d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize);
-  if (!variant) { el.textContent = ''; return; }
+  const isSingleSku = !d.variants.some(v => v.color || v.size);
+  const variant = isSingleSku
+    ? d.variants.find(v => !v.color && !v.size)
+    : (d.selectedColor && d.selectedSize ? d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize) : null);
+  if (!variant) { if (!isSingleSku) el.textContent = ''; return; }
   el.textContent = variant.stock <= 0 ? '❌ Plus en stock' : variant.stock === 1 ? '⚠️ Dernier article' : `✓ ${variant.stock} en stock`;
   el.style.color = variant.stock <= 0 ? '#e87a7a' : variant.stock === 1 ? '#f5c842' : 'var(--text3)';
 }
 
 function updateMerchButtons(pid) {
   const d = window._merchData?.[pid]; if (!d) return;
-  const ready = d.selectedColor && d.selectedSize;
-  const variant = ready ? d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize) : null;
+  const isSingleSku = !d.variants.some(v => v.color || v.size);
+  const ready = isSingleSku || (d.selectedColor && d.selectedSize);
+  const variant = isSingleSku
+    ? d.variants.find(v => !v.color && !v.size)
+    : (ready ? d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize) : null);
   const inStock = variant && variant.stock > 0;
   const btnCash = document.getElementById(`merch-btn-cash-${pid}`);
   const btnStripe = document.getElementById(`merch-btn-stripe-${pid}`);
@@ -2917,9 +2937,15 @@ function updateMerchButtons(pid) {
 
 async function buyMerchCash(pid) {
   const d = window._merchData?.[pid]; if (!d) return;
-  const variant = d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize);
+  const isSingleSku = !d.variants.some(v => v.color || v.size);
+  const variant = isSingleSku
+    ? d.variants.find(v => !v.color && !v.size)
+    : d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize);
   if (!variant) return showToast('Sélectionne une taille et une couleur', true);
-  if (!confirm(`Réserver ${variant.color} taille ${variant.size} — à payer en liquide au studio ?`)) return;
+  const confirmMsg = isSingleSku
+    ? `Réserver ${d.name || 'cet article'} — à payer en liquide au studio ?`
+    : `Réserver ${variant.color} taille ${variant.size} — à payer en liquide au studio ?`;
+  if (!confirm(confirmMsg)) return;
   try {
     const { data: { session } } = await db.auth.getSession();
     const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/merch-cash-order', {
@@ -2939,7 +2965,10 @@ async function buyMerchCash(pid) {
 
 async function buyMerchStripe(pid) {
   const d = window._merchData?.[pid]; if (!d) return;
-  const variant = d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize);
+  const isSingleSku = !d.variants.some(v => v.color || v.size);
+  const variant = isSingleSku
+    ? d.variants.find(v => !v.color && !v.size)
+    : d.variants.find(v => v.color === d.selectedColor && v.size === d.selectedSize);
   if (!variant) return showToast('Sélectionne une taille et une couleur', true);
   try {
     const { data: { session } } = await db.auth.getSession();
