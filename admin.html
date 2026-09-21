@@ -792,7 +792,8 @@ async function viewInstance(id) {
   const rateGrid = activeTeacher?.teacher_rate_grid;
   let suggestedFeeCents = null;
   if (rateGrid && !ci?.teacher_fee_waived) {
-    const count = bookings?.length || 0;
+    const teacherIds = new Set((allTeachers || []).map(t => t.id));
+    const count = (bookings || []).filter(b => !teacherIds.has(b.student_id)).length;
     const entries = Object.entries(rateGrid).map(([k,v]) => [parseInt(k), v]).sort((a,b) => a[0]-b[0]);
     for (const [threshold, amount] of entries) {
       if (count >= threshold) suggestedFeeCents = amount;
