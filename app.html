@@ -621,6 +621,11 @@ const PHRASES = [
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const JOURS_FULL = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
+// Formater une date en YYYY-MM-DD en heure locale (pas UTC) pour éviter le décalage autour de minuit
+function localDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 // ── AUTH ──────────────────────────────────────────────────
 function switchAuthTab(tab) {
   document.getElementById('auth-login').style.display = tab === 'login' ? 'block' : 'none';
@@ -907,7 +912,7 @@ async function loadHome() {
   document.getElementById('stat-credits').textContent = totalCredits > 0 ? totalCredits : '–';
 
   // Prochain cours
-  const today0 = new Date().toISOString().split('T')[0];
+  const today0 = localDateStr(new Date());
   const { data: allMyBookings } = await db.from('bookings')
     .select('id, course_instances(id, date, status, courses(custom_name, start_time, duration_minutes, level, salle, description, disciplines(name,color), profiles(full_name)))')
     .eq('student_id', currentUser.id).eq('status', 'confirmed');
@@ -954,7 +959,7 @@ async function loadHome() {
 
   // Journal prompt (cours d'hier sans journal)
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-  const yStr = yesterday.toISOString().split('T')[0];
+  const yStr = localDateStr(yesterday);
   const { data: recentCIRows } = await db.from('course_instances').select(`
     id, date, courses(disciplines(name)), bookings!inner(id, student_id, status)
   `).eq('bookings.student_id', currentUser.id).eq('bookings.status', 'confirmed')
@@ -1166,7 +1171,7 @@ async function loadCoursesForWeek() {
   const container = document.getElementById('cours-list');
   container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const dates = getWeekDates();
-  const dateStrs = dates.map(d => d.toISOString().split('T')[0]);
+  const dateStrs = dates.map(d => localDateStr(d));
 
   const [{ data: allActive }, { data: allCancelled }] = await Promise.all([
     db.from('course_instances_with_availability').select('*').in('date', dateStrs).eq('status', 'active').order('date').order('start_time'),
@@ -1224,7 +1229,7 @@ async function loadCoursesForWeek() {
 
 async function loadCoursesForDay(date) {
   document.getElementById('cours-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  const dateStr = date.toISOString().split('T')[0];
+  const dateStr = localDateStr(date);
   const [{ data, error }, { data: cancelledData }] = await Promise.all([
     db.from('course_instances_with_availability').select('*').eq('date', dateStr).eq('status', 'active').order('start_time'),
     db.from('course_instances_with_availability').select('*').eq('date', dateStr).eq('status', 'cancelled').order('start_time'),
@@ -1434,7 +1439,7 @@ async function loadBookingForm(ci) {
   const flag = isPractice ? 'for_practice' : isKids ? 'for_kids' : isParentEnfant ? 'for_parent_enfant' : isReformer ? 'for_reformer' : 'for_collectif';
 
   // Crédits disponibles — filtrés par le bon flag produit (non expirés)
-  const _today = new Date().toISOString().split('T')[0];
+  const _today = localDateStr(new Date());
   const { data: creditsAll } = await db.from('student_credits').select('*, products(*)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).or(`expires_at.is.null,expires_at.gte.${_today}`).order('expires_at');
   const ciIsHC = ci.heures_creuses === true;
   const credits = (creditsAll || []).filter(c => {
@@ -1594,7 +1599,7 @@ async function loadBookingForm(ci) {
   // Prochaines séances de la même série
   let serieHtml = '';
   if (credits?.length && ci.course_id) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateStr(new Date());
     const { data: futureInstances } = await db.from('course_instances_with_availability')
       .select('id, date, start_time, spots_remaining')
       .eq('course_id', ci.course_id)
@@ -1766,8 +1771,8 @@ async function _doBookWithSub(instanceId, subId, childId) {
     monday.setDate(courseDate.getDate() - (day === 0 ? 6 : day - 1));
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
-    const mondayStr = monday.toISOString().split('T')[0];
-    const sundayStr = sunday.toISOString().split('T')[0];
+    const mondayStr = localDateStr(monday);
+    const sundayStr = localDateStr(sunday);
 
     const { data: weekBookings } = await db.from('bookings')
       .select('id, course_instances!inner(date)')
@@ -1859,7 +1864,7 @@ async function _doBookWithCredit(instanceId, creditId, childId, guestName = '') 
   const { data: credit } = await db.from('student_credits').select('*, products(*)').eq('id', creditId).eq('student_id', currentUser.id).single();
   if (!credit) return showToast('Crédit introuvable', true);
   if (credit.sessions_remaining <= 0) return showToast('Plus de séances disponibles', true);
-  if (credit.expires_at && credit.expires_at < new Date().toISOString().split('T')[0]) return showToast('Ce forfait a expiré', true);
+  if (credit.expires_at && credit.expires_at < localDateStr(new Date())) return showToast('Ce forfait a expiré', true);
 
   // Vérifier la limite 1x/semaine pour les crédits heures creuses
   if (credit.products?.heures_creuses) {
@@ -1870,8 +1875,8 @@ async function _doBookWithCredit(instanceId, creditId, childId, guestName = '') 
       const diffMon = (day === 0 ? -6 : 1 - day);
       const mon = new Date(d); mon.setDate(d.getDate() + diffMon);
       const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-      const monStr = mon.toISOString().split('T')[0];
-      const sunStr = sun.toISOString().split('T')[0];
+      const monStr = localDateStr(mon);
+      const sunStr = localDateStr(sun);
       const { data: weekBookings } = await db.from('bookings')
         .select('course_instance_id')
         .eq('credit_id', creditId)
@@ -3321,7 +3326,7 @@ async function openTeacherProfileModal(teacherId, teacherName) {
     ? `<div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:14px">${disciplines.map(d => `<span style="font-size:11px;background:var(--violet-dark);color:var(--violet-light);border-radius:20px;padding:3px 10px">${esc(d)}</span>`).join('')}</div>`
     : '';
 
-  const today = new Date().toISOString().slice(0,10);
+  const today = localDateStr(new Date());
   const refId = prof?.id || teacherId;
   const { data: upcoming } = refId
     ? await db.from('course_instances')
@@ -3397,7 +3402,7 @@ async function loadHistorique() {
   const el = document.getElementById('historique-content');
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr(new Date());
   const { data: bookings, error } = await db
     .from('bookings')
     .select('status, created_at, course_instances(date, start_time, courses(custom_name, disciplines(name, color)))')
@@ -3474,7 +3479,7 @@ async function loadProfil() {
   ] = await Promise.all([
     db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active'),
     db.from('student_credits').select('*, products(name)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).order('expires_at'),
-    db.from('bookings').select('*, course_instances(date, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').gte('course_instances.date', new Date().toISOString().split('T')[0]).order('course_instances(date)').limit(3),
+    db.from('bookings').select('*, course_instances(date, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').gte('course_instances.date', localDateStr(new Date())).order('course_instances(date)').limit(3),
     db.from('bookings').select('*', { count: 'exact', head: true }).eq('student_id', currentUser.id).eq('status', 'confirmed'),
     db.from('children').select('*').eq('parent_id', currentUser.id).order('first_name'),
     db.from('orders').select('*, products(name, price_cents)').eq('student_id', currentUser.id).neq('status', 'cancelled').order('created_at', { ascending: false }).limit(10),

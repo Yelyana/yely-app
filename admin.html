@@ -224,6 +224,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 let currentUser = null, currentProfile = null, currentPage = 'dashboard';
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const localDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
 // ── AUTH ──────────────────────────────────────────────────
 async function adminLogin() {
@@ -322,12 +323,12 @@ function showPage(page) {
 // ── DASHBOARD ─────────────────────────────────────────────
 async function loadDashboard() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr(new Date());
   const monthStart = today.slice(0, 7) + '-01';
   const lastMonthStart = new Date(new Date().setMonth(new Date().getMonth()-1)).toISOString().slice(0,7) + '-01';
   const lastMonthEnd = today.slice(0, 7) + '-01';
-  const threeWeeksAgo = new Date(Date.now() - 21*24*60*60*1000).toISOString().split('T')[0];
-  const in7days = new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0];
+  const threeWeeksAgo = localDateStr(new Date(Date.now() - 21*24*60*60*1000));
+  const in7days = localDateStr(new Date(Date.now() + 7*24*60*60*1000));
 
   const [
     { count: totalStudents },
@@ -1363,7 +1364,7 @@ async function saveCourse(id) {
 
 async function deleteCourse(id) {
   if (!confirm('Supprimer ce cours et toutes ses instances futures ?')) return;
-  await db.from('course_instances').delete().eq('course_id', id).gte('date', new Date().toISOString().split('T')[0]);
+  await db.from('course_instances').delete().eq('course_id', id).gte('date', localDateStr(new Date()));
   await db.from('courses').update({ is_active: false }).eq('id', id);
   closeModal(); showToast('Cours supprimé'); loadPlanning();
 }
@@ -1413,10 +1414,10 @@ async function exportElevesCSV() {
 
 async function loadEleves() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
-  const threeWeeksAgo = new Date(Date.now() - 21*24*60*60*1000).toISOString().split('T')[0];
+  const threeWeeksAgo = localDateStr(new Date(Date.now() - 21*24*60*60*1000));
 
   const { data: students } = await db.from('profiles').select('*').eq('role', 'student').neq('full_name', 'Compte supprimé').order('full_name');
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr(new Date());
   const { data: bookingStats } = await db.from('bookings')
     .select('student_id, status, course_instances(date)')
     .eq('status', 'confirmed')
@@ -1447,8 +1448,8 @@ async function loadEleves() {
 }
 
 function getLoyaltyBadge(s) {
-  const threeWeeksAgo = new Date(Date.now() - 21*24*60*60*1000).toISOString().split('T')[0];
-  const threeMonthsAgo = new Date(Date.now() - 90*24*60*60*1000).toISOString().split('T')[0];
+  const threeWeeksAgo = localDateStr(new Date(Date.now() - 21*24*60*60*1000));
+  const threeMonthsAgo = localDateStr(new Date(Date.now() - 90*24*60*60*1000));
   if (!s.lastCours) return { label: '🌱 Nouvelle', color: '#34d399' };
   if (s.lastCours < threeWeeksAgo) return { label: '⚠️ À relancer', color: '#f472b6' };
   if (s.totalCours >= 8 && s.created_at?.slice(0,10) <= threeMonthsAgo) return { label: '💜 Fidèle', color: '#a78bfa' };
@@ -1459,13 +1460,13 @@ function getLoyaltyBadge(s) {
 function renderEleves() {
   let data = [..._allStudentsData];
   if (_elevesFilter === 'relancer') data = data.filter(s => {
-    const threeWeeksAgo = new Date(Date.now()-21*24*60*60*1000).toISOString().split('T')[0];
+    const threeWeeksAgo = localDateStr(new Date(Date.now()-21*24*60*60*1000));
     return s.lastCours && s.lastCours < threeWeeksAgo;
   });
   else if (_elevesFilter === 'fideles') data = data.filter(s => s.totalCours >= 8);
   else if (_elevesFilter === 'actives') data = data.filter(s => s.hasActive);
   else if (_elevesFilter === 'nouvelles') data = data.filter(s => {
-    const oneMonthAgo = new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0];
+    const oneMonthAgo = localDateStr(new Date(Date.now()-30*24*60*60*1000));
     return s.created_at?.slice(0,10) >= oneMonthAgo;
   });
 
@@ -1475,7 +1476,7 @@ function renderEleves() {
   else if (_elevesSort === 'recent') data.sort((a,b) => (b.lastCours||'').localeCompare(a.lastCours||''));
 
   const relancerCount = _allStudentsData.filter(s => {
-    const t = new Date(Date.now()-21*24*60*60*1000).toISOString().split('T')[0];
+    const t = localDateStr(new Date(Date.now()-21*24*60*60*1000));
     return s.lastCours && s.lastCours < t;
   }).length;
 
@@ -2124,7 +2125,7 @@ async function loadProfs() {
   if (currentProfile?.role === 'teacher') {
     const nextMonday = new Date();
     nextMonday.setDate(nextMonday.getDate() + 14);
-    const { data: myCourses } = await db.from('course_instances_with_availability').select('*').eq('teacher_id', currentUser.id).gte('date', new Date().toISOString().split('T')[0]).lte('date', nextMonday.toISOString().split('T')[0]).order('date').order('start_time');
+    const { data: myCourses } = await db.from('course_instances_with_availability').select('*').eq('teacher_id', currentUser.id).gte('date', localDateStr(new Date())).lte('date', localDateStr(nextMonday)).order('date').order('start_time');
     document.getElementById('teacher-courses').innerHTML = myCourses?.length ? `
       <div class="card">
         <table>
@@ -2283,8 +2284,8 @@ async function openTeacherPlanning(teacherId) {
   `;
   openModal();
 
-  const today = new Date().toISOString().split('T')[0];
-  const sixWeeks = new Date(Date.now() + 42 * 86400000).toISOString().split('T')[0];
+  const today = localDateStr(new Date());
+  const sixWeeks = localDateStr(new Date(Date.now() + 42 * 86400000));
 
   // Cours donnés + rémunération
   const { data: revenue } = await db.from('teacher_revenue').select('*').eq('teacher_id', teacherId).order('month', { ascending: false });
@@ -2362,7 +2363,7 @@ async function openTeacherPlanning(teacherId) {
     const d = new Date(ci.date + 'T12:00:00');
     const monday = new Date(d);
     monday.setDate(d.getDate() - ((d.getDay()+6)%7));
-    const key = monday.toISOString().split('T')[0];
+    const key = localDateStr(monday);
     if (!byWeek[key]) byWeek[key] = { label: monday, items: [] };
     byWeek[key].items.push(ci);
   });
