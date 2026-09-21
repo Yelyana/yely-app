@@ -1823,6 +1823,10 @@ async function bookWithCredit(instanceId, creditId) {
   const dateStr = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
   const timeStr = ci?.start_time ? ci.start_time.slice(0,5) : '';
 
+  const isDecouverte = /découverte/i.test(creditName);
+  const campaignActive = new Date() <= new Date('2026-09-30T23:59:59');
+  const showPlusOne = isDecouverte && campaignActive;
+
   // Remplacer le contenu du modal par la confirmation
   document.getElementById('modal-content').innerHTML = `
     <h3 class="serif" style="font-size:20px;margin-bottom:8px">Confirmer la réservation</h3>
@@ -1831,19 +1835,26 @@ async function bookWithCredit(instanceId, creditId) {
       <div style="font-size:13px;color:var(--text2)">${dateStr}${timeStr ? ' · ' + timeStr : ''}</div>
       <div style="font-size:12px;color:var(--violet-light);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">Crédit utilisé : ${esc(creditName)}</div>
     </div>
+    ${showPlusOne ? `
+    <div style="background:rgba(155,125,219,0.08);border:1px solid rgba(155,125,219,0.25);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;color:var(--violet-light);margin-bottom:8px">🎁 Amène quelqu'un gratuitement !</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Jusqu'au 30 septembre, ton cours découverte inclut une place offerte pour une amie.</div>
+      <input id="guest-name-input" type="text" placeholder="Prénom et nom de ton invité(e)" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px">
+    </div>` : ''}
     <button class="btn btn-primary" id="confirm-book-btn" style="width:100%">Oui, réserver</button>
     <button class="btn btn-ghost" style="margin-top:8px" onclick="openCourseModal(${instanceId})">← Retour</button>
   `;
   document.getElementById('confirm-book-btn').onclick = () => {
+    const guestName = showPlusOne ? (document.getElementById('guest-name-input')?.value?.trim() || '') : '';
     if (isKidsCourse(ci)) {
-      selectChildForBooking(instanceId, (childId) => _doBookWithCredit(instanceId, creditId, childId));
+      selectChildForBooking(instanceId, (childId) => _doBookWithCredit(instanceId, creditId, childId, guestName));
     } else {
-      _doBookWithCredit(instanceId, creditId, null);
+      _doBookWithCredit(instanceId, creditId, null, guestName);
     }
   };
 }
 
-async function _doBookWithCredit(instanceId, creditId, childId) {
+async function _doBookWithCredit(instanceId, creditId, childId, guestName = '') {
   if (!await checkReformerBookingWindow(instanceId)) return;
   const { data: credit } = await db.from('student_credits').select('*, products(*)').eq('id', creditId).eq('student_id', currentUser.id).single();
   if (!credit) return showToast('Crédit introuvable', true);
@@ -1907,6 +1918,18 @@ async function _doBookWithCredit(instanceId, creditId, childId) {
     p_child_id: childId || null,
   });
   if (error || result?.error) return showToast(result?.error || error?.message || 'Erreur réservation', true);
+
+  // Réservation invité(e) si nom renseigné
+  if (guestName) {
+    await db.from('bookings').insert({
+      course_instance_id: instanceId,
+      student_id: currentUser.id,
+      status: 'confirmed',
+      payment_method: 'invite',
+      guest_name: guestName,
+    });
+  }
+
   closeModal();
   // Si c'est la première utilisation du crédit, fixer expires_at = date du cours + validity_days
   if (!credit.expires_at && credit.products?.validity_days) {

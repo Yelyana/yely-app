@@ -765,7 +765,7 @@ async function viewInstance(id) {
     db.from('profiles').select('id, full_name').in('role', ['teacher','assistant']).order('full_name'),
   ]);
   const { data: bookings } = await db.from('bookings')
-    .select('*, profiles(full_name, email), children(first_name)')
+    .select('*, profiles(full_name, email), children(first_name), guest_name')
     .eq('course_instance_id', id).eq('status', 'confirmed');
   const { data: waitlist } = await db.from('waitlist')
     .select('*, profiles(full_name)')
@@ -803,7 +803,7 @@ async function viewInstance(id) {
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inscrits (${bookings?.length || 0}/${c.max_students || '?'})</div>
       ${bookings?.length ? bookings.map(b => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-          <span style="font-size:13px">${esc(b.profiles?.full_name)}${b.children?.first_name ? ` <span style="font-size:11px;color:var(--violet-light);background:rgba(155,125,219,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">👧 ${esc(b.children.first_name)}</span>` : ''}${b.payment_method === 'especes_pending' ? ` <span style="font-size:11px;color:#f5c842;background:rgba(245,200,66,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">💵 espèces</span>` : b.payment_method === 'especes' ? ` <span style="font-size:11px;color:#7dbf9b;background:rgba(125,191,155,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">💵 encaissé</span>` : ''}</span>
+          <span style="font-size:13px">${b.guest_name ? `🎁 ${esc(b.guest_name)} <span style="font-size:11px;color:#a78bfa;background:rgba(155,125,219,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">invité(e) de ${esc(b.profiles?.full_name||'')}</span>` : esc(b.profiles?.full_name)}${!b.guest_name && b.children?.first_name ? ` <span style="font-size:11px;color:var(--violet-light);background:rgba(155,125,219,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">👧 ${esc(b.children.first_name)}</span>` : ''}${!b.guest_name && b.payment_method === 'especes_pending' ? ` <span style="font-size:11px;color:#f5c842;background:rgba(245,200,66,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">💵 espèces</span>` : !b.guest_name && b.payment_method === 'especes' ? ` <span style="font-size:11px;color:#7dbf9b;background:rgba(125,191,155,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">💵 encaissé</span>` : ''}</span>
           <div style="display:flex;gap:6px;align-items:center">
             ${!isCancelled ? `
               ${b.payment_method === 'especes_pending' ? `<button onclick="markCashPaid('${b.id}','${ci.id}')" style="padding:3px 8px;border-radius:6px;border:1px solid rgba(125,191,155,0.4);cursor:pointer;font-size:11px;background:rgba(125,191,155,0.15);color:#7dbf9b">✓ Encaissé</button>` : ''}
