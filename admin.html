@@ -764,9 +764,10 @@ async function viewInstance(id) {
       .eq('id', id).single(),
     db.from('profiles').select('id, full_name').in('role', ['teacher','assistant']).order('full_name'),
   ]);
-  const { data: bookings } = await db.from('bookings')
-    .select('*, profiles(full_name, email), children(first_name), guest_name')
-    .eq('course_instance_id', id).eq('status', 'confirmed');
+  const [{ data: bookings }, { data: classpassVisits }] = await Promise.all([
+    db.from('bookings').select('*, profiles(full_name, email), children(first_name), guest_name').eq('course_instance_id', id).eq('status', 'confirmed'),
+    db.from('classpass_visits').select('*, converted:converted_student_id(full_name)').eq('course_instance_id', id).order('created_at'),
+  ]);
   const { data: waitlist } = await db.from('waitlist')
     .select('*, profiles(full_name)')
     .eq('course_instance_id', id).order('position');
@@ -813,6 +814,23 @@ async function viewInstance(id) {
             ` : ''}
           </div>
         </div>`).join('') : '<div style="color:var(--text3);font-size:13px">Aucun inscrit</div>'}
+    </div>
+    <div style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">🟠 ClassPass (${classpassVisits?.length || 0})</div>
+        ${!isCancelled ? `<button onclick="addClasspassVisitor('${ci.id}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(251,146,60,0.4);background:rgba(251,146,60,0.1);color:#fb923c;font-size:11px;font-weight:600;cursor:pointer">+ Ajouter</button>` : ''}
+      </div>
+      ${classpassVisits?.length ? classpassVisits.map(v => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <span style="font-size:13px">${esc(v.visitor_name)}</span>
+            ${v.converted?.full_name ? ` <span style="font-size:11px;color:#7dbf9b;background:rgba(125,191,155,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">✓ Converti · ${esc(v.converted.full_name)}</span>` : ''}
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            ${!v.converted_student_id ? `<button onclick="markClasspassConverted(${v.id},'${ci.id}')" style="padding:3px 8px;border-radius:6px;border:1px solid rgba(125,191,155,0.4);cursor:pointer;font-size:11px;background:rgba(125,191,155,0.1);color:#7dbf9b">→ Converti</button>` : ''}
+            <button onclick="removeClasspassVisitor(${v.id},'${ci.id}')" style="font-size:11px;color:#e87a7a;background:transparent;border:none;cursor:pointer">✕</button>
+          </div>
+        </div>`).join('') : '<div style="color:var(--text3);font-size:13px">Aucun élève ClassPass</div>'}
     </div>
     ${waitlist?.length ? `
     <div style="margin-bottom:20px">
@@ -986,6 +1004,35 @@ async function toggleFeeWaived(instanceId, currentValue) {
   if (error) return showToast('Erreur : ' + error.message, true);
   showToast(newValue ? '🎁 Cours offert au prof — non comptabilisé' : 'Rémunération rétablie');
   closeModal();
+  viewInstance(instanceId);
+}
+
+async function addClasspassVisitor(instanceId) {
+  const name = prompt('Nom de l\'élève ClassPass :');
+  if (!name?.trim()) return;
+  const { error } = await db.from('classpass_visits').insert({ course_instance_id: instanceId, visitor_name: name.trim() });
+  if (error) return showToast('Erreur : ' + error.message, true);
+  showToast('Élève ClassPass ajouté(e) ✓');
+  viewInstance(instanceId);
+}
+
+async function markClasspassConverted(visitId, instanceId) {
+  const students = (_allStudentsData || []).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||''));
+  const options = students.map(s => `${s.full_name} — ${s.email||''}`).join('\n');
+  const choice = prompt(`Quel(le) élève Yely correspond ?\n\nTape le début du nom :\n${options}`);
+  if (!choice?.trim()) return;
+  const match = students.find(s => (s.full_name||'').toLowerCase().includes(choice.trim().toLowerCase()) || (s.email||'').toLowerCase().includes(choice.trim().toLowerCase()));
+  if (!match) return showToast('Élève introuvable', true);
+  const { error } = await db.from('classpass_visits').update({ converted_student_id: match.id }).eq('id', visitId);
+  if (error) return showToast('Erreur : ' + error.message, true);
+  showToast(`✓ Converti(e) → ${match.full_name}`);
+  viewInstance(instanceId);
+}
+
+async function removeClasspassVisitor(visitId, instanceId) {
+  if (!confirm('Supprimer cet élève ClassPass ?')) return;
+  const { error } = await db.from('classpass_visits').delete().eq('id', visitId);
+  if (error) return showToast('Erreur : ' + error.message, true);
   viewInstance(instanceId);
 }
 
@@ -1511,11 +1558,12 @@ function renderEleves() {
 async function openStudentDetail(studentId) {
   const student = _allStudentsData.find(s => s.id === studentId) || {};
   const name = student.full_name || '';
-  const [{ data: credits }, { data: subs }, bookingsRes, { data: fullProfile }] = await Promise.all([
+  const [{ data: credits }, { data: subs }, bookingsRes, { data: fullProfile }, { data: classpassHistory }] = await Promise.all([
     db.from('student_credits').select('*, products(name)').eq('student_id', studentId).order('purchased_at', { ascending: false }),
     db.from('subscriptions').select('*, products(name)').eq('student_id', studentId).order('created_at', { ascending: false }),
     db.from('bookings').select('*, course_instances(date, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', studentId).order('booked_at', { ascending: false }).limit(50),
     db.from('profiles').select('health_info').eq('id', studentId).single(),
+    db.from('classpass_visits').select('*, course_instances(date, courses(custom_name))').eq('converted_student_id', studentId).order('created_at'),
   ]);
   if (bookingsRes.error) console.error('bookings query error:', bookingsRes.error);
   const bookings = bookingsRes.data;
@@ -1600,6 +1648,12 @@ async function openStudentDetail(studentId) {
       <textarea id="student-notes" rows="3" placeholder="Notes visibles uniquement par toi..." style="width:100%;resize:vertical">${esc(student.notes||'')}</textarea>
       <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="saveStudentNotes('${studentId}')">Enregistrer la note</button>
     </div>
+
+    ${classpassHistory?.length ? `
+    <div style="margin-bottom:16px;padding:12px;background:rgba(251,146,60,0.06);border:1px solid rgba(251,146,60,0.2);border-radius:10px">
+      <div style="font-size:11px;color:#fb923c;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🟠 Anciens passages ClassPass (${classpassHistory.length})</div>
+      ${classpassHistory.map(v => `<div style="font-size:12px;color:var(--text2);padding:3px 0">${esc(v.visitor_name)} · ${esc(v.course_instances?.courses?.custom_name||'Cours')} · ${v.course_instances?.date ? new Date(v.course_instances.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}) : ''}</div>`).join('')}
+    </div>` : ''}
 
     <div style="margin-bottom:16px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Crédits & abonnements actifs</div>
