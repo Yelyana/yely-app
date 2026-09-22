@@ -1470,6 +1470,19 @@ async function changePassword() {
   document.getElementById('pr-pwd').value = '';
 }
 
+const APP_VERSION = 'v354';
+(function() {
+  const stored = localStorage.getItem('yely_app_version');
+  if (stored && stored !== APP_VERSION) {
+    localStorage.setItem('yely_app_version', APP_VERSION);
+    if ('caches' in window) {
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => location.reload());
+    } else { location.reload(); }
+  } else {
+    localStorage.setItem('yely_app_version', APP_VERSION);
+  }
+})();
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').then(reg => {
     reg.update();
@@ -1477,7 +1490,7 @@ if ('serviceWorker' in navigator) {
       const newSW = reg.installing;
       newSW.addEventListener('statechange', () => {
         if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-          setTimeout(() => window.location.reload(), 500);
+          setTimeout(() => location.reload(), 500);
         }
       });
     });
