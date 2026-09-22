@@ -1079,16 +1079,7 @@ async function cancelInstance(instanceId) {
     .eq('course_instance_id', instanceId).eq('status', 'confirmed');
   const { error } = await db.rpc('cancel_course_instance', { instance_id: parseInt(instanceId), reason: reason || '' });
   if (error) return showToast(error.message, true);
-  // Rembourser les crédits et abonnements de chaque élève inscrite
-  await Promise.allSettled((enrolledBookings || []).map(async b => {
-    if (b.credit_id) {
-      const { data: credit } = await db.from('student_credits').select('sessions_remaining').eq('id', b.credit_id).single();
-      await db.from('student_credits').update({ sessions_remaining: (credit?.sessions_remaining || 0) + 1 }).eq('id', b.credit_id);
-    } else if (b.subscription_id) {
-      const { data: sub } = await db.from('subscriptions').select('sessions_used_this_month').eq('id', b.subscription_id).single();
-      await db.from('subscriptions').update({ sessions_used_this_month: Math.max(0, (sub?.sessions_used_this_month || 1) - 1) }).eq('id', b.subscription_id);
-    }
-  }));
+  // Les remboursements crédits/abonnements sont gérés par cancel_course_instance (RPC)
   // Push aux élèves inscrites
   const studentIds = (enrolledBookings || []).map(b => b.student_id).filter(Boolean);
   if (studentIds.length) {
@@ -2949,7 +2940,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
-const APP_VERSION = 'v354';
+const APP_VERSION = 'v355';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
