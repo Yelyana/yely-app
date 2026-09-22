@@ -1470,7 +1470,7 @@ async function changePassword() {
   document.getElementById('pr-pwd').value = '';
 }
 
-const APP_VERSION = 'v355';
+const APP_VERSION = 'v356';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
@@ -1496,6 +1496,15 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
+// iOS PWA : recharge si l'app revient au premier plan après 10 min en background
+let _hiddenAt = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    _hiddenAt = Date.now();
+  } else if (document.visibilityState === 'visible' && _hiddenAt && (Date.now() - _hiddenAt) > 10 * 60 * 1000) {
+    location.reload();
+  }
+});
 </script>
 </body>
 </html>
