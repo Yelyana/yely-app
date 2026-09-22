@@ -1469,6 +1469,20 @@ async function changePassword() {
   showToast('Mot de passe mis à jour !');
   document.getElementById('pr-pwd').value = '';
 }
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    reg.update();
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing;
+      newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          setTimeout(() => window.location.reload(), 500);
+        }
+      });
+    });
+  });
+}
 </script>
 </body>
 </html>
