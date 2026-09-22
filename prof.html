@@ -419,9 +419,13 @@ async function loadPlanning() {
   const [{ data: myBookings }] = [{ data: myBookingsData }];
   if (instances?.length) {
     const instanceIds = instances.map(ci => ci.id);
-    const { data: weekBookings } = await db.from('bookings').select('course_instance_id').eq('status', 'confirmed').in('course_instance_id', instanceIds);
+    const [{ data: weekBookings }, { data: weekClasspass }] = await Promise.all([
+      db.from('bookings').select('course_instance_id').eq('status', 'confirmed').in('course_instance_id', instanceIds),
+      db.from('classpass_visits').select('course_instance_id').in('course_instance_id', instanceIds),
+    ]);
     const bookedCountMap = {};
     (weekBookings || []).forEach(b => { bookedCountMap[b.course_instance_id] = (bookedCountMap[b.course_instance_id] || 0) + 1; });
+    (weekClasspass || []).forEach(b => { bookedCountMap[b.course_instance_id] = (bookedCountMap[b.course_instance_id] || 0) + 1; });
     instances.forEach(ci => { ci.booked_count = bookedCountMap[ci.id] || 0; });
   }
   window._profBookedIds = new Set((myBookings || []).map(b => b.course_instance_id));
