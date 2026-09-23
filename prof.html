@@ -446,9 +446,18 @@ async function loadPlanning() {
     const s = ci.courses?.salle === 'terre' ? 'terre' : 'air';
     byDate[ci.date][s].push(ci);
   });
+  Object.keys(byDate).forEach(d => {
+    const sortFn = (a, b) => {
+      const ta = (a.start_time || a.courses?.start_time || '00:00');
+      const tb = (b.start_time || b.courses?.start_time || '00:00');
+      return ta < tb ? -1 : ta > tb ? 1 : 0;
+    };
+    byDate[d].air.sort(sortFn);
+    byDate[d].terre.sort(sortFn);
+  });
 
   // Prochain cours
-  const allFuture = (instances||[]).filter(ci => ci.date >= fmt(today)).sort((a,b) => a.date.localeCompare(b.date) || a.courses?.start_time?.localeCompare(b.courses?.start_time));
+  const allFuture = (instances||[]).filter(ci => ci.date >= fmt(today)).sort((a,b) => a.date.localeCompare(b.date) || (a.start_time||a.courses?.start_time||'').localeCompare(b.start_time||b.courses?.start_time||''));
   const next = allFuture[0];
 
   document.getElementById('main-content').innerHTML = `
@@ -1470,7 +1479,7 @@ async function changePassword() {
   document.getElementById('pr-pwd').value = '';
 }
 
-const APP_VERSION = 'v357';
+const APP_VERSION = 'v358';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {

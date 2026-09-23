@@ -659,6 +659,13 @@ async function renderPlanning() {
     if (!byDate[ci.date]) byDate[ci.date] = [];
     byDate[ci.date].push(ci);
   });
+  Object.keys(byDate).forEach(d => {
+    byDate[d].sort((a, b) => {
+      const ta = (a.start_time || a.courses?.start_time || '00:00');
+      const tb = (b.start_time || b.courses?.start_time || '00:00');
+      return ta < tb ? -1 : ta > tb ? 1 : 0;
+    });
+  });
 
   const pillHtml = (ci) => {
     const c = ci.courses || {};
@@ -1207,11 +1214,6 @@ function openCourseModal(course, disciplines, teachers) {
       <input type="checkbox" id="m-heures-creuses" ${course?.heures_creuses ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🌅 Éligible aux forfaits Heures Creuses</label>
     </div>
-    ${!isNew ? `<div style="background:#fff3cd;border:2px solid #f0ad4e;border-radius:10px;padding:12px;margin-top:12px">
-      <div style="font-size:12px;font-weight:700;color:#856404;margin-bottom:6px">⏰ Changer l'heure à partir de :</div>
-      <input type="date" id="m-from-date" style="width:100%;padding:8px;border:1px solid #f0ad4e;border-radius:6px;font-size:14px;box-sizing:border-box">
-      <div style="font-size:11px;color:#856404;margin-top:4px">Laisser vide = changer toutes les séances futures</div>
-    </div>` : ''}
     <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
       ${!isNew ? `<button class="btn btn-primary" onclick="saveCourse(${course.id})" style="flex:1">Enregistrer</button>
       <button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : `<button class="btn btn-primary" onclick="saveCourse(null)" style="flex:1">Créer le cours</button>`}
@@ -1319,24 +1321,7 @@ async function saveCourse(id) {
   let error;
 
   if (id) {
-    const fromDate = (document.getElementById('m-from-date')?.value || '').trim();
-    const { start_time: _, ...dataWithoutTime } = data;
-
-    if (fromDate) {
-      const { error: rpcErr } = await db.rpc('apply_course_time_change', {
-        p_course_id: id,
-        p_new_time: data.start_time,
-        p_from_date: fromDate,
-      });
-      if (rpcErr) return showToast('Erreur : ' + rpcErr.message, true);
-    } else {
-      const { error: rpcErr } = await db.rpc('reset_course_start_time', {
-        p_course_id: id,
-        p_new_time: data.start_time,
-      });
-      if (rpcErr) return showToast('Erreur : ' + rpcErr.message, true);
-    }
-    ({ error } = await db.from('courses').update(dataWithoutTime).eq('id', id));
+    ({ error } = await db.from('courses').update(data).eq('id', id));
   } else {
     const { data: inserted, error: insertErr } = await db.from('courses').insert(data).select('id').single();
     error = insertErr;
@@ -2940,7 +2925,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
-const APP_VERSION = 'v357';
+const APP_VERSION = 'v358';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
