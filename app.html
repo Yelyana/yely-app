@@ -804,6 +804,9 @@ function showApp() {
     navigate('boutique');
     if (typeof fbq !== 'undefined') fbq('track', 'Purchase', { currency: 'EUR' });
     setTimeout(() => showToast('🎉 Paiement confirmé ! Ton forfait est activé.'), 500);
+  } else if (hash === '#reserver') {
+    window.location.hash = '';
+    navigate('reserver');
   } else if (hash.startsWith('#reserver') && hash.includes('course=')) {
     const courseId = hash.replace(/.*course=/, '').split('&')[0];
     window.location.hash = '';
