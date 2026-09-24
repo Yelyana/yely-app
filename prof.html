@@ -560,16 +560,17 @@ async function openSeance(instanceId) {
   const { data: ci } = await db.from('course_instances')
     .select('*, start_time, courses(custom_name, start_time, duration_minutes, max_students, level, description, disciplines(name,color))')
     .eq('id', instanceId).single();
-  const { data: bookings } = await db.from('bookings')
-    .select('*, profiles(full_name, phone)')
-    .eq('course_instance_id', instanceId).eq('status','confirmed');
+  const [{ data: bookings }, { data: cpVisits }] = await Promise.all([
+    db.from('bookings').select('*, profiles(full_name, phone)').eq('course_instance_id', instanceId).eq('status','confirmed'),
+    db.from('classpass_visits').select('*, converted:converted_student_id(full_name)').eq('course_instance_id', instanceId),
+  ]);
 
   const color = ci?.courses?.disciplines?.color || '#a78bfa';
   const name = ci?.courses?.custom_name || ci?.courses?.disciplines?.name || 'Cours';
   const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}) : '';
   const present = (bookings||[]).filter(b => b.attended === true).length;
   const absent = (bookings||[]).filter(b => b.attended === false).length;
-  const total = (bookings||[]).length;
+  const total = (bookings||[]).length + (cpVisits||[]).length;
 
   document.getElementById('modal-body').innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
@@ -625,6 +626,13 @@ async function openSeance(instanceId) {
             background:${b.attended===false?'var(--red)':'var(--bg3)'};color:${b.attended===false?'#fff':'var(--text3)'}">✗</button>
         </div>
       </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:16px 0">Aucune élève inscrite</div>'}
+    ${(cpVisits||[]).length ? cpVisits.map(v => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:500">${esc(v.converted?.full_name || v.visitor_name || 'ClassPass')}</div>
+          <div style="font-size:11px;color:#a78bfa;margin-top:2px">ClassPass</div>
+        </div>
+      </div>`).join('') : ''}
 
     <div class="section-title" style="margin-top:16px">Note sur cette séance</div>
     <textarea id="seance-note" rows="3" placeholder="Ambiance, points à améliorer, élèves à surveiller…" style="width:100%;margin-bottom:8px">${esc(ci?.note || '')}</textarea>
@@ -1479,7 +1487,7 @@ async function changePassword() {
   document.getElementById('pr-pwd').value = '';
 }
 
-const APP_VERSION = 'v358';
+const APP_VERSION = 'v359';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
