@@ -805,7 +805,8 @@ async function viewInstance(id) {
   let suggestedFeeCents = null;
   if (rateGrid && !ci?.teacher_fee_waived) {
     const teacherIds = new Set((allTeachers || []).map(t => t.id));
-    const count = (bookings || []).filter(b => !teacherIds.has(b.student_id)).length + (classpassVisits || []).length;
+    const regularBookings = (bookings || []).filter(b => !teacherIds.has(b.student_id));
+    const count = regularBookings.length + regularBookings.filter(b => b.guest_name).length + (classpassVisits || []).length;
     const entries = Object.entries(rateGrid).map(([k,v]) => [parseInt(k), v]).sort((a,b) => a[0]-b[0]);
     for (const [threshold, amount] of entries) {
       if (count >= threshold) suggestedFeeCents = amount;
@@ -829,7 +830,7 @@ async function viewInstance(id) {
       </div>
     </div>` : ''}
     <div style="margin-bottom:20px">
-      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inscrits (${(bookings?.length || 0) + (classpassVisits?.length || 0)}/${c.max_students || '?'})</div>
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inscrits (${(bookings?.length || 0) + (bookings||[]).filter(b=>b.guest_name).length + (classpassVisits?.length || 0)}/${c.max_students || '?'})</div>
       ${bookings?.length ? bookings.map(b => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
           <span style="font-size:13px">${esc(b.profiles?.full_name)}${b.children?.first_name ? ` <span style="font-size:11px;color:var(--violet-light);background:rgba(155,125,219,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">👧 ${esc(b.children.first_name)}</span>` : ''}${b.payment_method === 'especes_pending' ? ` <span style="font-size:11px;color:#f5c842;background:rgba(245,200,66,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">💵 espèces</span>` : b.payment_method === 'especes' ? ` <span style="font-size:11px;color:#7dbf9b;background:rgba(125,191,155,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">💵 encaissé</span>` : ''}${b.guest_name ? `<br><span style="font-size:12px">🎁 ${esc(b.guest_name)} <span style="font-size:11px;color:#a78bfa;background:rgba(155,125,219,0.15);padding:2px 6px;border-radius:10px;margin-left:4px">invité(e)</span></span>` : ''}</span>
@@ -2925,7 +2926,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
-const APP_VERSION = 'v363';
+const APP_VERSION = 'v364';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
