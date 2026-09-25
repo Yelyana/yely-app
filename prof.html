@@ -561,7 +561,7 @@ async function openSeance(instanceId) {
     .select('*, start_time, courses(custom_name, start_time, duration_minutes, max_students, level, description, disciplines(name,color))')
     .eq('id', instanceId).single();
   const [{ data: bookings }, { data: cpVisits }] = await Promise.all([
-    db.from('bookings').select('*, profiles(full_name, phone)').eq('course_instance_id', instanceId).eq('status','confirmed'),
+    db.from('bookings').select('*, profiles(full_name, phone), guest_name').eq('course_instance_id', instanceId).eq('status','confirmed'),
     db.from('classpass_visits').select('*, converted:converted_student_id(full_name)').eq('course_instance_id', instanceId),
   ]);
 
@@ -616,6 +616,7 @@ async function openSeance(instanceId) {
             <span style="font-size:11px;color:var(--text3)">${esc(b.profiles.phone)}</span>
             <a href="https://wa.me/${b.profiles.phone.replace(/\D/g,'')}" target="_blank" style="font-size:10px;color:#25d366;text-decoration:none">WhatsApp</a>
           </div>` : ''}
+          ${b.guest_name ? `<div style="font-size:12px;color:#a78bfa;margin-top:2px">🎁 ${esc(b.guest_name)} <span style="font-size:10px;opacity:0.7">invité(e)</span></div>` : ''}
         </div>
         <div style="display:flex;gap:6px">
           <button onclick="profMarkAttendance('${b.id}',true,'${instanceId}')"
@@ -1487,7 +1488,7 @@ async function changePassword() {
   document.getElementById('pr-pwd').value = '';
 }
 
-const APP_VERSION = 'v362';
+const APP_VERSION = 'v363';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
