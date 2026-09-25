@@ -805,7 +805,7 @@ async function viewInstance(id) {
   let suggestedFeeCents = null;
   if (rateGrid && !ci?.teacher_fee_waived) {
     const teacherIds = new Set((allTeachers || []).map(t => t.id));
-    const count = (bookings || []).filter(b => !teacherIds.has(b.student_id)).length;
+    const count = (bookings || []).filter(b => !teacherIds.has(b.student_id)).length + (classpassVisits || []).length;
     const entries = Object.entries(rateGrid).map(([k,v]) => [parseInt(k), v]).sort((a,b) => a[0]-b[0]);
     for (const [threshold, amount] of entries) {
       if (count >= threshold) suggestedFeeCents = amount;
@@ -2925,7 +2925,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
-const APP_VERSION = 'v359';
+const APP_VERSION = 'v360';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
