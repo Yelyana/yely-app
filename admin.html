@@ -1659,6 +1659,15 @@ async function openStudentDetail(studentId) {
         <input type="checkbox" id="fondatrice-toggle" ${student.is_fondatrice ? 'checked' : ''} onchange="toggleFondatrice('${studentId}', this.checked)" style="width:18px;height:18px;cursor:pointer">
       </label>
     </div>
+    <div style="margin-bottom:16px;padding:12px;background:var(--bg);border-radius:10px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:13px;font-weight:500">🎁 Accès offert</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Tous les cours gratuits, sans limite</div>
+      </div>
+      <label style="display:flex;align-items:center;cursor:pointer;gap:8px">
+        <input type="checkbox" id="complimentary-toggle" ${student.complimentary_access ? 'checked' : ''} onchange="toggleComplimentary('${studentId}', this.checked)" style="width:18px;height:18px;cursor:pointer">
+      </label>
+    </div>
 
     <div style="margin-bottom:16px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Notes privées</div>
@@ -2813,8 +2822,9 @@ async function openActiveSubsModal() {
   const { data } = await db.from('subscriptions')
     .select('*, profiles(id, full_name), products(name)')
     .eq('status', 'active')
+    .neq('products.name', 'Accès offert')
     .order('created_at', { ascending: false });
-  const rows = (data || []).map(s => {
+  const rows = (data || []).filter(s => s.products?.name !== 'Accès offert').map(s => {
     const name = esc(s.profiles?.full_name || '—');
     const prod = esc(s.products?.name || '—');
     const used = s.sessions_used_this_month ?? 0;
@@ -2994,7 +3004,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
-const APP_VERSION = 'v373';
+const APP_VERSION = 'v374';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
