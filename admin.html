@@ -340,6 +340,8 @@ async function loadDashboard() {
     { data: allStudents },
     { data: topCredits },
     { data: activePracticeSessions },
+    { count: activeSubsCount },
+    { count: activeCardsCount },
   ] = await Promise.all([
     db.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student').neq('full_name', 'Compte supprimé'),
     db.from('bookings').select('*', { count: 'exact', head: true }).gte('booked_at', monthStart).eq('status', 'confirmed'),
@@ -350,6 +352,8 @@ async function loadDashboard() {
     db.from('profiles').select('id, full_name, birthday, created_at').eq('role', 'student').neq('full_name', 'Compte supprimé'),
     db.from('student_credits').select('products(name), sessions_total').gte('purchased_at', monthStart),
     db.from('practice_sessions').select('*, profiles(full_name)').eq('status', 'active'),
+    db.from('subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+    db.from('student_credits').select('*', { count: 'exact', head: true }).gt('sessions_remaining', 0),
   ]);
 
   const bookingsTrend = bookingsLastMonth > 0 ? Math.round((bookingsMonth - bookingsLastMonth) / bookingsLastMonth * 100) : null;
@@ -412,7 +416,7 @@ async function loadDashboard() {
       <div style="font-size:13px">Anniversaire${birthdays.length>1?'s':''} cette semaine : <strong>${birthdays.map(s=>esc(s.full_name)).join(', ')}</strong></div>
     </div>` : ''}
 
-    <div class="grid-3" style="margin-bottom:20px">
+    <div class="grid-3" style="margin-bottom:12px">
       <div class="stat-card" style="cursor:pointer" onclick="showPage('eleves')">
         <div class="stat-val">${totalStudents || 0}</div>
         <div class="stat-lbl">Élèves inscrites</div>
@@ -429,6 +433,17 @@ async function loadDashboard() {
           return joined >= threeWeeksAgo;
         }).length}</div>
         <div class="stat-lbl">Nouvelles ce mois</div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:20px">
+      <div class="stat-card" style="cursor:pointer" onclick="showPage('forfaits')">
+        <div class="stat-val" style="color:#7dbf9b">${activeSubsCount || 0}</div>
+        <div class="stat-lbl">Abonnements actifs</div>
+      </div>
+      <div class="stat-card" style="cursor:pointer" onclick="showPage('forfaits')">
+        <div class="stat-val" style="color:#a78bfa">${activeCardsCount || 0}</div>
+        <div class="stat-lbl">Cartes avec séances restantes</div>
       </div>
     </div>
 
@@ -2926,7 +2941,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
-const APP_VERSION = 'v370';
+const APP_VERSION = 'v371';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
