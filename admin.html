@@ -2151,6 +2151,10 @@ async function loadProfs() {
     const nextMonday = new Date();
     nextMonday.setDate(nextMonday.getDate() + 14);
     const { data: myCourses } = await db.from('course_instances_with_availability').select('*').eq('teacher_id', currentUser.id).gte('date', localDateStr(new Date())).lte('date', localDateStr(nextMonday)).order('date').order('start_time');
+    const myIds = (myCourses||[]).map(ci => ci.id);
+    const { data: myCpVisits } = myIds.length ? await db.from('classpass_visits').select('course_instance_id').in('course_instance_id', myIds) : { data: [] };
+    const myCpMap = {};
+    (myCpVisits||[]).forEach(v => { myCpMap[v.course_instance_id] = (myCpMap[v.course_instance_id] || 0) + 1; });
     document.getElementById('teacher-courses').innerHTML = myCourses?.length ? `
       <div class="card">
         <table>
@@ -2160,7 +2164,7 @@ async function loadProfs() {
               <td>${formatDate(ci.date)}</td>
               <td>${ci.discipline_name}</td>
               <td>${ci.start_time?.slice(0,5)}</td>
-              <td><span class="badge badge-violet">${ci.booked_count} / ${ci.max_students}</span></td>
+              <td><span class="badge badge-violet">${(ci.booked_count||0) + (myCpMap[ci.id]||0)} / ${ci.max_students}</span></td>
             </tr>`).join('')}
           </tbody>
         </table>
@@ -3011,7 +3015,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
-const APP_VERSION = 'v392';
+const APP_VERSION = 'v393';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
