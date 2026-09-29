@@ -2371,8 +2371,15 @@ async function openTeacherPlanning(teacherId) {
     .order('date')
     .order('start_time');
 
+  const instanceIds = (instances||[]).map(ci => ci.id);
+  const { data: cpVisits } = instanceIds.length
+    ? await db.from('classpass_visits').select('course_instance_id').in('course_instance_id', instanceIds)
+    : { data: [] };
+  const cpMap = {};
+  (cpVisits||[]).forEach(v => { cpMap[v.course_instance_id] = (cpMap[v.course_instance_id] || 0) + 1; });
+
   const countMap = {};
-  (instances||[]).forEach(ci => { countMap[ci.id] = ci.booked_count || 0; });
+  (instances||[]).forEach(ci => { countMap[ci.id] = (ci.booked_count || 0) + (cpMap[ci.id] || 0); });
 
   const el = document.getElementById('tplanning-rows');
   if (!el) return;
@@ -3004,7 +3011,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
-const APP_VERSION = 'v391';
+const APP_VERSION = 'v392';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
