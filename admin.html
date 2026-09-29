@@ -650,13 +650,15 @@ async function renderPlanning() {
   }
 
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const [{ data: instances }, { data: cpVisits }] = await Promise.all([
-    db.from('course_instances')
-      .select('*, start_time, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name)), bookings(id,status), replacement:replacement_teacher_id(full_name)')
-      .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
-      .neq('status', 'cancelled').order('date').order('courses(start_time)'),
-    db.from('classpass_visits').select('course_instance_id').gte('created_at', fmt(rangeStart)).lte('created_at', fmt(rangeEnd) + 'T23:59:59'),
-  ]);
+  const { data: instances } = await db.from('course_instances')
+    .select('*, start_time, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name)), bookings(id,status), replacement:replacement_teacher_id(full_name)')
+    .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
+    .neq('status', 'cancelled').order('date').order('courses(start_time)');
+
+  const planningIds = (instances || []).map(ci => ci.id);
+  const { data: cpVisits } = planningIds.length
+    ? await db.from('classpass_visits').select('course_instance_id').in('course_instance_id', planningIds)
+    : { data: [] };
   const cpCountMap = {};
   (cpVisits || []).forEach(v => { cpCountMap[v.course_instance_id] = (cpCountMap[v.course_instance_id] || 0) + 1; });
 
@@ -3015,7 +3017,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
-const APP_VERSION = 'v393';
+const APP_VERSION = 'v394';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
