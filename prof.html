@@ -1329,12 +1329,15 @@ async function loadStats() {
   const totalBookings = (bookings||[]).length;
   const presentRate = totalBookings > 0 ? Math.round(totalPresent / totalBookings * 100) : 0;
 
-  // Revenus par mois
+  // Revenus réels depuis teacher_revenue (même source que l'admin)
+  const { data: teacherRevenue } = await db.from('teacher_revenue').select('*').eq('teacher_id', currentUser.id).order('month', { ascending: false });
   const revenueByMonth = {};
   mergedAllInstances.forEach(ci => {
     const m = ci.date.slice(0,7);
     revenueByMonth[m] = (revenueByMonth[m] || 0) + 1;
   });
+  const revenueMap = {};
+  (teacherRevenue||[]).forEach(r => { revenueMap[r.month?.slice(0,7)] = r; });
   const sortedMonths = Object.keys(revenueByMonth).sort().reverse();
 
   // Stats par cours (mois en cours)
@@ -1373,7 +1376,8 @@ async function loadStats() {
         <tbody>
           ${sortedMonths.length ? sortedMonths.map((m,i) => {
             const count = revenueByMonth[m];
-            const amount = count * 50;
+            const rev = revenueMap[m];
+            const amount = rev ? (rev.amount_owed_cents != null ? rev.amount_owed_cents/100 : (rev.amount_owed ?? '—')) : '—';
             const isCurrentMonth = m === today.slice(0,7);
             return `<tr style="border-top:1px solid var(--border);${isCurrentMonth ? 'font-weight:600' : ''}">
               <td style="padding:10px 14px;color:${isCurrentMonth ? 'var(--accent)' : 'var(--text1)'}">${fmtMonth(m)}${isCurrentMonth ? ' ●' : ''}</td>
@@ -1488,7 +1492,7 @@ async function changePassword() {
   document.getElementById('pr-pwd').value = '';
 }
 
-const APP_VERSION = 'v394';
+const APP_VERSION = 'v395';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
