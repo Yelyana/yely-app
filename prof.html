@@ -702,8 +702,14 @@ async function saveSeanceNote(instanceId) {
 }
 
 async function profMarkAttendance(bookingId, attended, instanceId) {
-  const { error } = await db.from('bookings').update({ attended }).eq('id', bookingId);
-  if (error) return showToast(error.message, true);
+  const { data: { session } } = await db.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/mark-attendance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ bookingId, attended, instanceId }),
+  });
+  const json = await res.json();
+  if (!res.ok) return showToast(json.error || 'Erreur', true);
   openSeance(instanceId);
 }
 
@@ -1492,7 +1498,7 @@ async function changePassword() {
   document.getElementById('pr-pwd').value = '';
 }
 
-const APP_VERSION = 'v395';
+const APP_VERSION = 'v396';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
