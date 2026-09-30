@@ -568,8 +568,8 @@ async function openSeance(instanceId) {
   const color = ci?.courses?.disciplines?.color || '#a78bfa';
   const name = ci?.courses?.custom_name || ci?.courses?.disciplines?.name || 'Cours';
   const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}) : '';
-  const present = (bookings||[]).filter(b => b.attended === true).length;
-  const absent = (bookings||[]).filter(b => b.attended === false).length;
+  const present = (bookings||[]).filter(b => b.attended === true).length + (cpVisits||[]).filter(v => v.attended === true).length;
+  const absent = (bookings||[]).filter(b => b.attended === false).length + (cpVisits||[]).filter(v => v.attended === false).length;
   const total = (bookings||[]).length + (cpVisits||[]).length;
 
   document.getElementById('modal-body').innerHTML = `
@@ -632,6 +632,14 @@ async function openSeance(instanceId) {
         <div>
           <div style="font-size:13px;font-weight:500">${esc(v.converted?.full_name || v.visitor_name || 'ClassPass')}</div>
           <div style="font-size:11px;color:#a78bfa;margin-top:2px">ClassPass</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="profMarkCpAttendance('${v.id}',true,'${instanceId}')"
+            style="padding:5px 10px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:500;
+            background:${v.attended===true?'var(--green)':'var(--bg3)'};color:${v.attended===true?'#fff':'var(--text3)'}">✓</button>
+          <button onclick="profMarkCpAttendance('${v.id}',false,'${instanceId}')"
+            style="padding:5px 10px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:500;
+            background:${v.attended===false?'var(--red)':'var(--bg3)'};color:${v.attended===false?'#fff':'var(--text3)'}">✗</button>
         </div>
       </div>`).join('') : ''}
 
@@ -707,6 +715,18 @@ async function profMarkAttendance(bookingId, attended, instanceId) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
     body: JSON.stringify({ bookingId, attended, instanceId }),
+  });
+  const json = await res.json();
+  if (!res.ok) return showToast(json.error || 'Erreur', true);
+  openSeance(instanceId);
+}
+
+async function profMarkCpAttendance(cpVisitId, attended, instanceId) {
+  const { data: { session } } = await db.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/mark-attendance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ cpVisitId, attended, instanceId }),
   });
   const json = await res.json();
   if (!res.ok) return showToast(json.error || 'Erreur', true);
@@ -1498,7 +1518,7 @@ async function changePassword() {
   document.getElementById('pr-pwd').value = '';
 }
 
-const APP_VERSION = 'v396';
+const APP_VERSION = 'v397';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
