@@ -48,6 +48,48 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .screen-auth { display: none; flex: 1; overflow-y: auto; padding: 32px 24px; }
 .screen-auth.active { display: flex; flex-direction: column; }
 
+/* ── COURSE PREVIEW WALL ── */
+#course-preview-wall {
+  display: none;
+  position: fixed; inset: 0; z-index: 200;
+  flex-direction: column;
+}
+#course-preview-wall.visible { display: flex; }
+.preview-bg {
+  position: absolute; inset: 0;
+  background: var(--bg2);
+  overflow-y: auto;
+  padding: 0 0 260px;
+}
+.preview-blur-top {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 320px;
+  background: linear-gradient(to bottom, transparent 0%, var(--bg) 55%);
+  pointer-events: none; z-index: 1;
+}
+.preview-course-card {
+  margin: 0; padding: 0;
+}
+.preview-auth-sheet {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: var(--bg);
+  border-radius: 22px 22px 0 0;
+  border-top: 1px solid var(--border);
+  padding: 1.5rem 1.5rem calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
+  z-index: 2;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.35);
+}
+.preview-pill {
+  width: 36px; height: 4px; background: var(--border);
+  border-radius: 2px; margin: 0 auto 1.2rem;
+}
+.preview-auth-title {
+  font-size: 1rem; font-weight: 600; color: var(--text1); margin-bottom: 0.3rem; text-align: center;
+}
+.preview-auth-sub {
+  font-size: 0.82rem; color: var(--text3); text-align: center; margin-bottom: 1.2rem;
+}
+.preview-auth-btns { display: flex; flex-direction: column; gap: 0.6rem; }
+
 /* ── STATUS BAR ── */
 .status-bar { height: env(safe-area-inset-top, 24px); background: var(--bg); flex-shrink: 0; }
 
@@ -306,6 +348,23 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
       </div>
     </div>
   </nav>
+
+  <!-- COURSE PREVIEW WALL (visible sans connexion quand on arrive via un lien de cours) -->
+  <div id="course-preview-wall">
+    <div class="preview-bg">
+      <div id="preview-course-content" style="padding:16px"></div>
+    </div>
+    <div class="preview-blur-top"></div>
+    <div class="preview-auth-sheet">
+      <div class="preview-pill"></div>
+      <div class="preview-auth-title">Connecte-toi pour réserver</div>
+      <div class="preview-auth-sub" id="preview-auth-sub">Crée ton compte gratuitement ou connecte-toi pour réserver ce cours.</div>
+      <div class="preview-auth-btns">
+        <button class="btn btn-primary" onclick="previewGoAuth('signup')" style="width:100%">Créer mon compte</button>
+        <button class="btn btn-ghost" onclick="previewGoAuth('login')" style="width:100%">Se connecter</button>
+      </div>
+    </div>
+  </div>
 
   <!-- AUTH SCREENS -->
   <div id="screen-auth" class="screen-auth active">
@@ -774,7 +833,68 @@ function navigate(screen) {
   if (screen === 'practice') loadPractice();
 }
 
+// ── COURSE PREVIEW WALL ──────────────────────────────────
+let _previewCourseId = null;
+
+async function showCoursePreviewWall(courseInstanceId) {
+  _previewCourseId = courseInstanceId;
+  const wall = document.getElementById('course-preview-wall');
+  const content = document.getElementById('preview-course-content');
+  wall.classList.add('visible');
+
+  // Charger les infos du cours publiquement (pas besoin d'être connecté)
+  const { data: ci } = await db.from('course_instances_with_availability')
+    .select('*').eq('id', courseInstanceId).single();
+
+  if (!ci) {
+    content.innerHTML = '<div style="color:var(--text3);text-align:center;padding:2rem">Cours introuvable</div>';
+    return;
+  }
+
+  const discColor = ci.discipline_color || '#a78bfa';
+  const date = ci.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
+  const time = ci.start_time ? ci.start_time.slice(0,5) : '';
+  const spots = (ci.max_students || 0) - (ci.booked_count || 0);
+  const spotsLabel = spots <= 0 ? 'Complet' : spots === 1 ? '1 place restante' : `${spots} places restantes`;
+  const spotsColor = spots <= 0 ? 'var(--red)' : spots <= 2 ? '#f59e0b' : 'var(--green)';
+
+  content.innerHTML = `
+    <div style="margin-bottom:12px;padding-top:12px">
+      <div style="display:inline-flex;align-items:center;gap:6px;background:${discColor}22;border:1px solid ${discColor}44;border-radius:8px;padding:4px 10px;margin-bottom:16px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${discColor};display:inline-block"></span>
+        <span style="font-size:12px;font-weight:600;color:${discColor}">${esc(ci.discipline_name || '')}</span>
+      </div>
+      <div style="font-size:1.25rem;font-weight:700;color:var(--text1);margin-bottom:4px">${esc(ci.custom_name || ci.discipline_name)}</div>
+      <div style="font-size:0.88rem;color:var(--text2);margin-bottom:12px;text-transform:capitalize">${date}${time ? ' · ' + time : ''}</div>
+      ${ci.level ? `<div style="font-size:12px;color:var(--text3);margin-bottom:8px">Niveau : ${esc(ci.level)}</div>` : ''}
+      <div style="font-size:12px;font-weight:600;color:${spotsColor};margin-bottom:16px">${spotsLabel}</div>
+      ${ci.description ? `<div style="font-size:0.9rem;color:var(--text2);line-height:1.7;white-space:pre-wrap;filter:blur(3px);user-select:none">${esc(ci.description.slice(0,300))}…</div>` : ''}
+    </div>
+  `;
+
+  document.getElementById('preview-auth-sub').textContent =
+    `Connecte-toi pour réserver ce cours du ${date}${time ? ' à ' + time : ''}.`;
+}
+
+function previewGoAuth(tab) {
+  document.getElementById('course-preview-wall').classList.remove('visible');
+  showAuth();
+  // Pré-sélectionner l'onglet inscription ou connexion
+  if (typeof switchAuthTab === 'function') switchAuthTab(tab);
+}
+
+function hideCoursePreviewWall() {
+  document.getElementById('course-preview-wall').classList.remove('visible');
+  _previewCourseId = null;
+}
+
 function showAuth() {
+  // Si on a un cours en preview, montrer le wall plutôt que l'écran vide
+  const hash = window.location.hash;
+  if (hash.startsWith('#preview=') && !document.getElementById('course-preview-wall').classList.contains('visible')) {
+    const id = hash.replace('#preview=', '').split('&')[0];
+    if (id) { showCoursePreviewWall(id); return; }
+  }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-auth').classList.add('active');
   document.getElementById('bottom-nav').style.display = 'none';
@@ -783,8 +903,26 @@ function showAuth() {
 
 function showApp() {
   document.getElementById('screen-auth').classList.remove('active');
+  hideCoursePreviewWall();
   document.getElementById('bottom-nav').style.display = 'flex';
   document.getElementById('desktop-sidebar').style.removeProperty('display');
+
+  // Redirection automatique vers la réservation si on venait d'un lien de cours
+  if (_previewCourseId) {
+    const id = _previewCourseId;
+    _previewCourseId = null;
+    window.location.hash = '';
+    navigate('reserver');
+    setTimeout(async () => {
+      const { data: ci } = await db.from('course_instances_with_availability').select('*').eq('id', id).single();
+      if (!ci) return;
+      const { data: myBooking } = await db.from('bookings').select('status').eq('course_instance_id', id).eq('student_id', currentUser.id).maybeSingle();
+      const { data: myWait } = await db.from('waitlist').select('position').eq('course_instance_id', id).eq('student_id', currentUser.id).maybeSingle();
+      openBookingModal(ci, myBooking?.status || '', !!myWait, myWait?.position || null);
+    }, 600);
+    return;
+  }
+
   const params = new URLSearchParams(window.location.search);
   const waitlistToken = params.get('waitlist_token');
   const waitlistAction = params.get('action');
@@ -4034,6 +4172,11 @@ async function loadUserProfile(user) {
 }
 
 (async () => {
+  // Capturer le hash #preview= avant tout
+  const initHash = window.location.hash;
+  if (initHash.startsWith('#preview=')) {
+    _previewCourseId = initHash.replace('#preview=', '').split('&')[0] || null;
+  }
   const session = (await db.auth.getSession())?.data?.session;
   if (session?.user) {
     await loadUserProfile(session.user);
