@@ -878,9 +878,9 @@ async function showCoursePreviewWall(courseInstanceId) {
 }
 
 function previewGoAuth(tab) {
-  document.getElementById('course-preview-wall').classList.remove('visible');
+  history.replaceState(null, '', window.location.pathname);
+  hideCoursePreviewWall();
   showAuth();
-  // Pré-sélectionner l'onglet inscription ou connexion
   if (typeof switchAuthTab === 'function') switchAuthTab(tab);
 }
 
