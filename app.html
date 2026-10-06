@@ -841,6 +841,7 @@ async function showCoursePreviewWall(courseInstanceId) {
   const wall = document.getElementById('course-preview-wall');
   const content = document.getElementById('preview-course-content');
   wall.classList.add('visible');
+  document.getElementById('bottom-nav').style.display = 'none';
 
   // Charger les infos du cours publiquement (pas besoin d'être connecté)
   const { data: ci } = await db.from('course_instances_with_availability')
@@ -885,6 +886,7 @@ function previewGoAuth(tab) {
 
 function hideCoursePreviewWall() {
   document.getElementById('course-preview-wall').classList.remove('visible');
+  document.getElementById('bottom-nav').style.display = '';
   _previewCourseId = null;
 }
 
