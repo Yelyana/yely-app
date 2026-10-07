@@ -1119,54 +1119,13 @@ async function loadHome() {
     }
   }
 
-  loadPracticeHomeWidget();
 }
 
 async function loadPracticeHomeWidget() {
   const card = document.getElementById('practice-home-card');
-  if (!card) return;
-
-  const [{ data: activeSession }, { data: credits }, { data: subs }] = await Promise.all([
-    db.from('practice_sessions').select('*').eq('student_id', currentUser.id).eq('status', 'active').maybeSingle(),
-    db.from('student_credits').select('*, products(type)').eq('student_id', currentUser.id).gt('sessions_remaining', 0),
-    db.from('subscriptions').select('*, products(type)').eq('student_id', currentUser.id).eq('status', 'active'),
-  ]);
-
-  const practiceCredit = (credits || []).find(c => c.products?.for_practice);
-  const illimiteSub = (subs || []).find(s => s.products?.type === 'abo_illimite');
-  const hasPracticeAccess = practiceCredit || illimiteSub;
+  if (card) card.style.display = 'none';
   const deskBtn = document.getElementById('desk-nav-practice');
-
-  if (activeSession) {
-    if (deskBtn) deskBtn.style.display = 'flex';
-    const elapsed = Math.floor((Date.now() - new Date(activeSession.started_at)) / 1000);
-    const m = Math.floor(elapsed / 60);
-    card.style.display = 'block';
-    card.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1030,#0d0820);border-color:rgba(139,107,78,0.4);cursor:pointer" onclick="navigate('practice')">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div class="section-label" style="color:#8B6B4E;margin-bottom:4px">🦇 Session en cours</div>
-          <div class="serif" style="font-size:20px;color:var(--ivoire);font-weight:300">${m} min</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:2px">Depuis ${new Date(activeSession.started_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
-        </div>
-        <div style="background:rgba(139,107,78,0.2);border:1px solid rgba(139,107,78,0.4);border-radius:10px;padding:10px 16px;font-size:13px;color:#8B6B4E">Terminer →</div>
-      </div>
-    </div>`;
-  } else if (hasPracticeAccess) {
-    if (deskBtn) deskBtn.style.display = 'flex';
-    const label = illimiteSub ? 'Accès illimité ✨' : `${practiceCredit.sessions_remaining} crédit${practiceCredit.sessions_remaining > 1 ? 's' : ''}`;
-    card.style.display = 'block';
-    card.innerHTML = `<div class="card card-sm" style="background:rgba(139,107,78,0.07);border-color:rgba(139,107,78,0.25);cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="navigate('practice')">
-      <div>
-        <div style="font-size:12px;color:#8B6B4E;font-weight:600;letter-spacing:0.5px;margin-bottom:2px">🦇 PRACTICE LIBRE</div>
-        <div style="font-size:13px;color:var(--text2)">${label} disponible</div>
-      </div>
-      <div style="font-size:18px;color:rgba(139,107,78,0.6)">→</div>
-    </div>`;
-  } else {
-    if (deskBtn) deskBtn.style.display = 'none';
-    card.style.display = 'none';
-  }
+  if (deskBtn) deskBtn.style.display = 'none';
 }
 
 function renderQuickFeelings(bookingId, instanceId) {
@@ -1454,7 +1413,7 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
     const endStr = `${String(endH).padStart(2,'0')}h${String(endM).padStart(2,'0')}`;
     const startStr = `${String(h).padStart(2,'0')}h${String(m).padStart(2,'0')}`;
     return `
-      <div class="cours-card" onclick="navigate('practice')" style="cursor:pointer;border-color:rgba(139,107,78,0.35);background:rgba(139,107,78,0.06)">
+      <div class="cours-card" onclick="openBookingModal(${JSON.stringify(ci).replace(/"/g,'&quot;')},'${myStatus||''}',${myWaitlist||false},null)" style="cursor:pointer;border-color:rgba(139,107,78,0.35);background:rgba(139,107,78,0.06)">
         <div style="display:flex;gap:12px;align-items:stretch">
           <div class="cours-bar" style="background:#8B6B4E"></div>
           <div style="flex:1">
@@ -1465,7 +1424,7 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
             <div class="cours-time" style="color:#a07850">${startStr} → ${endStr}</div>
             <div class="cours-meta" style="margin-top:4px">🦇 Salle Air · viens quand tu veux dans le créneau</div>
             ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${(esc(ci.description).match(/^[^.!?]+[.!?]/) || [esc(ci.description)])[0].trim()}</div>` : ''}
-            <div style="font-size:11px;color:#8B6B4E;margin-top:6px;font-weight:500">→ Démarrer une session</div>
+            <div style="font-size:11px;color:#8B6B4E;margin-top:6px;font-weight:500">→ Réserver ma place</div>
           </div>
         </div>
       </div>
