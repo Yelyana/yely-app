@@ -1384,6 +1384,17 @@ async function loadCoursesForDay(date) {
     })),
     ...(cancelledData || []).map(ci => {
       const wasEnrolled = myCancelledSet.has(ci.id);
+      const [ch, cm] = (ci.start_time || '00:00').split(':').map(Number);
+      const cancelEnd = new Date(ci.date + 'T' + String(ch).padStart(2,'0') + ':' + String(cm).padStart(2,'0') + ':00');
+      cancelEnd.setMinutes(cancelEnd.getMinutes() + (ci.duration_minutes || 60));
+      const cancelPast = cancelEnd.getTime() <= Date.now();
+      const badgeLabel = cancelPast ? 'Terminé' : 'Pas ce jour';
+      const badgeStyle = cancelPast
+        ? 'background:rgba(200,200,200,0.12);color:var(--text3)'
+        : 'background:rgba(232,122,122,0.15);color:var(--red)';
+      const subText = cancelPast
+        ? (wasEnrolled ? 'Ta séance t\'a été rendue automatiquement.' : 'Ce cours n\'a pas eu lieu.')
+        : (wasEnrolled ? 'Ta séance t\'a été rendue automatiquement.' : 'Ce cours n\'a pas lieu aujourd\'hui.');
       return {
         time: ci.start_time || '00:00',
         html: `
@@ -1396,9 +1407,9 @@ async function loadCoursesForDay(date) {
             <div style="font-size:12px;color:var(--text3)">${(ci.start_time || '')?.slice(0,5) || ''}</div>
           </div>
         </div>
-        <span style="font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(232,122,122,0.15);color:var(--red);font-weight:600">Pas ce jour</span>
+        <span style="font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600;${badgeStyle}">${badgeLabel}</span>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:4px">${wasEnrolled ? 'Ta séance t\'a été rendue automatiquement.' : 'Ce cours n\'a pas lieu aujourd\'hui.'}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">${subText}</div>
     </div>`,
       };
     }),
