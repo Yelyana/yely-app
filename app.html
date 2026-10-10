@@ -1436,12 +1436,11 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
   const isWaiting = myWaitlist === true;
   const spotsClass = ci.spots_remaining > 3 ? '' : ci.spots_remaining > 0 ? 'low' : 'full';
   const enrolled = ci.max_students != null ? ci.max_students - (ci.spots_remaining || 0) : null;
-  const spotsText = isFull
-    ? (enrolled != null ? `${enrolled}/${ci.max_students} · Complet` : 'Complet')
+  const spotsText = isFull ? 'Complet'
     : ci.spots_remaining === 1 ? '⚡ Plus qu\'1 place !'
     : ci.spots_remaining === 2 ? '⚡ Plus que 2 places'
     : ci.spots_remaining === 3 ? '⚡ Plus que 3 places'
-    : (enrolled != null ? `${enrolled}/${ci.max_students}` : `${ci.spots_remaining} places`);
+    : '';
   const salleInfo = { air: { label: 'Air', color: '#5B9BD5', emoji: '🦇' }, terre: { label: 'Terre', color: '#5A9370', emoji: '🌿' } }[ci.salle] || { label: ci.salle || 'Salle', color: 'var(--text3)', emoji: '' };
   const salleBg = ci.salle === 'air' ? 'rgba(91,155,213,0.06)' : ci.salle === 'terre' ? 'rgba(90,147,112,0.06)' : 'transparent';
   return `
@@ -1453,7 +1452,7 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
         <div style="flex:1">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
             <div class="cours-name">${esc(ci.custom_name || ci.discipline_name || 'Cours')}</div>
-            <div class="spots-pill ${spotsClass}">${spotsText}</div>
+            ${spotsText ? `<div class="spots-pill ${spotsClass}">${spotsText}</div>` : ''}
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
             <div class="cours-time">${formatTime(ci.start_time)}</div>
