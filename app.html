@@ -1367,7 +1367,15 @@ async function loadCoursesForDay(date) {
   const practiceMap = {};
   const hcMapDay = {};
   (practiceFlags || []).forEach(c => { practiceMap[c.id] = c.is_practice; hcMapDay[c.id] = c.heures_creuses; });
-  (data || []).forEach(ci => { ci.is_practice = practiceMap[ci.course_id] || false; ci.heures_creuses = hcMapDay[ci.course_id] || false; });
+  (data || []).forEach(ci => {
+    ci.is_practice = practiceMap[ci.course_id] || false;
+    ci.heures_creuses = hcMapDay[ci.course_id] || false;
+    const [h, m] = (ci.start_time || '00:00').split(':').map(Number);
+    const dur = ci.duration_minutes || 60;
+    const courseEnd = new Date(ci.date + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00');
+    courseEnd.setMinutes(courseEnd.getMinutes() + dur);
+    ci._isPast = courseEnd.getTime() <= Date.now();
+  });
 
   const allCards = [
     ...(data || []).map(ci => ({
@@ -1443,16 +1451,20 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
     : '';
   const salleInfo = { air: { label: 'Air', color: '#5B9BD5', emoji: '🦇' }, terre: { label: 'Terre', color: '#5A9370', emoji: '🌿' } }[ci.salle] || { label: ci.salle || 'Salle', color: 'var(--text3)', emoji: '' };
   const salleBg = ci.salle === 'air' ? 'rgba(91,155,213,0.06)' : ci.salle === 'terre' ? 'rgba(90,147,112,0.06)' : 'transparent';
+  const pastStyle = ci._isPast ? 'opacity:0.55;' : '';
+  const pillDisplay = ci._isPast
+    ? `<div class="spots-pill full">Terminé</div>`
+    : spotsText ? `<div class="spots-pill ${spotsClass}">${spotsText}</div>` : '';
   return `
     <div class="cours-card ${isBooked ? 'selected' : ''}"
-         style="background:${salleBg}"
+         style="background:${salleBg};${pastStyle}"
          onclick="openBookingModal(${JSON.stringify(ci).replace(/"/g, '&quot;')}, '${myStatus || ''}', ${isWaiting}, ${waitlistPos || 'null'})">
       <div style="display:flex;gap:12px;align-items:stretch">
         <div class="cours-bar" style="background:${ci.discipline_color}"></div>
         <div style="flex:1">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
             <div class="cours-name">${esc(ci.custom_name || ci.discipline_name || 'Cours')}</div>
-            ${spotsText ? `<div class="spots-pill ${spotsClass}">${spotsText}</div>` : ''}
+            ${pillDisplay}
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
             <div class="cours-time">${formatTime(ci.start_time)}</div>
@@ -1478,6 +1490,19 @@ function openBookingModal(ci, myStatus, isWaiting, waitlistPos) {
   window._currentCi = ci;
   const name = ci.custom_name || ci.discipline_name;
   const isFull = ci.spots_remaining <= 0;
+
+  if (ci._isPast) {
+    const wasBooked = myStatus === 'confirmed';
+    document.getElementById('modal-content').innerHTML = `
+      <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${esc(name)}</h3>
+      <p style="color:var(--text3);font-size:13px;margin-bottom:20px">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${esc(ci.teacher_name||'')}</p>
+      <div class="card card-sm" style="background:rgba(200,200,200,0.08);border-color:var(--border);margin-bottom:20px">
+        <div style="font-size:13px;color:var(--text2)">${wasBooked ? '✓ Tu étais inscrite à ce cours.' : 'Ce cours est terminé.'}</div>
+      </div>
+      <button class="btn btn-ghost" onclick="closeModal()">Fermer</button>
+    `;
+    return;
+  }
 
   if (myStatus === 'confirmed') {
     document.getElementById('modal-content').innerHTML = `
