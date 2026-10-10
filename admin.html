@@ -792,7 +792,7 @@ async function viewInstance(id) {
     db.from('course_instances')
       .select('*, start_time, replacement_teacher_id, teacher_fee_waived, teacher_fee_override_cents, courses(id, custom_name, start_time, duration_minutes, max_students, discipline_id, teacher_id, day_of_week, level, description, salle, is_recurring, is_practice, event_date, disciplines(name,color), profiles(id, full_name)), replacement:replacement_teacher_id(id, full_name)')
       .eq('id', id).single(),
-    db.from('profiles').select('id, full_name, teacher_rate_grid').in('role', ['teacher','assistant']).order('full_name'),
+    db.from('profiles').select('id, full_name, teacher_rate_grid').in('role', ['teacher','assistant','admin']).order('full_name'),
   ]);
   const [{ data: bookings }, { data: classpassVisits }] = await Promise.all([
     db.from('bookings').select('*, profiles(full_name, email), children(first_name), guest_name').eq('course_instance_id', id).eq('status', 'confirmed'),
@@ -3018,7 +3018,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
-const APP_VERSION = 'v420';
+const APP_VERSION = 'v421';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
