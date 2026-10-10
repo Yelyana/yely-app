@@ -1392,9 +1392,9 @@ async function loadCoursesForDay(date) {
       const badgeStyle = cancelPast
         ? 'background:rgba(200,200,200,0.12);color:var(--text3)'
         : 'background:rgba(232,122,122,0.15);color:var(--red)';
-      const subText = cancelPast
-        ? (wasEnrolled ? 'Ta séance t\'a été rendue automatiquement.' : 'Ce cours n\'a pas eu lieu.')
-        : (wasEnrolled ? 'Ta séance t\'a été rendue automatiquement.' : 'Ce cours n\'a pas lieu aujourd\'hui.');
+      const subText = wasEnrolled
+        ? 'Ta séance t\'a été rendue automatiquement.'
+        : cancelPast ? '' : 'Ce cours n\'a pas lieu aujourd\'hui.';
       return {
         time: ci.start_time || '00:00',
         html: `
