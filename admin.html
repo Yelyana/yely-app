@@ -2326,16 +2326,30 @@ async function openTeacherPlanning(teacherId) {
     if (!revenue?.length) {
       revEl.innerHTML = `<div style="font-size:13px;color:var(--text3);font-style:italic;padding:8px 0">Aucun cours donné pour l'instant.</div>`;
     } else {
-      // Cours passés détaillés (3 derniers mois)
-      const { data: pastCourses } = await db.from('course_instances')
-        .select('id, date, start_time, teacher_fee_waived, teacher_fee_override_cents, status, courses!inner(custom_name, disciplines(name)), booked_count:bookings(count)')
-        .eq('courses.teacher_id', teacherId)
-        .neq('status', 'cancelled')
-        .lte('date', today)
-        .order('date', { ascending: false })
-        .limit(50);
+      // Cours passés détaillés (3 derniers mois) — prof titulaire sans remplaçant OU prof remplaçant
+      const [{ data: ownCourses }, { data: replacedCourses }] = await Promise.all([
+        db.from('course_instances')
+          .select('id, date, start_time, teacher_fee_waived, teacher_fee_override_cents, status, courses!inner(custom_name, disciplines(name)), booked_count:bookings(count)')
+          .eq('courses.teacher_id', teacherId)
+          .is('replacement_teacher_id', null)
+          .neq('status', 'cancelled')
+          .lte('date', today)
+          .order('date', { ascending: false })
+          .limit(50),
+        db.from('course_instances')
+          .select('id, date, start_time, teacher_fee_waived, teacher_fee_override_cents, status, courses!inner(custom_name, disciplines(name)), booked_count:bookings(count)')
+          .eq('replacement_teacher_id', teacherId)
+          .neq('status', 'cancelled')
+          .lte('date', today)
+          .order('date', { ascending: false })
+          .limit(50),
+      ]);
+      const seenPast = new Set();
+      const pastCourses = [...(ownCourses||[]), ...(replacedCourses||[])]
+        .filter(ci => { if (seenPast.has(ci.id)) return false; seenPast.add(ci.id); return true; })
+        .sort((a, b) => b.date.localeCompare(a.date));
       // Normaliser les champs pour compatibilité avec le rendu
-      (pastCourses || []).forEach(ci => {
+      pastCourses.forEach(ci => {
         ci.discipline_name = ci.courses?.disciplines?.name || '';
         ci.custom_name = ci.courses?.custom_name || '';
         ci.booked_count = Array.isArray(ci.booked_count) ? ci.booked_count[0]?.count : (ci.booked_count || 0);
@@ -3018,7 +3032,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
-const APP_VERSION = 'v426';
+const APP_VERSION = 'v427';
 (function() {
   const stored = localStorage.getItem('yely_app_version');
   if (stored && stored !== APP_VERSION) {
