@@ -95,7 +95,13 @@ async function login() {
   try {
     const res = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
     const json = await res.json();
-    if (!res.ok) { document.getElementById('err').textContent = json.error || 'Erreur'; return; }
+    if (!res.ok) {
+      const msg = json.error || json.message || `Erreur ${res.status}`;
+      document.getElementById('err').textContent = msg.includes('mardi_submissions')
+        ? '⚠ La table n\'existe pas encore — lance le SQL dans le dashboard Supabase.'
+        : msg;
+      return;
+    }
     savedPassword = pw;
     try { sessionStorage.setItem('mardi_pw', pw); } catch(e) {}
     showDashboard(json.data || []);
