@@ -984,22 +984,44 @@ async function shareNative() {
 
   try {
     const blob = await generateCardImage();
-    const file = new File([blob], 'mon-mardi-ideal-yely.png', { type: 'image/png' });
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Mon mardi idéal chez Yely' });
-      if (btn) { btn.textContent = 'Partager maintenant'; btn.style.opacity = '1'; }
-      return;
+    const file = new File([blob], 'mon-mardi-yely.png', { type: 'image/png' });
+
+    // Tente le partage avec image (sans vérifier canShare — pas fiable dans les WebViews)
+    if (navigator.share) {
+      try {
+        await navigator.share({ files: [file], title: 'Mon mardi idéal chez Yely' });
+        if (btn) { btn.textContent = 'Partager maintenant'; btn.style.opacity = '1'; }
+        return;
+      } catch(e) {
+        if (e.name === 'AbortError') {
+          // Annulé par l'utilisateur
+          if (btn) { btn.textContent = 'Partager maintenant'; btn.style.opacity = '1'; }
+          return;
+        }
+        // Files non supporté → on continue vers le download
+      }
     }
-  } catch(e) { /* non-supporté ou annulé */ }
+
+    // Fallback : ouvre l'image (sur iOS → long-press → Enregistrer dans Photos)
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mon-mardi-yely.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+
+  } catch(e) {
+    // Canvas a échoué → partage texte
+    if (navigator.share) {
+      navigator.share({ title: 'Mon mardi idéal chez Yely', text: buildShareText(), url: window.location.href }).catch(() => {});
+    } else {
+      copyGameLink();
+    }
+  }
 
   if (btn) { btn.textContent = 'Partager maintenant'; btn.style.opacity = '1'; }
-
-  // Fallback : partage texte
-  if (navigator.share) {
-    navigator.share({ title: 'Mon mardi idéal chez Yely', text: buildShareText(), url: window.location.href }).catch(() => {});
-    return;
-  }
-  copyGameLink();
 }
 
 async function generateCardImage() {
