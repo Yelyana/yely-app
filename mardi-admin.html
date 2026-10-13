@@ -83,6 +83,7 @@ h1 { font-family:'Cormorant Garamond',serif; font-size:32px; font-weight:300; ma
 
 <script>
 const API = 'https://xayixasuyuranscustyw.supabase.co/functions/v1/get-mardi-submissions';
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhheWl4YXN1eXVyYW5zY3VzdHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MjIwMTIsImV4cCI6MjA5ODE5ODAxMn0.Kp_cJd5YMtbFZnUvUhd-4wMf0enjcBWsGzjwQSnAPP4';
 let savedPassword = '';
 try { savedPassword = sessionStorage.getItem('mardi_pw') || ''; } catch(e) {}
 
@@ -93,7 +94,7 @@ async function login() {
   if (!pw) return;
   document.getElementById('err').textContent = '';
   try {
-    const res = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
+    const res = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+ANON}, body: JSON.stringify({ password: pw }) });
     const json = await res.json();
     if (!res.ok) {
       const msg = json.error || json.message || `Erreur ${res.status}`;
@@ -112,7 +113,7 @@ async function login() {
 
 async function refresh() {
   try {
-    const res = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: savedPassword }) });
+    const res = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+ANON}, body: JSON.stringify({ password: savedPassword }) });
     const json = await res.json();
     if (res.ok) showDashboard(json.data || []);
   } catch(e) {}
