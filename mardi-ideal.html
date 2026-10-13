@@ -940,6 +940,7 @@ async function submitToDb() {
 }
 
 async function renderThanks(app) {
+  if (!_submitted) { _submitted = true; submitToDb(); }
   app.innerHTML = `
   <div class="step" style="padding-top:28px">
     <div class="thanks-insta-cta">
@@ -976,7 +977,6 @@ async function renderThanks(app) {
 
 let _submitted = false;
 async function shareNative() {
-  if (!_submitted) { _submitted = true; submitToDb(); }
 
   // Génère l'image et tente le partage avec fichier (iOS 15+, Android Chrome)
   const btn = document.getElementById('btn-share-insta');
