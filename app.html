@@ -1897,6 +1897,26 @@ async function _doBookWithSub(instanceId, subId, childId) {
   if (!await checkReformerBookingWindow(instanceId)) return;
   const { data: sub } = await db.from('subscriptions').select('*, products(*)').eq('id', subId).eq('student_id', currentUser.id).single();
   if (!sub) return showToast('Abonnement introuvable', true);
+
+  // Vérification restriction horaire "Accès Journée" (9h–16h30, Lun–Ven)
+  if ((sub.products.name || '').toLowerCase().includes('journée') || (sub.products.name || '').toLowerCase().includes('journee')) {
+    const ci = window._currentCi;
+    if (ci?.start_time) {
+      const [h, m] = ci.start_time.split(':').map(Number);
+      const startMinutes = h * 60 + m;
+      if (startMinutes >= 16 * 60 + 30) {
+        return showToast('L\'Accès Journée est valable jusqu\'à 16h30. Ce cours est en dehors de tes horaires.', true);
+      }
+    }
+    // Vérification Lun–Ven
+    if (ci?.date) {
+      const dow = new Date(ci.date).getDay();
+      if (dow === 0 || dow === 6) {
+        return showToast('L\'Accès Journée est valable uniquement du lundi au vendredi.', true);
+      }
+    }
+  }
+
   if (sub.products.type === 'abo_mensuel' && sub.products.sessions_per_month && sub.sessions_used_this_month >= sub.products.sessions_per_month) {
     return showToast('Tu as utilisé toutes tes séances ce mois', true);
   }
