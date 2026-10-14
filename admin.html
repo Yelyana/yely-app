@@ -1535,6 +1535,7 @@ function renderEleves() {
       <div><div class="page-title">Élèves</div><div class="page-sub">${_allStudentsData.length} inscrite${_allStudentsData.length>1?'s':''}</div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-sm" style="background:var(--bg2);border:1px solid var(--border);color:var(--text2)" onclick="exportElevesCSV()">📥 Exporter CSV</button>
+        <button class="btn btn-sm" style="background:var(--bg2);border:1px solid var(--border);color:var(--text2)" onclick="openCreateStudent()">+ Nouvelle élève</button>
         <button class="btn btn-primary btn-sm" onclick="openGroupMessage()">📣 Message groupé</button>
       </div>
     </div>
@@ -2174,6 +2175,54 @@ async function loadProfs() {
       </div>
     ` : '<div style="color:var(--text3)">Pas de cours prévus sur les 2 prochaines semaines</div>';
   }
+}
+
+function openCreateStudent() {
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">Nouvelle élève</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+      <input id="cs-name" class="form-input" placeholder="Prénom Nom *" style="width:100%">
+      <input id="cs-email" class="form-input" placeholder="Email (optionnel)" type="email" style="width:100%">
+      <input id="cs-phone" class="form-input" placeholder="Téléphone (optionnel)" type="tel" style="width:100%">
+      <textarea id="cs-notes" class="form-input" rows="2" placeholder="Notes internes (optionnel)" style="width:100%;resize:vertical"></textarea>
+      <p style="font-size:12px;color:var(--text3);margin:0">Sans email : profil manuel uniquement, pas de connexion possible. Avec email : compte créé + email de bienvenue envoyé.</p>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="doCreateStudent()" style="flex:1">Créer</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function doCreateStudent() {
+  const name = document.getElementById('cs-name').value.trim();
+  const email = document.getElementById('cs-email').value.trim();
+  const phone = document.getElementById('cs-phone').value.trim();
+  const notes = document.getElementById('cs-notes').value.trim();
+  if (!name) return showToast('Le prénom/nom est requis', true);
+
+  const btn = document.querySelector('#modal-body .btn-primary');
+  btn.disabled = true; btn.textContent = 'Création…';
+
+  const adminSession = (await db.auth.getSession())?.data?.session;
+  const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-student-profile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminSession?.access_token}` },
+    body: JSON.stringify({ full_name: name, email: email || null, phone: phone || null, notes: notes || null }),
+  });
+  const json = await res.json();
+  if (!res.ok) { btn.disabled = false; btn.textContent = 'Créer'; return showToast(json.error || 'Erreur', true); }
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">✅ ${name} ajoutée !</div>
+    <div style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:16px;font-size:14px;line-height:1.8">
+      ${email ? `<div>📧 Email de bienvenue envoyé à <strong>${esc(email)}</strong></div>` : '<div>📋 Profil manuel créé — pas de compte de connexion</div>'}
+      ${phone ? `<div>📞 ${esc(phone)}</div>` : ''}
+    </div>
+    <button class="btn btn-primary" onclick="closeModal();navigate('eleves')" style="width:100%">Voir les élèves</button>
+  `;
+  loadAllStudents();
 }
 
 function openCreateTeacher() {
