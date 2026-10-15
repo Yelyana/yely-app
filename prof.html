@@ -419,13 +419,13 @@ async function loadPlanning() {
   const [{ data: myBookings }] = [{ data: myBookingsData }];
   if (instances?.length) {
     const instanceIds = instances.map(ci => ci.id);
-    const [{ data: weekBookings }, { data: weekClasspass }] = await Promise.all([
+    const [{ data: weekBookings }, { data: weekPartnerVisits }] = await Promise.all([
       db.from('bookings').select('course_instance_id').eq('status', 'confirmed').in('course_instance_id', instanceIds),
       db.from('classpass_visits').select('course_instance_id').in('course_instance_id', instanceIds),
     ]);
     const bookedCountMap = {};
     (weekBookings || []).forEach(b => { bookedCountMap[b.course_instance_id] = (bookedCountMap[b.course_instance_id] || 0) + 1; });
-    (weekClasspass || []).forEach(b => { bookedCountMap[b.course_instance_id] = (bookedCountMap[b.course_instance_id] || 0) + 1; });
+    (weekPartnerVisits || []).forEach(b => { bookedCountMap[b.course_instance_id] = (bookedCountMap[b.course_instance_id] || 0) + 1; });
     instances.forEach(ci => { ci.booked_count = bookedCountMap[ci.id] || 0; });
   }
   window._profBookedIds = new Set((myBookings || []).map(b => b.course_instance_id));
@@ -563,17 +563,19 @@ async function openSeance(instanceId) {
   const { data: ci } = await db.from('course_instances')
     .select('*, start_time, courses(custom_name, start_time, duration_minutes, max_students, level, description, disciplines(name,color))')
     .eq('id', instanceId).single();
-  const [{ data: bookings }, { data: cpVisits }] = await Promise.all([
+  const [{ data: bookings }, { data: allPartnerVisits }] = await Promise.all([
     db.from('bookings').select('*, profiles(full_name, phone), guest_name').eq('course_instance_id', instanceId).eq('status','confirmed'),
     db.from('classpass_visits').select('*, converted:converted_student_id(full_name)').eq('course_instance_id', instanceId),
   ]);
+  const cpVisits = (allPartnerVisits || []).filter(v => !v.source || v.source === 'classpass');
+  const wpVisits = (allPartnerVisits || []).filter(v => v.source === 'wellpass');
 
   const color = ci?.courses?.disciplines?.color || '#a78bfa';
   const name = ci?.courses?.custom_name || ci?.courses?.disciplines?.name || 'Cours';
   const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}) : '';
-  const present = (bookings||[]).filter(b => b.attended === true).length + (cpVisits||[]).filter(v => v.attended === true).length;
-  const absent = (bookings||[]).filter(b => b.attended === false).length + (cpVisits||[]).filter(v => v.attended === false).length;
-  const total = (bookings||[]).length + (cpVisits||[]).length;
+  const present = (bookings||[]).filter(b => b.attended === true).length + (allPartnerVisits||[]).filter(v => v.attended === true).length;
+  const absent = (bookings||[]).filter(b => b.attended === false).length + (allPartnerVisits||[]).filter(v => v.attended === false).length;
+  const total = (bookings||[]).length + (allPartnerVisits||[]).length;
 
   document.getElementById('modal-body').innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
@@ -634,7 +636,22 @@ async function openSeance(instanceId) {
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
         <div>
           <div style="font-size:13px;font-weight:500">${esc(v.converted?.full_name || v.visitor_name || 'ClassPass')}</div>
-          <div style="font-size:11px;color:#a78bfa;margin-top:2px">ClassPass</div>
+          <div style="font-size:11px;color:#fb923c;margin-top:2px">🟠 ClassPass</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="profMarkCpAttendance('${v.id}',true,'${instanceId}')"
+            style="padding:5px 10px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:500;
+            background:${v.attended===true?'var(--green)':'var(--bg3)'};color:${v.attended===true?'#fff':'var(--text3)'}">✓</button>
+          <button onclick="profMarkCpAttendance('${v.id}',false,'${instanceId}')"
+            style="padding:5px 10px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:500;
+            background:${v.attended===false?'var(--red)':'var(--bg3)'};color:${v.attended===false?'#fff':'var(--text3)'}">✗</button>
+        </div>
+      </div>`).join('') : ''}
+    ${(wpVisits||[]).length ? wpVisits.map(v => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:500">${esc(v.converted?.full_name || v.visitor_name || 'Wellpass')}</div>
+          <div style="font-size:11px;color:#3b82f6;margin-top:2px">🔵 Wellpass</div>
         </div>
         <div style="display:flex;gap:6px">
           <button onclick="profMarkCpAttendance('${v.id}',true,'${instanceId}')"
