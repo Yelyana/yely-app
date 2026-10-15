@@ -1395,7 +1395,7 @@ async function deleteCourse(id) {
   const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/delete-course', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
-    body: JSON.stringify({ course_id: id, admin_secret: 'yely2025' }),
+    body: JSON.stringify({ course_id: id }),
   });
   const json = await res.json();
   if (!res.ok) return showToast(json.error || `Erreur ${res.status}`, true);
