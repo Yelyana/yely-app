@@ -1391,12 +1391,18 @@ async function saveCourse(id) {
 }
 
 async function deleteCourse(id) {
-  if (!confirm('Supprimer ce cours et toutes ses instances futures ?')) return;
-  const { error: e1 } = await db.from('course_instances').delete().eq('course_id', id).gte('date', localDateStr(new Date()));
-  if (e1) return showToast('Erreur suppression instances : ' + e1.message, true);
-  const { error: e2 } = await db.from('courses').update({ is_active: false }).eq('id', id);
-  if (e2) return showToast('Erreur désactivation cours : ' + e2.message, true);
-  closeModal(); showToast('Cours supprimé'); loadPlanning();
+  if (!confirm('Supprimer ce cours et toutes ses séances futures ? Les élèves inscrites seront remboursées.')) return;
+  const { data: { session } } = await db.auth.getSession();
+  const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/delete-course', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+    body: JSON.stringify({ course_id: id }),
+  });
+  const json = await res.json();
+  if (!res.ok) return showToast(json.error || 'Erreur suppression', true);
+  closeModal();
+  showToast(`Cours supprimé (${json.instances_deleted} séance${json.instances_deleted !== 1 ? 's' : ''} annulée${json.instances_deleted !== 1 ? 's' : ''})`);
+  loadPlanning();
 }
 
 // ── ÉLÈVES ────────────────────────────────────────────────
