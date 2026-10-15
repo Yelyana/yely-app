@@ -1392,8 +1392,10 @@ async function saveCourse(id) {
 
 async function deleteCourse(id) {
   if (!confirm('Supprimer ce cours et toutes ses instances futures ?')) return;
-  await db.from('course_instances').delete().eq('course_id', id).gte('date', localDateStr(new Date()));
-  await db.from('courses').update({ is_active: false }).eq('id', id);
+  const { error: e1 } = await db.from('course_instances').delete().eq('course_id', id).gte('date', localDateStr(new Date()));
+  if (e1) return showToast('Erreur suppression instances : ' + e1.message, true);
+  const { error: e2 } = await db.from('courses').update({ is_active: false }).eq('id', id);
+  if (e2) return showToast('Erreur désactivation cours : ' + e2.message, true);
   closeModal(); showToast('Cours supprimé'); loadPlanning();
 }
 
