@@ -3324,7 +3324,7 @@ async function loadBoutique() {
   const discoveryBanner = `
     <div style="background:linear-gradient(135deg,rgba(155,125,219,0.15),rgba(125,191,155,0.1));border:1px solid rgba(155,125,219,0.3);border-radius:14px;padding:14px 16px;margin-bottom:16px">
       <div style="font-size:13px;font-weight:600;color:var(--violet-light);margin-bottom:4px">🦇 Cours découverte → ton premier forfait</div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.6">Commence par un cours découverte à <strong>18€</strong>. Si tu prends un abonnement ou une carte dans les 30 jours, les 18€ sont intégralement déduits.</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6">Commence par un cours découverte à <strong>18€</strong>. Si tu prends un abonnement ou une carte dans les 7 jours, les 18€ sont intégralement déduits.</div>
     </div>`;
 
   el.innerHTML = tabs + studentBanner + giftCardBanner + discoveryBanner +
@@ -3376,14 +3376,16 @@ async function confirmAndPay(productId, engagement, applyStudentDiscount = false
         db.from('profiles').select('discovery_discount_used_at').eq('id', currentUser.id).single(),
       ]);
       const NOW = new Date();
-      const AMNESTY_END = new Date('2026-09-30T23:59:59');
-      const isAmnesty = NOW <= AMNESTY_END;
-      const thirtyDaysAgo = new Date(NOW - 30 * 24 * 60 * 60 * 1000);
-      const hasActivePack = (creditsRes.data || []).some(c => {
-        if (!isAmnesty && (!c.purchased_at || new Date(c.purchased_at) < thirtyDaysAgo)) return false;
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      const discoveryCredit = (creditsRes.data || []).find(c => {
+        if (c.expires_at && new Date(c.expires_at) < NOW) return false;
         return /découverte/i.test(c.products?.name || '');
       });
-      hasDiscoveryPack = hasActivePack && !profRes.data?.discovery_discount_used_at;
+      const hasActivePack = !!discoveryCredit;
+      const withinSevenDays = discoveryCredit?.purchased_at
+        ? (NOW.getTime() - new Date(discoveryCredit.purchased_at).getTime()) <= SEVEN_DAYS_MS
+        : false;
+      hasDiscoveryPack = hasActivePack && withinSevenDays && !profRes.data?.discovery_discount_used_at;
     } catch(_) {}
   }
 
