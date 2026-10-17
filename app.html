@@ -2009,12 +2009,22 @@ async function bookWithCredit(instanceId, creditId) {
     <button class="btn btn-primary" id="confirm-book-btn" style="width:100%">Oui, réserver</button>
     <button class="btn btn-ghost" style="margin-top:8px" onclick="openCourseModal(${instanceId})">← Retour</button>
   `;
-  document.getElementById('confirm-book-btn').onclick = () => {
+  document.getElementById('confirm-book-btn').onclick = async (e) => {
+    const btn = e.currentTarget;
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'Réservation en cours…';
     const guestName = showPlusOne ? (document.getElementById('guest-name-input')?.value?.trim() || '') : '';
-    if (isKidsCourse(ci)) {
-      selectChildForBooking(instanceId, (childId) => _doBookWithCredit(instanceId, creditId, childId, guestName));
-    } else {
-      _doBookWithCredit(instanceId, creditId, null, guestName);
+    try {
+      if (isKidsCourse(ci)) {
+        await new Promise((resolve) => selectChildForBooking(instanceId, async (childId) => { await _doBookWithCredit(instanceId, creditId, childId, guestName); resolve(); }));
+      } else {
+        await _doBookWithCredit(instanceId, creditId, null, guestName);
+      }
+    } catch(err) {
+      showToast('Erreur inattendue, réessaie.', true);
+      btn.disabled = false;
+      btn.textContent = 'Oui, réserver';
     }
   };
 }
