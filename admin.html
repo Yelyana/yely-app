@@ -3036,8 +3036,14 @@ async function loadMerch() {
     products[pname].push(v);
   });
   const stockHtml = Object.entries(products).map(([pname, pvariants]) => `
-    <div style="margin-bottom:16px">
-      <div style="font-size:14px;font-weight:600;margin-bottom:8px">${esc(pname)}</div>
+    <div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:600">${esc(pname)}</div>
+        <button onclick="showMerchQR(${pvariants[0].merch_product_id||'null'},'${esc(pname)}',[${pvariants.map(v=>v.id).join(',')}])"
+          style="padding:5px 12px;border-radius:8px;border:1px solid var(--border);font-size:12px;background:var(--card);cursor:pointer;color:var(--text3)">
+          🔲 QR Code
+        </button>
+      </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${pvariants.map(v => `
           <button onclick="editMerchStock(${v.id},'${esc(v.color||'')}','${esc(v.size||'')}',${v.stock})"
@@ -3051,10 +3057,7 @@ async function loadMerch() {
     </div>`).join('');
 
   main.innerHTML = `
-    <div class="page-header">
-      <h1 class="page-title">Merch</h1>
-      <button onclick="openWalkInSale()" style="padding:8px 16px;background:var(--violet);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">💰 Vente au studio</button>
-    </div>
+    <div class="page-header"><h1 class="page-title">Merch</h1></div>
     <div style="max-width:800px">
       ${pendingCash.length ? `
         <div class="card" style="margin-bottom:20px;padding:20px">
@@ -3092,87 +3095,41 @@ async function confirmMerchPayment(orderId) {
   loadMerch();
 }
 
-let _walkInVariants = [];
+async function showMerchQR(productId, productName, variantIds) {
+  // Récupérer ou créer le payment link via edge function
+  showToast('Génération du QR code…');
+  const session = await getFreshSession();
+  if (!session) return showToast('Session expirée', true);
 
-async function openWalkInSale() {
-  const { data: variants } = await db.from('merch_variants').select('*, merch_products(name, price_cents)').gt('stock', 0).order('id');
-  _walkInVariants = variants || [];
-
-  if (!_walkInVariants.length) return showToast('Aucun article en stock', true);
-
-  const options = _walkInVariants.map(v => {
-    const name = v.merch_products?.name || '?';
-    const label = [v.color, v.size].filter(Boolean).join(' — ');
-    const price = ((v.merch_products?.price_cents || 0) / 100).toFixed(2).replace('.', ',');
-    return `<option value="${v.id}">${name}${label ? ' · ' + label : ''} — ${price} €</option>`;
-  }).join('');
+  const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-merch-payment-link', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ product_name: productName, variant_ids: variantIds }),
+  });
+  const { url, error } = await res.json();
+  if (error || !url) return showToast('Erreur : ' + (error || 'pas de lien'), true);
 
   document.getElementById('modal-body').innerHTML = `
-    <h2 style="margin:0 0 20px;font-size:18px">💰 Vente au studio</h2>
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div>
-        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:5px">Article</label>
-        <select id="wi-variant" style="width:100%;padding:9px 12px;border-radius:9px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:13px">${options}</select>
-      </div>
-      <div>
-        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:5px">Nom du client (optionnel)</label>
-        <input id="wi-name" type="text" placeholder="ex. Marie Dupont" style="width:100%;padding:9px 12px;border-radius:9px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:13px;box-sizing:border-box">
-      </div>
-      <div>
-        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:8px">Mode de paiement</label>
-        <div style="display:flex;gap:10px">
-          <button id="wi-cash" onclick="selectWalkInMethod('cash')" style="flex:1;padding:10px;border-radius:9px;border:2px solid var(--violet);background:rgba(155,125,219,0.15);color:var(--text);cursor:pointer;font-size:13px;font-weight:600">💵 Espèces</button>
-          <button id="wi-card" onclick="selectWalkInMethod('card')" style="flex:1;padding:10px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-size:13px">💳 Carte TPE</button>
-        </div>
-      </div>
-      <button onclick="confirmWalkInSale()" style="width:100%;padding:12px;background:var(--violet);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;margin-top:4px">Enregistrer la vente</button>
+    <h2 style="margin:0 0 4px;font-size:18px">🔲 QR Code — ${esc(productName)}</h2>
+    <p style="margin:0 0 20px;font-size:12px;color:var(--text3)">La cliente scanne pour payer directement sur Stripe</p>
+    <div id="qr-container" style="display:flex;justify-content:center;margin-bottom:16px"></div>
+    <div style="text-align:center;margin-bottom:16px">
+      <a href="${url}" target="_blank" style="font-size:11px;color:var(--violet-light);word-break:break-all">${url}</a>
     </div>
+    <button onclick="window.print()" style="width:100%;padding:10px;background:var(--violet);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">🖨️ Imprimer</button>
   `;
   openModal();
-  window._walkInMethod = 'cash';
-}
 
-function selectWalkInMethod(method) {
-  window._walkInMethod = method;
-  const cashBtn = document.getElementById('wi-cash');
-  const cardBtn = document.getElementById('wi-card');
-  if (!cashBtn || !cardBtn) return;
-  if (method === 'cash') {
-    cashBtn.style.cssText = 'flex:1;padding:10px;border-radius:9px;border:2px solid var(--violet);background:rgba(155,125,219,0.15);color:var(--text);cursor:pointer;font-size:13px;font-weight:600';
-    cardBtn.style.cssText = 'flex:1;padding:10px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-size:13px';
-  } else {
-    cardBtn.style.cssText = 'flex:1;padding:10px;border-radius:9px;border:2px solid var(--violet);background:rgba(155,125,219,0.15);color:var(--text);cursor:pointer;font-size:13px;font-weight:600';
-    cashBtn.style.cssText = 'flex:1;padding:10px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-size:13px';
-  }
-}
-
-async function confirmWalkInSale() {
-  const variantId = parseInt(document.getElementById('wi-variant').value);
-  const customerName = document.getElementById('wi-name').value.trim();
-  const method = window._walkInMethod || 'cash';
-
-  const variant = _walkInVariants.find(v => v.id === variantId);
-  if (!variant) return showToast('Article introuvable', true);
-  if (variant.stock <= 0) return showToast('Plus en stock', true);
-
-  const { error: orderErr } = await db.from('merch_orders').insert({
-    variant_id: variantId,
-    quantity: 1,
-    unit_price_cents: variant.merch_products?.price_cents || 0,
-    payment_method: method === 'cash' ? 'cash' : 'card_tpe',
-    status: 'paid',
-    student_name: customerName || 'Vente au studio',
-    product_name: variant.merch_products?.name || '',
-    variant_label: [variant.color, variant.size].filter(Boolean).join(' — '),
-  });
-
-  if (orderErr) return showToast('Erreur : ' + orderErr.message, true);
-
-  await db.from('merch_variants').update({ stock: variant.stock - 1 }).eq('id', variantId);
-
-  closeModal();
-  showToast('Vente enregistrée ✓');
-  loadMerch();
+  // Générer le QR code
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  script.onload = () => {
+    new QRCode(document.getElementById('qr-container'), {
+      text: url, width: 200, height: 200,
+      colorDark: '#1a0a2e', colorLight: '#ffffff',
+    });
+  };
+  document.head.appendChild(script);
 }
 
 async function cancelMerchOrder(orderId) {
