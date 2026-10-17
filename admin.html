@@ -3107,7 +3107,7 @@ async function openWalkInSale() {
     return `<option value="${v.id}">${name}${label ? ' · ' + label : ''} — ${price} €</option>`;
   }).join('');
 
-  showModal(`
+  document.getElementById('modal-body').innerHTML = `
     <h2 style="margin:0 0 20px;font-size:18px">💰 Vente au studio</h2>
     <div style="display:flex;flex-direction:column;gap:14px">
       <div>
@@ -3127,7 +3127,8 @@ async function openWalkInSale() {
       </div>
       <button onclick="confirmWalkInSale()" style="width:100%;padding:12px;background:var(--violet);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;margin-top:4px">Enregistrer la vente</button>
     </div>
-  `);
+  `;
+  openModal();
   window._walkInMethod = 'cash';
 }
 
