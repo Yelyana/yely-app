@@ -3051,7 +3051,10 @@ async function loadMerch() {
     </div>`).join('');
 
   main.innerHTML = `
-    <div class="page-header"><h1 class="page-title">Merch</h1></div>
+    <div class="page-header">
+      <h1 class="page-title">Merch</h1>
+      <button onclick="openWalkInSale()" style="padding:8px 16px;background:var(--violet);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">💰 Vente au studio</button>
+    </div>
     <div style="max-width:800px">
       ${pendingCash.length ? `
         <div class="card" style="margin-bottom:20px;padding:20px">
@@ -3086,6 +3089,88 @@ async function confirmMerchPayment(orderId) {
   const { error } = await db.from('merch_orders').update({ status: 'paid' }).eq('id', orderId);
   if (error) return showToast(error.message, true);
   showToast('Paiement confirmé ✓');
+  loadMerch();
+}
+
+let _walkInVariants = [];
+
+async function openWalkInSale() {
+  const { data: variants } = await db.from('merch_variants').select('*, merch_products(name, price_cents)').gt('stock', 0).order('id');
+  _walkInVariants = variants || [];
+
+  if (!_walkInVariants.length) return showToast('Aucun article en stock', true);
+
+  const options = _walkInVariants.map(v => {
+    const name = v.merch_products?.name || '?';
+    const label = [v.color, v.size].filter(Boolean).join(' — ');
+    const price = ((v.merch_products?.price_cents || 0) / 100).toFixed(2).replace('.', ',');
+    return `<option value="${v.id}">${name}${label ? ' · ' + label : ''} — ${price} €</option>`;
+  }).join('');
+
+  showModal(`
+    <h2 style="margin:0 0 20px;font-size:18px">💰 Vente au studio</h2>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:5px">Article</label>
+        <select id="wi-variant" style="width:100%;padding:9px 12px;border-radius:9px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:13px">${options}</select>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:5px">Nom du client (optionnel)</label>
+        <input id="wi-name" type="text" placeholder="ex. Marie Dupont" style="width:100%;padding:9px 12px;border-radius:9px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:13px;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:8px">Mode de paiement</label>
+        <div style="display:flex;gap:10px">
+          <button id="wi-cash" onclick="selectWalkInMethod('cash')" style="flex:1;padding:10px;border-radius:9px;border:2px solid var(--violet);background:rgba(155,125,219,0.15);color:var(--text);cursor:pointer;font-size:13px;font-weight:600">💵 Espèces</button>
+          <button id="wi-card" onclick="selectWalkInMethod('card')" style="flex:1;padding:10px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-size:13px">💳 Carte TPE</button>
+        </div>
+      </div>
+      <button onclick="confirmWalkInSale()" style="width:100%;padding:12px;background:var(--violet);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;margin-top:4px">Enregistrer la vente</button>
+    </div>
+  `);
+  window._walkInMethod = 'cash';
+}
+
+function selectWalkInMethod(method) {
+  window._walkInMethod = method;
+  const cashBtn = document.getElementById('wi-cash');
+  const cardBtn = document.getElementById('wi-card');
+  if (!cashBtn || !cardBtn) return;
+  if (method === 'cash') {
+    cashBtn.style.cssText = 'flex:1;padding:10px;border-radius:9px;border:2px solid var(--violet);background:rgba(155,125,219,0.15);color:var(--text);cursor:pointer;font-size:13px;font-weight:600';
+    cardBtn.style.cssText = 'flex:1;padding:10px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-size:13px';
+  } else {
+    cardBtn.style.cssText = 'flex:1;padding:10px;border-radius:9px;border:2px solid var(--violet);background:rgba(155,125,219,0.15);color:var(--text);cursor:pointer;font-size:13px;font-weight:600';
+    cashBtn.style.cssText = 'flex:1;padding:10px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-size:13px';
+  }
+}
+
+async function confirmWalkInSale() {
+  const variantId = parseInt(document.getElementById('wi-variant').value);
+  const customerName = document.getElementById('wi-name').value.trim();
+  const method = window._walkInMethod || 'cash';
+
+  const variant = _walkInVariants.find(v => v.id === variantId);
+  if (!variant) return showToast('Article introuvable', true);
+  if (variant.stock <= 0) return showToast('Plus en stock', true);
+
+  const { error: orderErr } = await db.from('merch_orders').insert({
+    variant_id: variantId,
+    quantity: 1,
+    unit_price_cents: variant.merch_products?.price_cents || 0,
+    payment_method: method === 'cash' ? 'cash' : 'card_tpe',
+    status: 'paid',
+    student_name: customerName || 'Vente au studio',
+    product_name: variant.merch_products?.name || '',
+    variant_label: [variant.color, variant.size].filter(Boolean).join(' — '),
+  });
+
+  if (orderErr) return showToast('Erreur : ' + orderErr.message, true);
+
+  await db.from('merch_variants').update({ stock: variant.stock - 1 }).eq('id', variantId);
+
+  closeModal();
+  showToast('Vente enregistrée ✓');
   loadMerch();
 }
 
