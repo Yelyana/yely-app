@@ -3096,18 +3096,18 @@ async function confirmMerchPayment(orderId) {
 }
 
 async function showMerchQR(productId, productName, variantIds) {
-  // Récupérer ou créer le payment link via edge function
   showToast('Génération du QR code…');
-  const session = await getFreshSession();
-  if (!session) return showToast('Session expirée', true);
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) return showToast('Session expirée', true);
 
-  const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-merch-payment-link', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-    body: JSON.stringify({ product_name: productName, variant_ids: variantIds }),
-  });
-  const { url, error } = await res.json();
-  if (error || !url) return showToast('Erreur : ' + (error || 'pas de lien'), true);
+    const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-merch-payment-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ product_name: productName, variant_ids: variantIds }),
+    });
+    const { url, error } = await res.json();
+    if (error || !url) return showToast('Erreur : ' + (error || 'pas de lien'), true);
 
   document.getElementById('modal-body').innerHTML = `
     <h2 style="margin:0 0 4px;font-size:18px">🔲 QR Code — ${esc(productName)}</h2>
@@ -3130,6 +3130,9 @@ async function showMerchQR(productId, productName, variantIds) {
     });
   };
   document.head.appendChild(script);
+  } catch(e) {
+    showToast('Erreur : ' + e.message, true);
+  }
 }
 
 async function cancelMerchOrder(orderId) {
