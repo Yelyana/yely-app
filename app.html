@@ -878,8 +878,10 @@ async function showCoursePreviewWall(courseInstanceId) {
 }
 
 function previewGoAuth(tab) {
+  const savedId = _previewCourseId;
   history.replaceState(null, '', window.location.pathname);
   hideCoursePreviewWall();
+  _previewCourseId = savedId; // restaurer après hideCoursePreviewWall qui l'efface
   showAuth();
   if (typeof switchAuthTab === 'function') switchAuthTab(tab);
 }
