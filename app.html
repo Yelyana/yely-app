@@ -703,6 +703,8 @@ async function loginWithGoogle() {
 }
 
 async function login() {
+  // Petit délai pour laisser l'autofill Instagram/Safari injecter les valeurs
+  await new Promise(r => setTimeout(r, 80));
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   if (!email || !password) return showToast('Remplis tous les champs', true);
