@@ -386,8 +386,8 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
         <span style="font-size:12px;color:var(--text3)">ou avec ton email</span>
         <div style="flex:1;height:1px;background:var(--border)"></div>
       </div>
-      <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="ton@email.com" autocomplete="email" onkeydown="if(event.key==='Enter'){login()}"></div>
-      <div class="form-group"><label>Mot de passe</label><input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter'){login()}"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="ton@email.com" autocomplete="email" oninput="_loginEmail=this.value" onchange="_loginEmail=this.value" onkeydown="if(event.key==='Enter'){login()}"></div>
+      <div class="form-group"><label>Mot de passe</label><input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" oninput="_loginPwd=this.value" onchange="_loginPwd=this.value" onkeydown="if(event.key==='Enter'){login()}"></div>
       <button type="button" class="btn btn-primary" onclick="login()">Se connecter</button>
       <button type="button" class="btn btn-ghost" style="margin-top:10px" onclick="forgotPassword()">Mot de passe oublié ?</button>
     </form>
@@ -703,13 +703,16 @@ async function loginWithGoogle() {
 }
 
 async function login() {
-  // Petit délai pour laisser l'autofill Instagram/Safari injecter les valeurs
-  await new Promise(r => setTimeout(r, 80));
-  const email = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
+  // Délai pour laisser l'autofill Instagram/Safari injecter les valeurs
+  await new Promise(r => setTimeout(r, 150));
+  // _loginEmail/_loginPwd sont mis à jour via oninput/onchange (fiable sur Instagram)
+  // On tombe en fallback sur .value si l'utilisateur a tapé directement sans autofill
+  const email = (typeof _loginEmail !== 'undefined' && _loginEmail ? _loginEmail : document.getElementById('login-email').value).trim();
+  const password = typeof _loginPwd !== 'undefined' && _loginPwd ? _loginPwd : document.getElementById('login-password').value;
   if (!email || !password) return showToast('Remplis tous les champs', true);
   const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) return showToast(error.message || 'Identifiants incorrects', true);
+  _loginEmail = ''; _loginPwd = '';
   // Ne pas appeler showApp() ici — onAuthStateChange(SIGNED_IN) le fait,
   // ce qui évite le double appel qui écrase la navigation vers un cours partagé.
   await loadUserProfile(data.user);
@@ -838,6 +841,7 @@ function navigate(screen) {
 
 // ── COURSE PREVIEW WALL ──────────────────────────────────
 let _previewCourseId = null;
+let _loginEmail = '', _loginPwd = '';
 
 async function showCoursePreviewWall(courseInstanceId) {
   _previewCourseId = courseInstanceId;
