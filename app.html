@@ -926,6 +926,11 @@ function showApp() {
   }
 
   const params = new URLSearchParams(window.location.search);
+  if (params.get('workshop_paid') === '1') {
+    window.history.replaceState({}, '', window.location.pathname);
+    navigate('reserver');
+    setTimeout(() => showToast('🎉 Paiement confirmé ! Ta place au workshop est réservée.'), 500);
+  }
   const waitlistToken = params.get('waitlist_token');
   const waitlistAction = params.get('action');
   if (waitlistToken && (waitlistAction === 'accept' || waitlistAction === 'refuse')) {
@@ -1568,8 +1573,43 @@ async function leaveWaitlist(instanceId) {
   loadCours();
 }
 
+async function bookWorkshop(instanceId) {
+  showToast('Redirection vers le paiement…');
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) return showToast('Session expirée', true);
+    const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-workshop-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ instance_id: instanceId }),
+    });
+    const { url, error } = await res.json();
+    if (error || !url) return showToast('Erreur : ' + (error || 'pas de lien'), true);
+    window.location.href = url;
+  } catch(e) {
+    showToast('Erreur : ' + e.message, true);
+  }
+}
+
 async function loadBookingForm(ci) {
   const name = ci.custom_name || ci.discipline_name || 'Cours';
+
+  // Workshop avec prix unique → bouton de paiement direct, pas de sélection de crédit
+  if (ci.workshop_price_cents) {
+    const price = (ci.workshop_price_cents / 100).toFixed(2).replace('.', ',');
+    document.getElementById('modal-content').innerHTML = `
+      <h3 class="serif" style="font-size:20px;margin-bottom:8px">${esc(name)}</h3>
+      <div style="background:var(--bg2);border-radius:12px;padding:14px;margin-bottom:16px">
+        <div style="font-size:13px;color:var(--violet-light);font-weight:600;margin-bottom:4px">🎟 Workshop — prix unique</div>
+        <div style="font-size:22px;font-weight:700;color:var(--text)">${price} €</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Non accessible via tes abonnements ou cartes</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="bookWorkshop(${ci.id})">Payer ${price} € et réserver</button>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="openCourseModal(${ci.id})">← Retour</button>
+    `;
+    return;
+  }
+
   // Déterminer les forfaits compatibles
   // is_reformer vient du JOIN disciplines (peut être null si discipline_id non renseigné) → fallback sur custom_name
   const isReformer = ci.is_reformer || /reformer/i.test(ci.custom_name || ci.discipline_name || '');

@@ -1254,6 +1254,16 @@ function openCourseModal(course, disciplines, teachers) {
       <input type="checkbox" id="m-heures-creuses" ${course?.heures_creuses ? 'checked' : ''} style="width:auto">
       <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🌅 Éligible aux forfaits Heures Creuses</label>
     </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-top:4px">
+      <input type="checkbox" id="m-is-workshop" ${course?.workshop_price_cents ? 'checked' : ''} style="width:auto" onchange="document.getElementById('workshop-price-row').style.display=this.checked?'flex':'none'">
+      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px">🎟 Workshop / prix unique (non accessible via abonnements)</label>
+    </div>
+    <div id="workshop-price-row" class="form-row" style="display:${course?.workshop_price_cents ? 'flex' : 'none'};margin-top:4px">
+      <div class="form-group">
+        <label>Prix du workshop (€)</label>
+        <input type="number" id="m-workshop-price" value="${course?.workshop_price_cents ? (course.workshop_price_cents / 100).toFixed(2) : ''}" min="1" step="0.01" placeholder="Ex: 35">
+      </div>
+    </div>
     <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
       ${!isNew ? `<button class="btn btn-primary" onclick="saveCourse(${course.id})" style="flex:1">Enregistrer</button>
       <button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">Supprimer</button>` : `<button class="btn btn-primary" onclick="saveCourse(null)" style="flex:1">Créer le cours</button>`}
@@ -1356,6 +1366,9 @@ async function saveCourse(id) {
     is_kids_course: document.getElementById('m-kids-course').checked,
     is_practice: document.getElementById('m-is-practice').checked,
     heures_creuses: document.getElementById('m-heures-creuses').checked,
+    workshop_price_cents: document.getElementById('m-is-workshop').checked
+      ? Math.round(parseFloat(document.getElementById('m-workshop-price').value || '0') * 100) || null
+      : null,
   };
 
   let courseId = id;
