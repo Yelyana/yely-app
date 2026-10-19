@@ -1602,8 +1602,17 @@ async function loadBookingForm(ci) {
   // Workshop avec prix unique → bouton de paiement direct, pas de sélection de crédit
   if (ci.workshop_price_cents) {
     const price = (ci.workshop_price_cents / 100).toFixed(2).replace('.', ',');
+    const descHtml = ci.description ? (() => {
+      const full = esc(ci.description).replace(/\n/g, '<br>');
+      const first = (ci.description.match(/^[^.!?]+[.!?]/) || [ci.description])[0].trim();
+      const hasMore = ci.description.trim().length > first.length + 3;
+      return `<div style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:16px">
+        ${esc(first)}${hasMore ? `<span id="desc-more-ws"> <button onclick="document.getElementById('desc-rest-ws').style.display='inline';this.style.display='none'" style="background:none;border:none;color:var(--violet-light);font-size:13px;cursor:pointer;padding:0">Lire la suite…</button><span id="desc-rest-ws" style="display:none">${full.slice(esc(first).length)}</span></span>` : ''}
+      </div>`;
+    })() : '';
     document.getElementById('modal-content').innerHTML = `
       <h3 class="serif" style="font-size:20px;margin-bottom:8px">${esc(name)}</h3>
+      ${descHtml}
       <div style="background:var(--bg2);border-radius:12px;padding:14px;margin-bottom:16px">
         <div style="font-size:13px;color:var(--violet-light);font-weight:600;margin-bottom:4px">🎟 Workshop — prix unique</div>
         <div style="font-size:22px;font-weight:700;color:var(--text)">${price} €</div>
