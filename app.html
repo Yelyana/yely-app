@@ -708,8 +708,9 @@ async function login() {
   if (!email || !password) return showToast('Remplis tous les champs', true);
   const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) return showToast(error.message || 'Identifiants incorrects', true);
+  // Ne pas appeler showApp() ici — onAuthStateChange(SIGNED_IN) le fait,
+  // ce qui évite le double appel qui écrase la navigation vers un cours partagé.
   await loadUserProfile(data.user);
-  showApp();
 }
 
 async function signup() {
