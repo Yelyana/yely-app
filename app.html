@@ -1610,7 +1610,11 @@ async function loadBookingForm(ci) {
         ${esc(first)}${hasMore ? `<span id="desc-more-ws"> <button onclick="document.getElementById('desc-rest-ws').style.display='inline';this.style.display='none'" style="background:none;border:none;color:var(--violet-light);font-size:13px;cursor:pointer;padding:0">Lire la suite…</button><span id="desc-rest-ws" style="display:none">${full.slice(esc(first).length)}</span></span>` : ''}
       </div>`;
     })() : '';
+    const imageHtml = ci.image_url
+      ? `<img src="${esc(ci.image_url)}" alt="${esc(name)}" style="width:100%;border-radius:12px;margin-bottom:16px;object-fit:cover;max-height:320px">`
+      : '';
     document.getElementById('modal-content').innerHTML = `
+      ${imageHtml}
       <h3 class="serif" style="font-size:20px;margin-bottom:8px">${esc(name)}</h3>
       ${descHtml}
       <div style="background:var(--bg2);border-radius:12px;padding:14px;margin-bottom:16px">
@@ -1619,7 +1623,7 @@ async function loadBookingForm(ci) {
         <div style="font-size:12px;color:var(--text3);margin-top:4px">Non accessible via tes abonnements ou cartes</div>
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="bookWorkshop(${ci.id})">Payer ${price} € et réserver</button>
-      <button class="btn btn-ghost" style="margin-top:8px" onclick="openCourseModal(${ci.id})">← Retour</button>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">← Retour</button>
     `;
     return;
   }
