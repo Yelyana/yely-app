@@ -906,13 +906,15 @@ function showAuth() {
 }
 
 function showApp() {
+  const pendingCourseId = _previewCourseId; // sauver avant que hideCoursePreviewWall l'efface
   document.getElementById('screen-auth').classList.remove('active');
   hideCoursePreviewWall();
   document.getElementById('bottom-nav').style.display = 'flex';
   document.getElementById('desktop-sidebar').style.removeProperty('display');
 
   // Redirection automatique vers la réservation si on venait d'un lien de cours
-  if (_previewCourseId) {
+  if (pendingCourseId) {
+    _previewCourseId = pendingCourseId;
     const id = _previewCourseId;
     _previewCourseId = null;
     window.location.hash = '';
