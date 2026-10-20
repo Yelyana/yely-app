@@ -133,17 +133,19 @@ select option { background: var(--card); }
 .section-label::before { content: ''; width: 16px; height: 1px; background: var(--violet-dark); }
 
 /* ── COURS CARD ── */
-.cours-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.2s; }
-.cours-card:active { border-color: var(--violet); }
+.cours-card { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid transparent; border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; cursor: pointer; transition: filter 0.18s, transform 0.15s; }
+.cours-card:hover { filter: brightness(1.12); transform: translateY(-1px); }
+.cours-card:active { filter: brightness(1.2); transform: translateY(0); }
 .cours-card.selected { border-color: var(--violet); background: rgba(155,125,219,0.08); }
 .cours-card.complet { opacity: 0.5; cursor: not-allowed; }
-.cours-time { font-size: 20px; font-family: 'DM Sans', sans-serif; font-weight: 600; color: var(--violet-light); letter-spacing: -0.3px; }
-.cours-name { font-size: 16px; font-weight: 600; color: var(--ivoire); margin-bottom: 3px; line-height: 1.2; }
-.cours-meta { font-size: 11px; color: var(--text3); margin-top: 4px; }
-.cours-bar { width: 3px; border-radius: 2px; min-height: 60px; flex-shrink: 0; }
-.spots-pill { font-size: 10px; padding: 3px 8px; border-radius: 20px; background: rgba(125,191,155,0.15); color: var(--green); }
-.spots-pill.low { background: rgba(245,164,168,0.15); color: var(--pink); }
-.spots-pill.full { background: rgba(138,130,154,0.15); color: var(--text3); }
+.cours-time { font-size: 13px; color: var(--text3); margin-top: 3px; letter-spacing: 0.02em; }
+.cours-name { font-size: 15px; font-weight: 500; color: var(--text); line-height: 1.2; }
+.cours-level { font-size: 12px; font-style: italic; color: var(--text3); margin-top: 1px; }
+.cours-meta { font-size: 11px; color: var(--text3); margin-top: 5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cours-bar { display: none; }
+.spots-pill { font-size: 10px; padding: 3px 9px; border-radius: 20px; background: rgba(125,191,155,0.15); color: var(--green); white-space: nowrap; flex-shrink: 0; }
+.spots-pill.low { background: rgba(232,192,60,0.15); color: #e8c03c; }
+.spots-pill.full { background: rgba(200,80,80,0.12); color: #d07070; }
 
 /* ── FEELING BUTTONS ── */
 .feeling-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -1448,19 +1450,14 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
     const endStr = `${String(endH).padStart(2,'0')}h${String(endM).padStart(2,'0')}`;
     const startStr = `${String(h).padStart(2,'0')}h${String(m).padStart(2,'0')}`;
     return `
-      <div class="cours-card" onclick="openBookingModal(${JSON.stringify(ci).replace(/"/g,'&quot;')},'${myStatus||''}',${myWaitlist||false},null)" style="cursor:pointer;border-color:rgba(139,107,78,0.35);background:rgba(139,107,78,0.06)">
-        <div style="display:flex;gap:12px;align-items:stretch">
-          <div class="cours-bar" style="background:#8B6B4E"></div>
-          <div style="flex:1">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
-              <div class="cours-name" style="color:#c49a6c">${esc(ci.custom_name || ci.discipline_name || 'Practice Libre')}</div>
-              <span style="font-size:11px;padding:3px 9px;border-radius:20px;background:rgba(139,107,78,0.15);color:#8B6B4E;font-weight:600;white-space:nowrap">Accès libre</span>
-            </div>
-            <div class="cours-time" style="color:#a07850">${startStr} → ${endStr}</div>
-            <div class="cours-meta" style="margin-top:4px">🦇 Salle Air · inscris-toi et reste autant que tu veux dans le créneau</div>
-            ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${(esc(ci.description).match(/^[^.!?]+[.!?]/) || [esc(ci.description)])[0].trim()}</div>` : ''}
-            <div style="font-size:11px;color:#8B6B4E;margin-top:6px;font-weight:500">→ Réserver ma place</div>
+      <div class="cours-card" onclick="openBookingModal(${JSON.stringify(ci).replace(/"/g,'&quot;')},'${myStatus||''}',${myWaitlist||false},null)" style="border-left-color:#8B6B4E">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div class="cours-name" style="color:#c49a6c">${esc(ci.custom_name || ci.discipline_name || 'Practice Libre')}</div>
+            <div class="cours-level">Accès libre · reste autant que tu veux</div>
+            <div class="cours-time">${startStr} – ${endStr} · Salle Air</div>
           </div>
+          <div class="spots-pill" style="background:rgba(139,107,78,0.15);color:#8B6B4E">Réserver →</div>
         </div>
       </div>
     `;
@@ -1470,41 +1467,38 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
   const isBooked = myStatus === 'confirmed';
   const isWaiting = myWaitlist === true;
   const spotsClass = ci.spots_remaining > 3 ? '' : ci.spots_remaining > 0 ? 'low' : 'full';
-  const enrolled = ci.max_students != null ? ci.max_students - (ci.spots_remaining || 0) : null;
-  const spotsText = isFull ? 'Complet'
-    : ci.spots_remaining === 1 ? '⚡ Plus qu\'1 place !'
-    : ci.spots_remaining === 2 ? '⚡ Plus que 2 places'
-    : ci.spots_remaining === 3 ? '⚡ Plus que 3 places'
+  const spotsText = ci._isPast ? 'Terminé'
+    : isFull ? 'Complet'
+    : ci.spots_remaining === 1 ? '1 place'
+    : ci.spots_remaining === 2 ? '2 places'
+    : ci.spots_remaining === 3 ? '3 places'
     : '';
-  const salleInfo = { air: { label: 'Air', color: '#5B9BD5', emoji: '🦇' }, terre: { label: 'Terre', color: '#5A9370', emoji: '🌿' } }[ci.salle] || { label: ci.salle || 'Salle', color: 'var(--text3)', emoji: '' };
-  const salleBg = ci.salle === 'air' ? 'rgba(91,155,213,0.06)' : ci.salle === 'terre' ? 'rgba(90,147,112,0.06)' : 'transparent';
-  const pastStyle = ci._isPast ? 'opacity:0.55;' : '';
-  const pillDisplay = ci._isPast
-    ? `<div class="spots-pill full">Terminé</div>`
-    : spotsText ? `<div class="spots-pill ${spotsClass}">${spotsText}</div>` : '';
+  const spotsClass2 = ci._isPast ? 'full' : spotsClass;
+  const salleInfo = { air: { label: 'Salle Air', color: '#5B9BD5', emoji: '🦇' }, terre: { label: 'Salle Terre', color: '#5A9370', emoji: '🌿' } }[ci.salle] || null;
+  const color = ci.discipline_color || 'var(--violet)';
+  const [h, m] = (ci.start_time || '00:00').split(':').map(Number);
+  const endMin = h * 60 + m + (ci.duration_minutes || 60);
+  const endStr = `${String(Math.floor(endMin/60)%24).padStart(2,'0')}h${String(endMin%60).padStart(2,'0')}`;
+  const startStr = `${String(h).padStart(2,'0')}h${String(m).padStart(2,'0')}`;
   return `
     <div class="cours-card ${isBooked ? 'selected' : ''}"
-         style="background:${salleBg};${pastStyle}"
+         style="border-left-color:${color};${ci._isPast ? 'opacity:0.5;pointer-events:none;' : ''}"
          onclick="openBookingModal(${JSON.stringify(ci).replace(/"/g, '&quot;')}, '${myStatus || ''}', ${isWaiting}, ${waitlistPos || 'null'})">
-      <div style="display:flex;gap:12px;align-items:stretch">
-        <div class="cours-bar" style="background:${ci.discipline_color}"></div>
-        <div style="flex:1">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
-            <div class="cours-name">${esc(ci.custom_name || ci.discipline_name || 'Cours')}</div>
-            ${pillDisplay}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div class="cours-name">${esc(ci.custom_name || ci.discipline_name || 'Cours')}</div>
+          ${ci.level ? `<div class="cours-level">${esc(ci.level)}</div>` : ''}
+          <div class="cours-time">${startStr} – ${endStr} · ${esc(ci.teacher_name || 'Ana')}</div>
+          <div class="cours-meta">
+            ${salleInfo ? `<span style="color:${salleInfo.color}">${salleInfo.emoji} ${salleInfo.label}</span>` : ''}
+            ${ci.heures_creuses ? '<span style="color:#5aabc8">🌅 Heures creuses</span>' : ''}
+            ${isBooked ? '<span style="color:var(--violet-light)">✓ Réservé</span>' : ''}
+            ${isWaiting ? `<span style="color:var(--text3)">⏳ Attente${waitlistPos ? ' #'+waitlistPos : ''}</span>` : ''}
           </div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
-            <div class="cours-time">${formatTime(ci.start_time)}</div>
-            ${ci.level ? `<span style="font-size:12px;font-weight:600;background:${ci.discipline_color}33;color:${ci.discipline_color};padding:3px 9px;border-radius:6px">${esc(ci.level)}</span>` : ''}
-          </div>
-          <div class="cours-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <span>${ci.duration_minutes} min · ${esc(ci.teacher_name || 'Ana')}</span>
-            <span style="display:inline-flex;align-items:center;gap:3px;background:${salleInfo.color}22;color:${salleInfo.color};padding:2px 7px;border-radius:6px;font-size:11px;font-weight:600">${salleInfo.emoji} ${salleInfo.label}</span>
-          </div>
-          ${ci.description ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${(esc(ci.description).match(/^[^.!?]+[.!?]/) || [esc(ci.description)])[0].trim()}</div>` : ''}
-          ${ci.heures_creuses ? '<span style="font-size:10px;background:rgba(90,170,200,0.15);color:#5aaBc8;padding:2px 7px;border-radius:5px;font-weight:600;margin-top:4px;display:inline-block">🌅 Heures creuses</span>' : ''}
-          ${isBooked ? '<div style="font-size:11px;color:var(--violet);margin-top:4px">✓ Réservé</div>' : ''}
-          ${isWaiting ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">⏳ Liste d'attente${waitlistPos ? ' · position ' + waitlistPos : ''}</div>` : ''}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          ${spotsText ? `<div class="spots-pill ${spotsClass2}">${spotsText}</div>` : ''}
+          ${!ci._isPast && !isFull && !isBooked && !isWaiting ? `<div style="font-size:10px;color:var(--text3);margin-top:4px;letter-spacing:0.04em">Réserver →</div>` : ''}
         </div>
       </div>
     </div>
