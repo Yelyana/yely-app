@@ -1398,8 +1398,8 @@ async function loadCoursesForDay(date) {
       time: ci.start_time || '00:00',
       html: renderCourseCard(ci, myBookingMap[ci.id], myWaitlistSet.has(ci.id), myWaitlistPos[ci.id]),
     })),
-    ...(cancelledData || []).map(ci => {
-      const wasEnrolled = myCancelledSet.has(ci.id);
+    ...(cancelledData || []).filter(ci => myCancelledSet.has(ci.id)).map(ci => {
+      const wasEnrolled = true;
       const [ch, cm] = (ci.start_time || '00:00').split(':').map(Number);
       const cancelEnd = new Date(ci.date + 'T' + String(ch).padStart(2,'0') + ':' + String(cm).padStart(2,'0') + ':00');
       cancelEnd.setMinutes(cancelEnd.getMinutes() + (ci.duration_minutes || 60));
