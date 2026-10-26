@@ -103,10 +103,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 /* ── BOTTOM NAV ── */
 .bottom-nav { height: calc(var(--nav-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); background: var(--violet-dark); backdrop-filter: blur(20px); border-top: none; display: flex; align-items: flex-start; padding-top: 8px; flex-shrink: 0; }
-.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 6px 4px; border: none; background: none; color: rgba(240,234,224,0.45); transition: color 0.2s; }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 6px 2px; border: none; background: none; color: rgba(240,234,224,0.45); transition: color 0.2s; }
 .nav-item.active { color: var(--ivoire); }
-.nav-item svg { width: 22px; height: 22px; }
-.nav-item span { font-size: 10px; font-weight: 500; letter-spacing: 0.3px; font-family: 'Tenor Sans', serif; }
+.nav-item svg { width: 20px; height: 20px; }
+.nav-item span { font-size: 9px; font-weight: 500; letter-spacing: 0.2px; font-family: 'Tenor Sans', serif; }
 
 /* ── CARDS ── */
 .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 14px; box-shadow: 0 2px 12px rgba(61,21,84,0.06); }
@@ -169,9 +169,9 @@ select option { background: #fff; color: var(--violet); }
 .cours-meta { font-size: 11px; margin-top: 5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--text3); }
 .cours-bar { display: none; }
 .cours-card-right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-.spots-pill { font-size: 11px; font-weight: 700; padding: 5px 11px; border-radius: 20px; background: rgba(255,255,255,0.2); color: #fff; white-space: nowrap; }
-.spots-pill.low { background: rgba(255,220,80,0.3); color: #ffe066; }
-.spots-pill.full { background: rgba(255,100,100,0.25); color: #ffaaaa; }
+.spots-pill { font-size: 11px; font-weight: 700; padding: 5px 11px; border-radius: 20px; background: rgba(61,21,84,0.10); color: var(--violet); white-space: nowrap; }
+.spots-pill.low { background: rgba(220,140,0,0.12); color: #8a5a00; }
+.spots-pill.full { background: rgba(196,90,90,0.12); color: #c45a5a; }
 .cours-reserve-btn { font-size: 11px; font-weight: 600; color: var(--violet); letter-spacing: 0.03em; }
 
 /* ── FEELING BUTTONS ── */
@@ -460,8 +460,8 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
     </div>
 
     <!-- Phrase du jour -->
-    <div style="text-align:center;padding:8px 4px 4px">
-      <div class="serif" style="font-size:19px;color:var(--violet);font-style:italic;line-height:1.5" id="phrase-du-jour"></div>
+    <div style="text-align:center;padding:20px 8px 12px">
+      <div class="serif" style="font-size:22px;color:var(--violet);font-style:italic;line-height:1.5" id="phrase-du-jour"></div>
     </div>
 
     <!-- Prochain cours -->
@@ -551,6 +551,15 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
     <div id="boutique-content"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 
+  <!-- MERCH -->
+  <div id="screen-merch" class="screen" style="padding-top:0">
+    <div class="top-bar">
+      <div style="display:flex;align-items:center"><img class="topbar-logo" style="height:40px;width:auto;filter:none;opacity:1;margin-right:10px;vertical-align:middle"><div class="top-bar-title">Merch</div></div>
+      <div class="avatar-btn" onclick="navigate('profil')" id="merch-avatar">?</div>
+    </div>
+    <div id="merch-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+
   <!-- COMMUNAUTÉ -->
   <div id="screen-communaute" class="screen" style="padding-top:0">
     <div class="top-bar">
@@ -612,6 +621,10 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
     <button class="nav-item" onclick="navigate('boutique')" id="nav-boutique">
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
       <span>Boutique</span>
+    </button>
+    <button class="nav-item" onclick="navigate('merch')" id="nav-merch">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3H7.5a2.25 2.25 0 00-2.036 1.288L3 9h18l-2.464-4.712A2.25 2.25 0 0016.5 3H15M9 3a3 3 0 006 0M9 3h6m-9 6v12h12V9"/></svg>
+      <span>Merch</span>
     </button>
   </nav>
 </div>
@@ -691,7 +704,7 @@ function getMondayOf(date) {
 const PHRASES = [
   'Le corps se souvient de chaque effort.',
   'Chaque cours est une petite victoire sur hier.',
-  'Tu n\'as pas à être parfaite. Tu dois juste revenir.',
+  'Tu n\'as pas à être parfait·e. Tu dois juste revenir.',
   'Ce que tu apprends dans ton corps, tu le gardes pour toujours.',
   'La régularité fait plus que l\'intensité.',
   'Prends soin de toi comme tu prends soin des autres.',
@@ -877,6 +890,7 @@ function navigate(screen) {
   if (screen === 'progression') loadProgression();
   if (screen === 'profil') loadProfil();
   if (screen === 'boutique') loadBoutique();
+  if (screen === 'merch') loadMerch();
   if (screen === 'communaute') loadCommunaute();
   if (screen === 'notifications') loadNotifications();
   if (screen === 'historique') loadHistorique();
@@ -998,7 +1012,7 @@ function showApp() {
   if (hash.includes('boutique') && hash.includes('merch_success=1')) {
     window.location.hash = '';
     navigate('boutique');
-    setTimeout(() => { _boutiqueTab = 'merch'; showToast('🎉 Paiement confirmé ! Ton article sera prêt au studio.'); loadBoutique(); }, 500);
+    setTimeout(() => { showToast('🎉 Paiement confirmé ! Ton article sera prêt au studio.'); navigate('merch'); }, 500);
   } else if (hash.includes('boutique') && hash.includes('success=1')) {
     window.location.hash = '';
     if (typeof fbq !== 'undefined') fbq('track', 'Purchase', { currency: 'EUR' });
@@ -1606,7 +1620,7 @@ function openBookingModal(ci, myStatus, isWaiting, waitlistPos) {
       <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${esc(name)}</h3>
       <p style="color:var(--text3);font-size:13px;margin-bottom:20px">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${esc(ci.teacher_name||'')}</p>
       <div class="card card-sm" style="background:rgba(200,200,200,0.08);border-color:var(--border);margin-bottom:20px">
-        <div style="font-size:13px;color:var(--text2)">${wasBooked ? '✓ Tu étais inscrite à ce cours.' : 'Ce cours est terminé.'}</div>
+        <div style="font-size:13px;color:var(--text2)">${wasBooked ? '✓ Tu étais inscrit·e à ce cours.' : 'Ce cours est terminé.'}</div>
       </div>
       <button class="btn btn-ghost" onclick="closeModal()">Fermer</button>
     `;
@@ -1618,7 +1632,7 @@ function openBookingModal(ci, myStatus, isWaiting, waitlistPos) {
       <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${esc(name)}</h3>
       <p style="color:var(--text3);font-size:13px;margin-bottom:20px">${formatDate(ci.date)} · ${formatTime(ci.start_time)} · ${esc(ci.teacher_name||'')}</p>
       <div class="card card-sm" style="background:rgba(155,125,219,0.1);border-color:var(--violet);margin-bottom:20px">
-        <div style="color:var(--violet);font-size:13px">✓ Tu es inscrite à ce cours</div>
+        <div style="color:var(--violet);font-size:13px">✓ Tu es inscrit·e à ce cours</div>
       </div>
       <button class="btn btn-danger" onclick="cancelBookingFromModal()">Annuler ma réservation</button>
       <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Fermer</button>
@@ -1628,7 +1642,7 @@ function openBookingModal(ci, myStatus, isWaiting, waitlistPos) {
       <h3 class="serif" style="font-size:24px;font-weight:300;margin-bottom:4px">${esc(name)}</h3>
       <p style="color:var(--text3);font-size:13px;margin-bottom:20px">${formatDate(ci.date)} · ${formatTime(ci.start_time)}</p>
       <div class="card card-sm" style="background:rgba(200,200,200,0.08);border-color:var(--border);margin-bottom:20px">
-        <div style="font-size:13px;color:var(--text2)">⏳ Tu es en liste d'attente${waitlistPos ? ` · <strong>position ${waitlistPos}</strong>` : ''}.<br><span style="color:var(--text3);font-size:12px">Tu seras automatiquement inscrite si une place se libère.</span></div>
+        <div style="font-size:13px;color:var(--text2)">⏳ Tu es en liste d'attente${waitlistPos ? ` · <strong>position ${waitlistPos}</strong>` : ''}.<br><span style="color:var(--text3);font-size:12px">Tu seras automatiquement inscrit·e si une place se libère.</span></div>
       </div>
       <button class="btn btn-danger" onclick="leaveWaitlist(${ci.id})">Quitter la liste d'attente</button>
       <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal()">Fermer</button>
@@ -2313,7 +2327,7 @@ function openGiftCardModal(productId) {
       <label style="font-size:12px;color:var(--text3)">Son prénom (optionnel)</label>
       <input id="gift-name" type="text" placeholder="Léa" style="width:100%;margin-top:4px">
     </div>
-    <p style="font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:16px">Un code cadeau sera envoyé par email à la destinataire. Elle pourra l'utiliser depuis l'app pour activer son forfait.</p>
+    <p style="font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:16px">Un code cadeau sera envoyé par email. La personne pourra l'utiliser depuis l'app pour activer son forfait.</p>
     <div style="display:flex;gap:10px">
       <button class="btn btn-primary" style="flex:1" onclick="submitGiftCard(${productId})">Payer & envoyer le cadeau →</button>
       <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
@@ -2344,7 +2358,7 @@ function openGiftCardSelector() {
   const options = products.map(p => `<option value="${p.id}">${esc(p.name)} — ${(p.price_cents/100).toFixed(0)}€</option>`).join('');
   document.getElementById('modal-content').innerHTML = `
     <h3 class="serif" style="font-size:22px;font-weight:300;margin-bottom:4px;color:var(--violet)">🎁 Offrir un forfait</h3>
-    <p style="font-size:13px;color:var(--text3);margin-bottom:16px">Choisis le forfait à offrir et saisis l'email de la destinataire.</p>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:16px">Choisis le forfait à offrir et saisis l'email de la personne.</p>
     <div class="form-group">
       <label style="font-size:12px;color:var(--text3)">Forfait à offrir</label>
       <select id="gift-product-select" style="width:100%;margin-top:4px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-family:inherit;font-size:14px">
@@ -2352,14 +2366,14 @@ function openGiftCardSelector() {
       </select>
     </div>
     <div class="form-group">
-      <label style="font-size:12px;color:var(--text3)">Email de la destinataire</label>
+      <label style="font-size:12px;color:var(--text3)">Email de la personne</label>
       <input id="gift-email" type="email" placeholder="prenom@email.com" style="width:100%;margin-top:4px">
     </div>
     <div class="form-group">
       <label style="font-size:12px;color:var(--text3)">Son prénom (optionnel)</label>
       <input id="gift-name" type="text" placeholder="Léa" style="width:100%;margin-top:4px">
     </div>
-    <p style="font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:16px">Un code cadeau sera envoyé par email. Elle pourra l'activer depuis l'app.</p>
+    <p style="font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:16px">Un code cadeau sera envoyé par email. La personne pourra l'activer depuis l'app.</p>
     <div style="display:flex;gap:10px">
       <button class="btn btn-primary" style="flex:1" onclick="submitGiftCardFromSelector()">Payer & envoyer →</button>
       <button class="btn btn-ghost" style="width:auto" onclick="closeModal()">Annuler</button>
@@ -3105,6 +3119,10 @@ async function loadMerchProducts(el, tabs) {
     db.from('merch_orders').select('id, status, product_name, variant_label, created_at, unit_price_cents').eq('student_id', currentUser?.id).order('created_at', { ascending: false }).limit(5),
   ]);
 
+  // Produits essentiels (vêtements de pratique) vs moins essentiels
+  const ESSENTIAL = ['Brassière Essentiel', 'Short Essentiel'];
+  const isEssential = (name) => ESSENTIAL.some(e => name && name.toLowerCase().includes(e.toLowerCase().replace('é','e').replace('è','e')));
+
   const renderProduct = (p) => {
     const sizes = [...new Set((p.merch_variants || []).map(v => v.size).filter(Boolean))].sort((a,b) => {
       const order = ['XS','S','M','L','XL','XXL'];
@@ -3120,55 +3138,54 @@ async function loadMerchProducts(el, tabs) {
       ? (singleVariant.stock <= 0 ? '❌ Plus en stock' : singleVariant.stock === 1 ? '⚠️ Dernier article' : `✓ ${singleVariant.stock} en stock`)
       : '';
     const singleStockColor = singleVariant
-      ? (singleVariant.stock <= 0 ? '#e87a7a' : singleVariant.stock === 1 ? '#f5c842' : 'var(--text3)')
+      ? (singleVariant.stock <= 0 ? '#e87a7a' : singleVariant.stock === 1 ? '#c47a20' : 'var(--text3)')
       : 'var(--text3)';
     const initiallyReady = isSingleSku && singleVariant && singleVariant.stock > 0;
+    const essential = isEssential(p.name);
+
     return `
-    <div class="card card-sm" style="margin-bottom:14px;overflow:hidden" id="merch-card-${pid}">
-      ${imgUrl ? `<img src="${imgUrl}" alt="${esc(p.name)}" style="width:100%;height:220px;object-fit:cover;object-position:center;display:block">` : ''}
-      <div style="padding:16px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-        <div>
-          <div style="font-size:16px;font-weight:700">${esc(p.name)}</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:1px">${subtitle}</div>
-          <div style="font-size:18px;font-weight:700;color:var(--violet-light);margin-top:4px">${(p.price_cents/100).toFixed(2).replace('.',',')} €</div>
+    <div class="card card-sm" style="margin-bottom:10px;overflow:hidden${essential ? '' : ';opacity:0.85'}" id="merch-card-${pid}">
+      <div style="display:flex;gap:0;align-items:stretch">
+        ${imgUrl ? `<div style="width:110px;flex-shrink:0;background:var(--bg2)"><img src="${imgUrl}" alt="${esc(p.name)}" style="width:110px;height:130px;object-fit:cover;object-position:center;display:block"></div>` : ''}
+        <div style="padding:12px 14px;flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
+            <div style="font-size:14px;font-weight:700;line-height:1.2">${esc(p.name)}</div>
+            <div style="font-size:14px;font-weight:700;color:var(--violet-light);flex-shrink:0">${(p.price_cents/100).toFixed(0)} €</div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${subtitle}</div>
+          ${isSingleSku ? `
+          <div style="font-size:11px;margin-top:6px;color:${singleStockColor}" id="merch-stock-${pid}">${singleStockText}</div>
+          ` : `
+          <div style="margin-top:8px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap" id="merch-colors-${pid}">
+              ${colors.map(c => `
+                <button onclick="selectMerchColor(${pid},'${c}')" id="merch-color-${pid}-${c}"
+                  style="width:22px;height:22px;border-radius:50%;background:${MERCH_COLORS[c]||'#888'};border:2px solid transparent;cursor:pointer;transition:all 0.15s"
+                  title="${c}"></button>`).join('')}
+            </div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px" id="merch-color-label-${pid}">Choisir une couleur</div>
+          </div>
+          <div style="margin-top:6px">
+            <div style="display:flex;gap:4px;flex-wrap:wrap" id="merch-sizes-${pid}">
+              ${sizes.map(s => `
+                <button onclick="selectMerchSize(${pid},'${s}')" id="merch-size-${pid}-${s}"
+                  style="padding:3px 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--card);font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;color:var(--text)">
+                  ${s}
+                </button>`).join('')}
+            </div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px" id="merch-stock-${pid}"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px" id="merch-hint-${pid}">Choisis couleur & taille</div>
+          `}
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button onclick="buyMerchCash(${pid})" id="merch-btn-cash-${pid}"
+              style="flex:1;padding:7px 6px;border-radius:8px;border:1.5px solid rgba(245,200,66,0.4);background:rgba(245,200,66,0.08);color:#8a6200;font-size:10px;font-weight:600;cursor:pointer;opacity:${initiallyReady?'1':'0.45'}"
+              ${initiallyReady?'':'disabled'}>💵 Liquide</button>
+            <button onclick="buyMerchStripe(${pid})" id="merch-btn-stripe-${pid}"
+              style="flex:1;padding:7px 6px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:10px;font-weight:600;cursor:pointer;opacity:${initiallyReady?'1':'0.45'}"
+              ${initiallyReady?'':'disabled'}>💳 Carte</button>
+          </div>
         </div>
-      </div>
-      ${isSingleSku ? `
-      <div style="font-size:11px;margin-bottom:14px;color:${singleStockColor}" id="merch-stock-${pid}">${singleStockText}</div>
-      ` : `
-      <div style="margin-bottom:12px">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Couleur</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap" id="merch-colors-${pid}">
-          ${colors.map(c => `
-            <button onclick="selectMerchColor(${pid},'${c}')" id="merch-color-${pid}-${c}"
-              style="width:28px;height:28px;border-radius:50%;background:${MERCH_COLORS[c]||'#888'};border:2px solid transparent;cursor:pointer;transition:all 0.15s;position:relative"
-              title="${c}">
-            </button>`).join('')}
-        </div>
-        <div style="font-size:12px;color:var(--text3);margin-top:4px;min-height:16px" id="merch-color-label-${pid}">Choisir une couleur</div>
-      </div>
-      <div style="margin-bottom:14px">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Taille</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap" id="merch-sizes-${pid}">
-          ${sizes.map(s => `
-            <button onclick="selectMerchSize(${pid},'${s}')" id="merch-size-${pid}-${s}"
-              style="padding:5px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;color:var(--text)">
-              ${s}
-            </button>`).join('')}
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px;min-height:14px" id="merch-stock-${pid}"></div>
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px" id="merch-hint-${pid}">👆 Choisis une couleur pour commencer</div>
-      `}
-      <div style="display:flex;gap:8px">
-        <button onclick="buyMerchCash(${pid})" id="merch-btn-cash-${pid}"
-          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid rgba(245,200,66,0.4);background:rgba(245,200,66,0.08);color:#f5c842;font-size:12px;font-weight:600;cursor:pointer;opacity:${initiallyReady?'1':'0.45'}"
-          ${initiallyReady?'':'disabled'}>💵 Liquide au studio</button>
-        <button onclick="buyMerchStripe(${pid})" id="merch-btn-stripe-${pid}"
-          style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;opacity:${initiallyReady?'1':'0.45'}"
-          ${initiallyReady?'':'disabled'}>💳 Payer par carte</button>
-      </div>
       </div>
     </div>`;
   };
@@ -3191,20 +3208,35 @@ async function loadMerchProducts(el, tabs) {
       }).join('')}
     </div>` : '';
 
-  const looseHtml = `
-    <div class="card card-sm" style="margin-top:14px;padding:16px;display:flex;gap:14px;align-items:center">
-      <div style="width:40px;height:40px;border-radius:12px;background:rgba(155,125,219,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🩱</div>
+  // Lou's code — EN HAUT, bien visible
+  const louHtml = `
+    <div style="background:linear-gradient(135deg,rgba(155,125,219,0.15),rgba(155,125,219,0.05));border:1.5px solid rgba(155,125,219,0.3);border-radius:14px;padding:14px 16px;margin-bottom:18px;display:flex;gap:14px;align-items:center">
+      <div style="font-size:28px;flex-shrink:0">🩱</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:600;margin-bottom:2px">Lou's Pole Wear</div>
-        <div style="font-size:11px;color:var(--text3);line-height:1.5;margin-bottom:8px">-10% sur tout le site avec le code <span style="color:var(--violet-light);font-weight:700">YELY10</span></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <div style="background:rgba(155,125,219,0.12);border:1.5px dashed rgba(155,125,219,0.4);border-radius:6px;padding:4px 10px;font-size:13px;font-weight:700;color:var(--violet-light)">YELY10</div>
-          <button onclick="navigator.clipboard.writeText('YELY10').then(()=>showToast('Code copié ✓'))" style="background:rgba(155,125,219,0.15);border:none;border-radius:6px;padding:4px 10px;font-size:11px;color:var(--violet-light);cursor:pointer;font-weight:600">Copier</button>
+        <div style="font-size:13px;font-weight:700;color:var(--violet);margin-bottom:2px">Lou's Pole Wear</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.4;margin-bottom:8px">-10% sur tout le site chez Lou avec le code :</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="background:var(--violet);color:var(--ivoire);border-radius:8px;padding:5px 14px;font-size:15px;font-weight:700;letter-spacing:.05em">YELY10</div>
+          <button onclick="navigator.clipboard.writeText('YELY10').then(()=>showToast('Code copié ✓'))" style="background:rgba(155,125,219,0.15);border:1px solid rgba(155,125,219,0.3);border-radius:8px;padding:5px 12px;font-size:11px;color:var(--violet-light);cursor:pointer;font-weight:600">Copier</button>
         </div>
       </div>
     </div>`;
 
-  el.innerHTML = tabs + (products||[]).map(renderProduct).join('') + ordersHtml + looseHtml + `<div style="height:12px"></div>`;
+  // Séparer essentiels et moins essentiels
+  const essential = (products||[]).filter(p => isEssential(p.name));
+  const nonEssential = (products||[]).filter(p => !isEssential(p.name));
+
+  const essentialSection = essential.length ? `
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600">Essentiels de pratique</div>
+    ${essential.map(renderProduct).join('')}
+  ` : '';
+
+  const nonEssentialSection = nonEssential.length ? `
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 10px;font-weight:600">Autres articles</div>
+    ${nonEssential.map(renderProduct).join('')}
+  ` : '';
+
+  el.innerHTML = tabs + louHtml + essentialSection + nonEssentialSection + ordersHtml + `<div style="height:12px"></div>`;
 
   // Stocker les variants en mémoire pour les interactions
   window._merchData = {};
@@ -3305,7 +3337,7 @@ async function buyMerchCash(pid) {
     variant.stock--;
     updateMerchStock(pid); updateMerchButtons(pid);
     showToast('✅ Commande réservée ! On t\'attend au studio pour le paiement.');
-    setTimeout(() => { _boutiqueTab = 'merch'; loadBoutique(); }, 2000);
+    setTimeout(() => { navigate('merch'); }, 2000);
   } catch (e) { showToast(e.message, true); }
 }
 
@@ -3329,10 +3361,21 @@ async function buyMerchStripe(pid) {
   } catch (e) { showToast(e.message, true); }
 }
 
+async function loadMerch() {
+  const el = document.getElementById('merch-content');
+  if (!el) return;
+  if (location.hash.includes('merch_success=1')) {
+    showToast('🎉 Paiement confirmé ! Ton article sera prêt au studio.');
+    history.replaceState(null, '', location.hash.split('?')[0]);
+  }
+  el.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+  await loadMerchProducts(el, '');
+}
+
 async function loadBoutique() {
   const el = document.getElementById('boutique-content');
   if (location.hash.includes('gift_success=1')) {
-    showToast('🎁 Carte cadeau envoyée ! Le code arrivera par email à la destinataire.');
+    showToast('🎁 Carte cadeau envoyée ! Le code arrivera par email.');
     history.replaceState(null, '', location.hash.split('?')[0]);
   }
   if (currentProfile?.full_name) {
@@ -3348,25 +3391,8 @@ async function loadBoutique() {
   window._boutiqueProducts = {};
   (products || []).forEach(p => window._boutiqueProducts[p.id] = p);
 
-  const tabs = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px">
-      <button onclick="_boutiqueTab='cours';loadBoutique()" style="padding:14px 10px;border-radius:14px;cursor:pointer;text-align:center;border:2px solid ${_boutiqueTab==='cours'?'var(--violet)':'var(--border)'};background:${_boutiqueTab==='cours'?'rgba(155,125,219,0.12)':'var(--card)'};transition:all 0.15s">
-        <div style="font-size:22px;margin-bottom:4px">🦇</div>
-        <div style="font-size:13px;font-weight:600;color:var(--violet-light)">Cours & Abos</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">Forfaits & abonnements</div>
-      </button>
-      <button onclick="_boutiqueTab='merch';loadBoutique()" style="padding:14px 10px;border-radius:14px;cursor:pointer;text-align:center;border:2px solid ${_boutiqueTab==='merch'?'var(--violet)':'var(--border)'};background:${_boutiqueTab==='merch'?'rgba(155,125,219,0.12)':'var(--card)'};transition:all 0.15s">
-        <div style="font-size:22px;margin-bottom:4px">👕</div>
-        <div style="font-size:13px;font-weight:600;color:var(--violet-light)">Merch</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">Vêtements & accessoires</div>
-      </button>
-    </div>`;
+  const tabs = '';
 
-  if (_boutiqueTab === 'merch') {
-    el.innerHTML = tabs + `<div class="loading"><div class="spinner"></div></div>`;
-    await loadMerchProducts(el, tabs);
-    return;
-  }
 
   const forfaits = (products || []).filter(p => (p.type === 'carte' || p.type === 'unite') && !p.heures_creuses && !p.for_kids && !p.for_parent_enfant && !(hasAnyDecouverte && DECOUVERTE_IDS.has(p.id) && !boughtDecouverteIds.has(p.id)))
     .sort(sortForfaits);
@@ -4038,7 +4064,7 @@ async function loadProfil() {
       return `
         <div class="card card-sm" style="margin-bottom:12px">
           <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">🎓 Tarif étudiant</div>
-          <div style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.5">-10% sur tous les forfaits sur présentation de ta carte étudiante.</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.5">-10% sur tous les forfaits sur présentation de ta carte d'étudiant·e.</div>
           <input type="file" id="student-card-input" accept="image/*,application/pdf" style="display:none" onchange="uploadStudentCard(this)">
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('student-card-input').click()">📎 Envoyer mon justificatif</button>
         </div>`;
@@ -4818,7 +4844,7 @@ async function loadPractice() {
     </div>
     <label style="display:flex;align-items:flex-start;gap:12px;padding:16px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;cursor:pointer;margin-bottom:24px">
       <input type="checkbox" id="practice-confirm" style="margin-top:2px;width:18px;height:18px;accent-color:var(--violet);flex-shrink:0">
-      <span style="font-size:14px;color:var(--text);line-height:1.5">Je confirme être bien présente au studio et avoir la clé en main</span>
+      <span style="font-size:14px;color:var(--text);line-height:1.5">Je confirme être bien au studio et avoir la clé en main</span>
     </label>
     <button class="btn btn-primary" onclick="startPractice('${practiceCredit?.id || ''}', '${illimiteSub?.id || ''}')" style="width:100%;font-size:16px;padding:16px">
       Démarrer ma session →
