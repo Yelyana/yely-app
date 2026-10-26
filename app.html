@@ -1472,7 +1472,6 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
       <div class="cours-card" onclick="openBookingModal(${JSON.stringify(ci).replace(/"/g,'&quot;')},'${myStatus||''}',${myWaitlist||false},null)"
            style="background:rgba(196,154,108,0.15);border-left:4px solid rgba(196,154,108,0.75)">
         <div class="cours-card-inner">
-          <div class="cours-card-emoji">🪶</div>
           <div class="cours-card-body">
             <div class="cours-name">${esc(ci.custom_name || ci.discipline_name || 'Pratique Libre')}</div>
             <div class="cours-level">Accès libre · reste autant que tu veux</div>
@@ -1490,11 +1489,11 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
   const isBooked = myStatus === 'confirmed';
   const isWaiting = myWaitlist === true;
   const spotsClass = ci.spots_remaining > 3 ? '' : ci.spots_remaining > 0 ? 'low' : 'full';
+  const totalSpots = ci.max_students || 0;
+  const bookedCount = totalSpots - (ci.spots_remaining || 0);
   const spotsText = ci._isPast ? 'Terminé'
     : isFull ? 'Complet'
-    : ci.spots_remaining === 1 ? '1 place'
-    : ci.spots_remaining === 2 ? '2 places'
-    : ci.spots_remaining === 3 ? '3 places'
+    : totalSpots ? `${ci.spots_remaining}/${totalSpots} places`
     : `${ci.spots_remaining} places`;
   const spotsClass2 = ci._isPast ? 'full' : spotsClass;
   const salleEmoji = { air: '🦇', terre: '🌿' }[ci.salle] || '';
@@ -1549,7 +1548,6 @@ function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
          style="background:${bg};border-left:${borderLeft};${ci._isPast ? 'opacity:0.4;pointer-events:none;' : ''}"
          onclick="openBookingModal(${JSON.stringify(ci).replace(/"/g, '&quot;')}, '${myStatus || ''}', ${isWaiting}, ${waitlistPos || 'null'})">
       <div class="cours-card-inner">
-        <div class="cours-card-emoji">${emoji}</div>
         <div class="cours-card-body">
           <div class="cours-name">${esc(ci.custom_name || ci.discipline_name || 'Cours')}</div>
           ${ci.level ? `<div class="cours-level">${esc(ci.level)}</div>` : ''}
@@ -3468,9 +3466,9 @@ async function loadBoutique() {
     if (!others.length) return '';
     const count = others.length;
     return `
-      <button onclick="(function(btn){var d=document.getElementById('${blockId}-more');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.innerHTML=open?'Voir toutes les options (${count}) ▾':'Moins d\\'options ▴';})(this)"
-        style="width:100%;text-align:center;padding:9px;border:none;background:none;color:var(--violet-light);font-size:12px;cursor:pointer;font-family:inherit;margin-top:-4px">
-        Voir toutes les options (${count}) ▾
+      <button onclick="(function(btn){var d=document.getElementById('${blockId}-more');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.innerHTML=open?'Voir toutes les options ▾':'Moins d\\'options ▴';})(this)"
+        style="width:100%;text-align:center;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--violet-light);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;margin-top:4px;margin-bottom:8px">
+        Voir toutes les options ▾
       </button>
       <div id="${blockId}-more" style="display:none">${others.map(renderFn).join('')}</div>`;
   };
@@ -3498,23 +3496,25 @@ async function loadBoutique() {
     renderCollapsible('decouverte', unitesOthers, renderForfait)
   ) : '';
 
-  // Bloc 2 — Je m'engage
-  const cartes = forfaits.filter(p => p.type === 'carte').sort((a, b) => (b.sessions_count || 0) - (a.sessions_count || 0));
-  const carteVedette = cartes.find(p => (p.sessions_count || 0) >= 8) || cartes[0];
-  const cartesAutres = cartes.filter(p => p !== carteVedette).sort((a, b) => (a.price_cents || 0) - (b.price_cents || 0));
+  // Bloc 2 — Je m'engage (vedette = carte ~10 cours)
+  const cartes = forfaits.filter(p => p.type === 'carte').sort((a, b) => (a.sessions_count || 0) - (b.sessions_count || 0));
+  const carteVedette = cartes.reduce((best, p) => {
+    const diff = Math.abs((p.sessions_count || 0) - 10);
+    const bestDiff = Math.abs((best?.sessions_count || 0) - 10);
+    return diff < bestDiff ? p : best;
+  }, cartes[0]);
+  const cartesAutres = cartes.filter(p => p !== carteVedette).sort((a, b) => (b.sessions_count || 0) - (a.sessions_count || 0));
   const bloc2 = cartes.length ? renderIntentBlock(
     '🔥', 'Je m\'engage', 'Cartes multi-séances — meilleur rapport qualité/prix', 'var(--violet-light)',
-    carteVedette ? renderFeaturedBadge('⭐ Meilleur rapport qualité/prix') + renderForfait(carteVedette) : '',
+    carteVedette ? renderFeaturedBadge('⭐ La plus populaire') + renderForfait(carteVedette) : '',
     renderCollapsible('cartes', cartesAutres, renderForfait)
   ) : '';
 
-  // Bloc 3 — Je pratique souvent
-  const aboVedette = abos.find(p => p.type === 'abo_illimite') || abos[0];
-  const abosAutres = abos.filter(p => p !== aboVedette);
+  // Bloc 3 — Je pratique souvent : tous les abos affichés directement (pas de collapse)
   const bloc3 = abos.length ? renderIntentBlock(
     '✨', 'Je pratique souvent', 'Abonnements mensuels — viens autant que tu veux', '#c084fc',
-    aboVedette ? renderFeaturedBadge('✨ Accès illimité') + renderAbo(aboVedette) : '',
-    renderCollapsible('abos', abosAutres, renderAbo)
+    abos.map(renderAbo).join(''),
+    ''
   ) : '';
 
   el.innerHTML = tabs + studentBanner + giftCardBanner + discoveryBanner +
