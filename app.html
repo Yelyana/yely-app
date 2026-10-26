@@ -3304,13 +3304,13 @@ async function loadBoutique() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px">
       <button onclick="_boutiqueTab='cours';loadBoutique()" style="padding:14px 10px;border-radius:14px;cursor:pointer;text-align:center;border:2px solid ${_boutiqueTab==='cours'?'var(--violet)':'var(--border)'};background:${_boutiqueTab==='cours'?'rgba(155,125,219,0.12)':'var(--card)'};transition:all 0.15s">
         <div style="font-size:22px;margin-bottom:4px">🦇</div>
-        <div style="font-size:13px;font-weight:600;color:${_boutiqueTab==='cours'?'var(--violet-light)':'#fff'}">Cours & Abos</div>
-        <div style="font-size:10px;color:${_boutiqueTab==='cours'?'var(--text3)':'rgba(255,255,255,0.6)'};margin-top:2px">Forfaits & abonnements</div>
+        <div style="font-size:13px;font-weight:600;color:var(--violet-light)">Cours & Abos</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Forfaits & abonnements</div>
       </button>
       <button onclick="_boutiqueTab='merch';loadBoutique()" style="padding:14px 10px;border-radius:14px;cursor:pointer;text-align:center;border:2px solid ${_boutiqueTab==='merch'?'var(--violet)':'var(--border)'};background:${_boutiqueTab==='merch'?'rgba(155,125,219,0.12)':'var(--card)'};transition:all 0.15s">
         <div style="font-size:22px;margin-bottom:4px">👕</div>
-        <div style="font-size:13px;font-weight:600;color:${_boutiqueTab==='merch'?'var(--violet-light)':'#fff'}">Merch</div>
-        <div style="font-size:10px;color:${_boutiqueTab==='merch'?'var(--text3)':'rgba(255,255,255,0.6)'};margin-top:2px">Vêtements & accessoires</div>
+        <div style="font-size:13px;font-weight:600;color:var(--violet-light)">Merch</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Vêtements & accessoires</div>
       </button>
     </div>`;
 
@@ -3460,9 +3460,65 @@ async function loadBoutique() {
       <div style="font-size:12px;color:var(--text2);line-height:1.6">Commence par un cours découverte à <strong>18€</strong>. Si tu prends un abonnement ou une carte dans les 7 jours, les 18€ sont intégralement déduits.</div>
     </div>`;
 
+  // ── 3 blocs d'intention ──────────────────────────────────────────
+  const renderFeaturedBadge = (label = '⭐ Recommandé') =>
+    `<div style="margin-bottom:6px"><span style="font-size:10px;background:var(--violet);color:var(--ivoire);padding:3px 10px;border-radius:20px;font-weight:600;letter-spacing:.06em;font-family:'Tenor Sans',serif">${label}</span></div>`;
+
+  const renderCollapsible = (blockId, others, renderFn) => {
+    if (!others.length) return '';
+    const count = others.length;
+    return `
+      <button onclick="(function(btn){var d=document.getElementById('${blockId}-more');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.innerHTML=open?'Voir toutes les options (${count}) ▾':'Moins d\\'options ▴';})(this)"
+        style="width:100%;text-align:center;padding:9px;border:none;background:none;color:var(--violet-light);font-size:12px;cursor:pointer;font-family:inherit;margin-top:-4px">
+        Voir toutes les options (${count}) ▾
+      </button>
+      <div id="${blockId}-more" style="display:none">${others.map(renderFn).join('')}</div>`;
+  };
+
+  const renderIntentBlock = (emoji, title, subtitle, accentColor, featuredHtml, collapseHtml) => `
+    <div style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+        <span style="font-size:22px">${emoji}</span>
+        <div>
+          <div style="font-size:15px;font-weight:600;color:${accentColor}">${title}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:1px">${subtitle}</div>
+        </div>
+      </div>
+      ${featuredHtml}
+      ${collapseHtml}
+    </div>`;
+
+  // Bloc 1 — Je découvre
+  const unites = forfaits.filter(p => p.type === 'unite');
+  const decouverte = unites[0];
+  const unitesOthers = unites.slice(1);
+  const bloc1 = (decouverte || unitesOthers.length) ? renderIntentBlock(
+    '🌱', 'Je découvre', 'Pour ton premier cours ou une séance ponctuelle', 'var(--green)',
+    decouverte ? renderFeaturedBadge('✦ Pour commencer') + renderForfait(decouverte) : '',
+    renderCollapsible('decouverte', unitesOthers, renderForfait)
+  ) : '';
+
+  // Bloc 2 — Je m'engage
+  const cartes = forfaits.filter(p => p.type === 'carte').sort((a, b) => (b.sessions_count || 0) - (a.sessions_count || 0));
+  const carteVedette = cartes.find(p => (p.sessions_count || 0) >= 8) || cartes[0];
+  const cartesAutres = cartes.filter(p => p !== carteVedette).sort((a, b) => (a.price_cents || 0) - (b.price_cents || 0));
+  const bloc2 = cartes.length ? renderIntentBlock(
+    '🔥', 'Je m\'engage', 'Cartes multi-séances — meilleur rapport qualité/prix', 'var(--violet-light)',
+    carteVedette ? renderFeaturedBadge('⭐ Meilleur rapport qualité/prix') + renderForfait(carteVedette) : '',
+    renderCollapsible('cartes', cartesAutres, renderForfait)
+  ) : '';
+
+  // Bloc 3 — Je pratique souvent
+  const aboVedette = abos.find(p => p.type === 'abo_illimite') || abos[0];
+  const abosAutres = abos.filter(p => p !== aboVedette);
+  const bloc3 = abos.length ? renderIntentBlock(
+    '✨', 'Je pratique souvent', 'Abonnements mensuels — viens autant que tu veux', '#c084fc',
+    aboVedette ? renderFeaturedBadge('✨ Accès illimité') + renderAbo(aboVedette) : '',
+    renderCollapsible('abos', abosAutres, renderAbo)
+  ) : '';
+
   el.innerHTML = tabs + studentBanner + giftCardBanner + discoveryBanner +
-    (forfaits.length ? `<div class="section-label">Cartes & unités</div>${forfaits.map(renderForfait).join('')}` : '') +
-    (abos.length ? `<div class="section-label" style="margin-top:16px">Abonnements</div>${abos.map(renderAbo).join('')}` : '') +
+    bloc1 + bloc2 + bloc3 +
     hcSection +
     renderKidsSection(kidsOnly, 'Pole Kids', '👧') +
     renderKidsSection(parentEnfant, 'Parent-enfant', '👨‍👧') +
