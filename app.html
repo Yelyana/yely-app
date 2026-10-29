@@ -4079,14 +4079,16 @@ async function openSoinBookingModal(dateStr, slot) {
       <div style="font-size:13px;color:var(--text3);margin-bottom:20px">${dateLabel} · ${slot} · 50 min · avec Aude</div>
 
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">Type de soin</div>
-      <div style="display:flex;gap:8px;margin-bottom:20px">
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
         <button id="soin-type-relaxant" onclick="selectSoinType('relaxant')"
-          style="flex:1;padding:12px 8px;border-radius:12px;border:1.5px solid #a3e635;background:rgba(163,230,53,0.1);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">
-          Soin Relaxant
+          style="width:100%;padding:14px 16px;border-radius:12px;border:1.5px solid #a3e635;background:rgba(163,230,53,0.1);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;text-align:left">
+          <div>Soin Relaxant</div>
+          <div style="font-size:12px;font-weight:400;color:var(--text3);margin-top:3px">Réflexologie plantaire infrarouge · Massage crânien</div>
         </button>
         <button id="soin-type-drainant_visage" onclick="selectSoinType('drainant_visage')"
-          style="flex:1;padding:12px 8px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text3);font-size:13px;cursor:pointer">
-          Soin Drainant Visage
+          style="width:100%;padding:14px 16px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text3);font-size:13px;cursor:pointer;text-align:left">
+          <div>Soin Drainant Visage</div>
+          <div style="font-size:12px;font-weight:400;margin-top:3px">Réflexologie plantaire infrarouge · Drainage lymphatique visage</div>
         </button>
       </div>
 
@@ -4112,8 +4114,10 @@ function selectSoinType(type) {
     if (!btn) return;
     if (t === type) {
       btn.style.borderColor = '#a3e635'; btn.style.background = 'rgba(163,230,53,0.1)'; btn.style.color = 'var(--text)'; btn.style.fontWeight = '600';
+      const sub = btn.querySelector('div:last-child'); if (sub) sub.style.color = 'var(--text2)';
     } else {
       btn.style.borderColor = 'var(--border)'; btn.style.background = 'transparent'; btn.style.color = 'var(--text3)'; btn.style.fontWeight = '400';
+      const sub = btn.querySelector('div:last-child'); if (sub) sub.style.color = 'var(--text3)';
     }
   });
 }
