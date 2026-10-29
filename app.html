@@ -1429,7 +1429,7 @@ async function loadCoursesForDay(date) {
     ? await db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).in('course_instance_id', cancelledIds).eq('status', 'cancelled')
     : { data: [] };
   const myCancelledSet = new Set((myCancelledBookings || []).map(b => b.course_instance_id));
-  if ((error || !data?.length) && !(cancelledData?.length)) {
+  if ((error || !data?.length) && !(cancelledData?.length) && !isWednesday) {
     document.getElementById('cours-list').innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
       <div style="font-size:28px;margin-bottom:8px">🌿</div>
       <div>Pas de cours ce jour</div>
