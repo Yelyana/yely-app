@@ -179,6 +179,10 @@ select option { background: var(--bg); }
           <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
           Merch
         </button>
+        <button class="nav-link" onclick="showPage('soins')" id="nav-soins">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></svg>
+          Soins Bien-être
+        </button>
       </nav>
       <div class="sidebar-footer">
         <div style="font-size:12px;color:var(--text3)" id="admin-name">Admin</div>
@@ -316,7 +320,7 @@ function showPage(page) {
   document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
   const nav = document.getElementById('nav-' + page);
   if (nav) nav.classList.add('active');
-  const pages = { dashboard: loadDashboard, planning: loadPlanning, eleves: loadEleves, profs: loadProfs, revenus: loadRevenus, forfaits: loadForfaits, merch: loadMerch };
+  const pages = { dashboard: loadDashboard, planning: loadPlanning, eleves: loadEleves, profs: loadProfs, revenus: loadRevenus, forfaits: loadForfaits, merch: loadMerch, soins: loadSoins };
   if (pages[page]) pages[page]();
 }
 
@@ -3189,6 +3193,237 @@ const APP_VERSION = 'v427';
     localStorage.setItem('yely_app_version', APP_VERSION);
   }
 })();
+
+// ── SOINS BIEN-ÊTRE ──────────────────────────────────────────
+async function loadSoins() {
+  const el = document.getElementById('main-content');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+
+  const today = localDateStr(new Date());
+  const monthStart = today.slice(0,7) + '-01';
+  const nextMonthStart = new Date(new Date(monthStart).setMonth(new Date(monthStart).getMonth()+1)).toISOString().slice(0,10);
+
+  const [
+    { data: upcoming },
+    { data: thisMonth },
+    { data: students }
+  ] = await Promise.all([
+    db.from('soin_appointments').select('*').gte('date', today).eq('status','confirmed').order('date').order('start_time'),
+    db.from('soin_appointments').select('*').gte('date', monthStart).lt('date', nextMonthStart).eq('status','confirmed').order('date').order('start_time'),
+    db.from('profiles').select('id, full_name, phone').eq('role','student').order('full_name')
+  ]);
+
+  const soinsNames = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
+  const formatT = t => t ? t.slice(0,5) : '';
+  const formatD = d => d ? new Date(d).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}) : '';
+
+  const upcomingRows = (upcoming||[]).map(s => `
+    <tr>
+      <td>${formatD(s.date)} · ${formatT(s.start_time)}</td>
+      <td>${soinsNames[s.soin_type]||s.soin_type}</td>
+      <td>${s.student_name}</td>
+      <td>${s.student_phone||'—'}</td>
+      <td>${s.is_included ? '<span style="color:#a3e635;font-size:11px">✓ Inclus</span>' : '<span style="color:var(--violet-light);font-size:11px">40 €</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="cancelSoin(${s.id})" style="background:rgba(232,122,122,0.1);border:1px solid rgba(232,122,122,0.3);color:#e87a7a">Annuler</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6" style="color:var(--text3);text-align:center;padding:20px">Aucun soin à venir</td></tr>';
+
+  const monthTotal = (thisMonth||[]).length;
+  const monthPaid = (thisMonth||[]).filter(s=>!s.is_included).length;
+  const monthIncluded = (thisMonth||[]).filter(s=>s.is_included).length;
+
+  const studentOptions = (students||[]).map(s => `<option value="${s.id}" data-name="${s.full_name}" data-phone="${s.phone||''}">${s.full_name}</option>`).join('');
+
+  el.innerHTML = `
+  <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div>
+      <div class="page-title">Soins Bien-être 🌿</div>
+      <div class="page-sub">avec Aude · Mercredis 14h–19h</div>
+    </div>
+    <button class="btn btn-primary" onclick="openNewSoinModal()">+ Nouveau soin</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px">
+    <div class="stat-card"><div class="stat-value">${monthTotal}</div><div class="stat-label">Soins ce mois</div></div>
+    <div class="stat-card"><div class="stat-value">${monthPaid}</div><div class="stat-label">Payants · 40€</div></div>
+    <div class="stat-card"><div class="stat-value">${monthIncluded}</div><div class="stat-label">Inclus abo</div></div>
+    <div class="stat-card"><div class="stat-value">${monthPaid * 40} €</div><div class="stat-label">CA soins ce mois</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px">
+    <div class="section-title">Prochains rendez-vous</div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Date · Heure</th><th>Soin</th><th>Élève</th><th>Téléphone</th><th>Tarif</th><th></th></tr></thead>
+        <tbody>${upcomingRows}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="soin-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto">
+      <h3 style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:var(--violet-light);margin-bottom:20px">Nouveau soin bien-être</h3>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:6px">Date</label>
+          <input type="date" id="soin-date" style="width:100%;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:6px">Heure</label>
+          <select id="soin-time" style="width:100%;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            <option value="14:00">14h00</option>
+            <option value="15:00">15h00</option>
+            <option value="16:00">16h00</option>
+            <option value="17:00">17h00</option>
+            <option value="18:00">18h00</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:6px">Type de soin</label>
+          <select id="soin-type" style="width:100%;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            <option value="relaxant">Soin Relaxant — réflexologie infrarouge + massage crânien</option>
+            <option value="drainant_visage">Soin Drainant Visage — réflexologie infrarouge + drainage lymphatique</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:6px">Élève</label>
+          <select id="soin-student" onchange="onSoinStudentChange(this)" style="width:100%;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            <option value="">— Sélectionner une élève —</option>
+            ${studentOptions}
+          </select>
+        </div>
+        <div id="soin-included-block" style="display:none;background:rgba(163,230,53,0.08);border:1px solid rgba(163,230,53,0.2);border-radius:10px;padding:12px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="soin-included" style="width:16px;height:16px;accent-color:#a3e635">
+            <span style="font-size:13px;color:var(--text2)">Utiliser un soin inclus dans l'abonnement 12 mois<br><span id="soin-credits-info" style="font-size:11px;color:var(--text3)"></span></span>
+          </label>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:6px">Téléphone (optionnel)</label>
+          <input type="tel" id="soin-phone" placeholder="06…" style="width:100%;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:6px">Notes (optionnel)</label>
+          <textarea id="soin-notes" rows="2" placeholder="Informations particulières…" style="width:100%;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;resize:vertical"></textarea>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn btn-primary" style="flex:1" onclick="saveSoin()">Enregistrer</button>
+        <button class="btn btn-ghost" onclick="closeSoinModal()">Annuler</button>
+      </div>
+    </div>
+  </div>
+  `;
+
+  // Cacher le backdrop initialement
+  document.getElementById('soin-modal-backdrop').style.display = 'none';
+}
+
+function openNewSoinModal() {
+  const backdrop = document.getElementById('soin-modal-backdrop');
+  backdrop.style.display = 'flex';
+  // Date par défaut : prochain mercredi
+  const now = new Date();
+  const day = now.getDay();
+  const daysUntilWed = (3 - day + 7) % 7 || 7;
+  const nextWed = new Date(now.getTime() + daysUntilWed * 86400000);
+  document.getElementById('soin-date').value = nextWed.toISOString().slice(0,10);
+  document.getElementById('soin-student').value = '';
+  document.getElementById('soin-phone').value = '';
+  document.getElementById('soin-notes').value = '';
+  document.getElementById('soin-included').checked = false;
+  document.getElementById('soin-included-block').style.display = 'none';
+}
+
+function closeSoinModal() {
+  document.getElementById('soin-modal-backdrop').style.display = 'none';
+}
+
+async function onSoinStudentChange(sel) {
+  const studentId = sel.value;
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('soin-phone').value = opt?.dataset?.phone || '';
+
+  if (!studentId) {
+    document.getElementById('soin-included-block').style.display = 'none';
+    return;
+  }
+
+  // Vérifier si l'élève a un abonnement 12 mois avec engagement actif
+  const { data: subs } = await db.from('subscriptions')
+    .select('id, engagement_until, products(name)')
+    .eq('student_id', studentId)
+    .eq('status', 'active')
+    .not('engagement_until', 'is', null);
+
+  if (!subs?.length) {
+    document.getElementById('soin-included-block').style.display = 'none';
+    return;
+  }
+
+  // Compter les soins déjà utilisés sur cet abonnement
+  const subIds = subs.map(s => s.id);
+  const { count: usedCount } = await db.from('soin_appointments')
+    .select('id', { count: 'exact', head: true })
+    .in('subscription_id', subIds)
+    .eq('is_included', true)
+    .eq('status', 'confirmed');
+
+  const remaining = Math.max(0, 4 - (usedCount || 0));
+  const block = document.getElementById('soin-included-block');
+  const info = document.getElementById('soin-credits-info');
+  const checkbox = document.getElementById('soin-included');
+
+  if (remaining > 0) {
+    block.style.display = 'block';
+    info.textContent = `${remaining} soin${remaining > 1 ? 's' : ''} inclus restant${remaining > 1 ? 's' : ''} sur ${subs[0].products?.name || 'abonnement 12 mois'}`;
+    checkbox.checked = true;
+    // Stocker le sub_id pour la sauvegarde
+    block.dataset.subId = subs[0].id;
+  } else {
+    block.style.display = 'block';
+    block.style.background = 'rgba(232,122,122,0.05)';
+    block.style.borderColor = 'rgba(232,122,122,0.2)';
+    info.textContent = '4/4 soins déjà utilisés — ce soin sera facturé 40 €';
+    checkbox.checked = false;
+    checkbox.disabled = true;
+  }
+}
+
+async function saveSoin() {
+  const date = document.getElementById('soin-date').value;
+  const start_time = document.getElementById('soin-time').value;
+  const soin_type = document.getElementById('soin-type').value;
+  const studentSel = document.getElementById('soin-student');
+  const student_id = studentSel.value || null;
+  const student_name = student_id ? studentSel.options[studentSel.selectedIndex].dataset.name : '';
+  const student_phone = document.getElementById('soin-phone').value || null;
+  const notes = document.getElementById('soin-notes').value || null;
+  const incBlock = document.getElementById('soin-included-block');
+  const is_included = document.getElementById('soin-included').checked;
+  const subscription_id = is_included && incBlock.dataset.subId ? parseInt(incBlock.dataset.subId) : null;
+
+  if (!date || !student_name) return showToast('Remplis la date et l\'élève', true);
+
+  const { error } = await db.from('soin_appointments').insert({
+    date, start_time, soin_type, student_id, student_name, student_phone,
+    is_included, subscription_id, notes
+  });
+
+  if (error) return showToast('Erreur : ' + error.message, true);
+  showToast('Soin enregistré ✓');
+  closeSoinModal();
+  loadSoins();
+}
+
+async function cancelSoin(id) {
+  if (!confirm('Annuler ce rendez-vous ?')) return;
+  const { error } = await db.from('soin_appointments').update({ status: 'cancelled' }).eq('id', id);
+  if (error) return showToast('Erreur : ' + error.message, true);
+  showToast('Soin annulé');
+  loadSoins();
+}
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').then(reg => {
