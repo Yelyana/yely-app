@@ -53,6 +53,16 @@ body { background: var(--bg); color: var(--text); font-family: "DM Sans", system
 </style>
 </head>
 <body>
+<div id="auth-screen" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:36px 32px;max-width:360px;width:100%;text-align:center">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;color:var(--violet-light);margin-bottom:6px">Aude</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:28px">Soins Bien-être · Yely in the Air</div>
+    <input type="password" id="pwd-input" placeholder="Mot de passe" onkeydown="if(event.key==='Enter')checkPwd()"
+      style="width:100%;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;font-family:inherit;text-align:center;letter-spacing:0.1em;margin-bottom:12px">
+    <div id="pwd-error" style="font-size:12px;color:#e87a7a;min-height:18px;margin-bottom:10px"></div>
+    <button onclick="checkPwd()" style="width:100%;padding:12px;background:var(--violet-dark);border:1px solid var(--violet);border-radius:10px;color:var(--violet-light);font-size:14px;font-family:inherit;cursor:pointer">Accéder</button>
+  </div>
+</div>
 <div class="wrap">
   <div class="header">
     <div class="avatar">A</div>
@@ -75,6 +85,20 @@ body { background: var(--bg); color: var(--text); font-family: "DM Sans", system
 const SUPABASE_URL = 'https://xayixasuyuranscustyw.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhheWl4YXN1eXVyYW5zY3VzdHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjYzMTIwOTAsImV4cCI6MjA0MTg4ODA5MH0.UPgfyZeVd0cJJu9LoVBTRx8tlNhYxL6lnlHKKjGJAP8';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const PWD_HASH = '8b4f2a9c3e1d7b6f0a5c8e2d4f1b9a3c'; // sha256-like placeholder, replaced below
+const CORRECT = 'soins2026';
+function checkPwd() {
+  const val = document.getElementById('pwd-input').value;
+  if (val === CORRECT) {
+    document.getElementById('auth-screen').style.display = 'none';
+    loadMonth();
+  } else {
+    document.getElementById('pwd-error').textContent = 'Mot de passe incorrect';
+    document.getElementById('pwd-input').value = '';
+    document.getElementById('pwd-input').focus();
+  }
+}
 
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth(); // 0-indexed
@@ -195,7 +219,7 @@ function soinCard(s) {
     </div>`;
 }
 
-loadMonth();
+// loadMonth() appelé après auth seulement
 </script>
 </body>
 </html>

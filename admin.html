@@ -654,10 +654,21 @@ async function renderPlanning() {
   }
 
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const { data: instances } = await db.from('course_instances')
-    .select('*, start_time, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name)), bookings(id,status), replacement:replacement_teacher_id(full_name)')
-    .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
-    .neq('status', 'cancelled').order('date').order('courses(start_time)');
+  const [{ data: instances }, { data: soinData }] = await Promise.all([
+    db.from('course_instances')
+      .select('*, start_time, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name)), bookings(id,status), replacement:replacement_teacher_id(full_name)')
+      .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
+      .neq('status', 'cancelled').order('date').order('courses(start_time)'),
+    db.from('soin_appointments').select('*').gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd)).eq('status','confirmed').order('date').order('start_time'),
+  ]);
+  const soinsByDate = {};
+  (soinData||[]).forEach(s => { if (!soinsByDate[s.date]) soinsByDate[s.date] = []; soinsByDate[s.date].push(s); });
+  const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
+  const soinPillHtml = s => `<div class="cours-pill" style="background:rgba(163,230,53,0.08);border-left:3px solid #a3e635">
+    <div style="font-size:12px;font-weight:500;color:#a3e635">${(s.start_time||'').slice(0,5)} 🌿</div>
+    <div style="font-size:11px;color:var(--text2)">${SOIN_NAMES[s.soin_type]||s.soin_type}</div>
+    <div style="font-size:10px;color:var(--text3)">${s.student_name}</div>
+  </div>`;
 
   const planningIds = (instances || []).map(ci => ci.id);
   const { data: cpVisits } = planningIds.length
@@ -743,7 +754,7 @@ async function renderPlanning() {
             <div style="font-size:11px;font-weight:700;color:${isToday?'#fff':'var(--text3)'};text-transform:uppercase;letter-spacing:0.5px">${JOURS[i].slice(0,3)}</div>
             <div style="font-size:18px;font-weight:700;color:${isToday?'#fff':'var(--text)'};line-height:1.2">${d.getDate()}</div>
           </div>
-          ${hasCours ? `
+          ${(hasCours || (soinsByDate[key]||[]).length) ? `
             ${airCours.length ? `
               <div style="font-size:9px;font-weight:700;color:#9b7ddb;letter-spacing:0.5px;margin-bottom:4px;padding:0 2px">🦇 AIR</div>
               ${airCours.map(pillHtml).join('')}
@@ -751,6 +762,10 @@ async function renderPlanning() {
             ${terreCours.length ? `
               <div style="font-size:9px;font-weight:700;color:#5a8a7a;letter-spacing:0.5px;margin:${airCours.length?'10px':0} 0 4px;padding:0 2px">🌿 TERRE</div>
               ${terreCours.map(pillHtml).join('')}
+            ` : ''}
+            ${(soinsByDate[key]||[]).length ? `
+              <div style="font-size:9px;font-weight:700;color:#a3e635;letter-spacing:0.5px;margin:${hasCours?'10px':0} 0 4px;padding:0 2px">💚 SOINS</div>
+              ${(soinsByDate[key]||[]).map(soinPillHtml).join('')}
             ` : ''}
           ` : `<div style="text-align:center;padding:20px 4px;color:var(--text3);font-size:11px">—</div>`}
         </div>`;
@@ -767,7 +782,7 @@ async function renderPlanning() {
       const isToday = key === fmt(today);
       cells.push(`<td style="vertical-align:top;min-width:120px;padding:6px;border-radius:8px;background:${isToday?'var(--accent)11':'transparent'}">
         <div style="font-size:11px;font-weight:600;color:${isToday?'var(--accent)':'var(--text3)'};margin-bottom:4px">${day}</div>
-        ${(byDate[key]||[]).map(pillHtml).join('')}
+        ${(byDate[key]||[]).map(pillHtml).join('')}${(soinsByDate[key]||[]).map(soinPillHtml).join('')}
       </td>`);
     }
     while (cells.length % 7 !== 0) cells.push('<td style="background:transparent"></td>');
@@ -3232,6 +3247,8 @@ async function loadSoins() {
   const monthTotal = (thisMonth||[]).length;
   const monthPaid = (thisMonth||[]).filter(s=>!s.is_included).length;
   const monthIncluded = (thisMonth||[]).filter(s=>s.is_included).length;
+  const upcomingTotal = (upcoming||[]).length;
+  const upcomingPaid = (upcoming||[]).filter(s=>!s.is_included).length;
 
   const studentOptions = (students||[]).map(s => `<option value="${s.id}" data-name="${s.full_name}" data-phone="${s.phone||''}">${s.full_name}</option>`).join('');
 
@@ -3245,10 +3262,10 @@ async function loadSoins() {
   </div>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px">
+    <div class="stat-card"><div class="stat-value">${upcomingTotal}</div><div class="stat-label">Soins à venir</div></div>
+    <div class="stat-card"><div class="stat-value">${upcomingPaid}</div><div class="stat-label">Payants à venir</div></div>
     <div class="stat-card"><div class="stat-value">${monthTotal}</div><div class="stat-label">Soins ce mois</div></div>
-    <div class="stat-card"><div class="stat-value">${monthPaid}</div><div class="stat-label">Payants · 40€</div></div>
-    <div class="stat-card"><div class="stat-value">${monthIncluded}</div><div class="stat-label">Inclus abo</div></div>
-    <div class="stat-card"><div class="stat-value">${monthPaid * 40} €</div><div class="stat-label">CA soins ce mois</div></div>
+    <div class="stat-card"><div class="stat-value">${monthPaid * 40} €</div><div class="stat-label">CA ce mois</div></div>
   </div>
 
   <div class="card" style="margin-bottom:24px">
