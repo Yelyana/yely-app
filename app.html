@@ -4080,26 +4080,43 @@ function selectSoinType(type) {
 async function confirmSoinBooking(useAbo) {
   const b = window._soinBooking;
   if (!b) return;
-  const isIncluded = useAbo && b.engSubId && b.soinsRestants > 0;
   const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
 
-  const { error } = await db.from('soin_appointments').insert({
-    date: b.dateStr,
-    start_time: b.slot,
-    soin_type: b.type,
-    student_id: currentUser.id,
-    student_name: currentProfile.full_name,
-    student_phone: currentProfile.phone || null,
-    is_included: isIncluded,
-    subscription_id: isIncluded ? b.engSubId : null,
-    status: 'confirmed',
-  });
-
-  if (error) { showToast('Erreur : ' + error.message); return; }
-  document.getElementById('soin-booking-modal')?.remove();
-  window._soinBooking = null;
-  showToast(`🌿 ${SOIN_NAMES[b.type]} réservé !${isIncluded ? ' Inclus dans ton abo ✓' : ' 40 € à régler au studio'}`);
-  await loadCoursesForDay(new Date(b.dateStr + 'T12:00:00'));
+  if (useAbo) {
+    // Inclus dans l'abonnement → insert direct
+    const isIncluded = b.engSubId && b.soinsRestants > 0;
+    const { error } = await db.from('soin_appointments').insert({
+      date: b.dateStr,
+      start_time: b.slot,
+      soin_type: b.type,
+      student_id: currentUser.id,
+      student_name: currentProfile.full_name,
+      student_phone: currentProfile.phone || null,
+      is_included: true,
+      subscription_id: b.engSubId,
+      status: 'confirmed',
+    });
+    if (error) { showToast('Erreur : ' + error.message); return; }
+    document.getElementById('soin-booking-modal')?.remove();
+    window._soinBooking = null;
+    showToast(`🌿 ${SOIN_NAMES[b.type]} réservé ! Inclus dans ton abo ✓`);
+    await loadCoursesForDay(new Date(b.dateStr + 'T12:00:00'));
+  } else {
+    // 40€ → Stripe Checkout
+    try {
+      const { data: { session } } = await db.auth.getSession();
+      const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-soin-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ date: b.dateStr, slot: b.slot, soin_type: b.type }),
+      });
+      const { url, error } = await res.json();
+      if (error || !url) { showToast('Erreur : ' + (error || 'pas de lien'), true); return; }
+      window.location.href = url;
+    } catch(e) {
+      showToast('Erreur : ' + e.message, true);
+    }
+  }
 }
 
 async function cancelMySoin(id) {
