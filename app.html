@@ -4001,12 +4001,10 @@ async function loadHistorique() {
 }
 
 async function openSoinBookingModal(dateStr, slot) {
-  // Vérifier si l'élève a déjà un soin ce jour
   const { data: existing } = await db.from('soin_appointments')
     .select('id').eq('date', dateStr).eq('student_id', currentUser.id).eq('status', 'confirmed').maybeSingle();
-  if (existing) { showToast('Tu as déjà un soin réservé ce jour.'); return; }
+  if (existing) { showToast('Tu as déjà un soin réservé ce mercredi.'); return; }
 
-  // Vérifier abonnement engagement + soins restants
   const { data: engSub } = await db.from('subscriptions')
     .select('id').eq('student_id', currentUser.id).eq('status', 'active').not('engagement_until', 'is', null).maybeSingle();
   let soinsRestants = 0;
@@ -4016,62 +4014,92 @@ async function openSoinBookingModal(dateStr, slot) {
     soinsRestants = Math.max(0, 4 - (count || 0));
   }
 
+  window._soinBooking = { dateStr, slot, engSubId: engSub?.id || null, soinsRestants, type: 'relaxant' };
+
   const dateLabel = new Date(dateStr).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const priceLine = soinsRestants > 0
-    ? `<div style="background:rgba(163,230,53,.08);border:1px solid rgba(163,230,53,.25);border-radius:10px;padding:12px 14px;font-size:13px;color:#a3e635">✓ Inclus dans ton abonnement <span style="color:var(--text3)">(${soinsRestants} soin${soinsRestants>1?'s':''} restant${soinsRestants>1?'s':''})</span></div>`
-    : `<div style="background:rgba(155,125,219,.08);border:1px solid rgba(155,125,219,.25);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--violet-light)">💜 40 € à régler au studio</div>`;
+  const hasAbo = soinsRestants > 0;
+  const aboBtn = hasAbo
+    ? `<button onclick="confirmSoinBooking(true)" style="width:100%;padding:16px;background:rgba(163,230,53,0.1);border:1.5px solid #a3e635;border-radius:14px;color:#a3e635;font-size:15px;font-weight:600;cursor:pointer;text-align:left">
+        <div>Abonnement engagement</div>
+        <div style="font-size:12px;font-weight:400;margin-top:3px;opacity:.8">${soinsRestants} soin${soinsRestants>1?'s':''} restant${soinsRestants>1?'s':''} sur 4 inclus</div>
+       </button>`
+    : `<div style="width:100%;padding:16px;background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.08);border-radius:14px;color:var(--text3);font-size:15px;text-align:left;opacity:.5">
+        <div>Abonnement engagement</div>
+        <div style="font-size:12px;margin-top:3px">${engSub ? '4/4 soins utilisés' : 'Non applicable'}</div>
+       </div>`;
 
   const modal = document.createElement('div');
   modal.id = 'soin-booking-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:flex-end;justify-content:center;padding:0';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:flex-end;justify-content:center';
   modal.innerHTML = `
-    <div style="background:var(--card);border-radius:20px 20px 0 0;padding:28px 24px max(28px,env(safe-area-inset-bottom));width:100%;max-width:540px;max-height:90dvh;overflow-y:auto">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:var(--violet-light);margin-bottom:4px">Soin Bien-être 🌿</div>
+    <div style="background:var(--card);border-radius:20px 20px 0 0;padding:24px 20px max(24px,env(safe-area-inset-bottom));width:100%;max-width:540px;max-height:90dvh;overflow-y:auto">
+      <div style="font-size:18px;font-weight:600;color:var(--text);margin-bottom:2px">Soin Bien-être 🌿</div>
       <div style="font-size:13px;color:var(--text3);margin-bottom:20px">${dateLabel} · ${slot} · 50 min · avec Aude</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Type de soin</div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
-        <label style="display:flex;align-items:flex-start;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer">
-          <input type="radio" name="soin-type-choice" value="relaxant" checked style="margin-top:2px;accent-color:var(--violet)">
-          <div><div style="font-size:14px;font-weight:500">Soin Relaxant</div><div style="font-size:12px;color:var(--text3);margin-top:2px">Réflexologie infrarouge · Massage crânien</div></div>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer">
-          <input type="radio" name="soin-type-choice" value="drainant_visage" style="margin-top:2px;accent-color:var(--violet)">
-          <div><div style="font-size:14px;font-weight:500">Soin Drainant Visage</div><div style="font-size:12px;color:var(--text3);margin-top:2px">Réflexologie infrarouge · Drainage lymphatique</div></div>
-        </label>
+
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">Type de soin</div>
+      <div style="display:flex;gap:8px;margin-bottom:20px">
+        <button id="soin-type-relaxant" onclick="selectSoinType('relaxant')"
+          style="flex:1;padding:12px 8px;border-radius:12px;border:1.5px solid #a3e635;background:rgba(163,230,53,0.1);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">
+          Soin Relaxant
+        </button>
+        <button id="soin-type-drainant_visage" onclick="selectSoinType('drainant_visage')"
+          style="flex:1;padding:12px 8px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text3);font-size:13px;cursor:pointer">
+          Soin Drainant Visage
+        </button>
       </div>
-      ${priceLine}
-      <div style="display:flex;gap:10px;margin-top:18px">
-        <button onclick="document.getElementById('soin-booking-modal').remove()" style="flex:1;padding:13px;background:transparent;border:1px solid var(--border);border-radius:12px;color:var(--text3);font-size:14px;cursor:pointer">Annuler</button>
-        <button onclick="confirmSoinBooking('${dateStr}','${slot}',${engSub?.id||'null'},${soinsRestants})" style="flex:2;padding:13px;background:var(--violet-dark);border:1px solid var(--violet);border-radius:12px;color:var(--violet-light);font-size:14px;font-weight:500;cursor:pointer">Confirmer la réservation</button>
+
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">Paiement</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+        ${aboBtn}
+        <button onclick="confirmSoinBooking(false)" style="width:100%;padding:16px;background:rgba(155,125,219,0.1);border:1.5px solid var(--violet);border-radius:14px;color:var(--violet-light);font-size:15px;font-weight:600;cursor:pointer;text-align:left">
+          <div>40 € au studio</div>
+          <div style="font-size:12px;font-weight:400;margin-top:3px;opacity:.8">À régler sur place</div>
+        </button>
       </div>
+
+      <button onclick="document.getElementById('soin-booking-modal').remove()"
+        style="width:100%;padding:12px;background:transparent;border:1px solid var(--border);border-radius:12px;color:var(--text3);font-size:14px;cursor:pointer">Annuler</button>
     </div>`;
   document.body.appendChild(modal);
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
-async function confirmSoinBooking(dateStr, slot, subscriptionId, soinsRestants) {
-  const soinType = document.querySelector('input[name="soin-type-choice"]:checked')?.value || 'relaxant';
-  const isIncluded = subscriptionId && soinsRestants > 0;
-  const btn = document.querySelector('#soin-booking-modal button:last-child');
-  if (btn) { btn.disabled = true; btn.textContent = 'Réservation…'; }
+function selectSoinType(type) {
+  window._soinBooking.type = type;
+  ['relaxant','drainant_visage'].forEach(t => {
+    const btn = document.getElementById('soin-type-' + t);
+    if (!btn) return;
+    if (t === type) {
+      btn.style.borderColor = '#a3e635'; btn.style.background = 'rgba(163,230,53,0.1)'; btn.style.color = 'var(--text)'; btn.style.fontWeight = '600';
+    } else {
+      btn.style.borderColor = 'var(--border)'; btn.style.background = 'transparent'; btn.style.color = 'var(--text3)'; btn.style.fontWeight = '400';
+    }
+  });
+}
+
+async function confirmSoinBooking(useAbo) {
+  const b = window._soinBooking;
+  if (!b) return;
+  const isIncluded = useAbo && b.engSubId && b.soinsRestants > 0;
+  const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
 
   const { error } = await db.from('soin_appointments').insert({
-    date: dateStr,
-    start_time: slot,
-    soin_type: soinType,
+    date: b.dateStr,
+    start_time: b.slot,
+    soin_type: b.type,
     student_id: currentUser.id,
     student_name: currentProfile.full_name,
     student_phone: currentProfile.phone || null,
     is_included: isIncluded,
-    subscription_id: isIncluded ? subscriptionId : null,
+    subscription_id: isIncluded ? b.engSubId : null,
     status: 'confirmed',
   });
 
-  if (error) { showToast('Erreur : ' + error.message); if (btn) { btn.disabled = false; btn.textContent = 'Confirmer la réservation'; } return; }
+  if (error) { showToast('Erreur : ' + error.message); return; }
   document.getElementById('soin-booking-modal')?.remove();
-  const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
-  showToast(`🌿 ${SOIN_NAMES[soinType]} réservé !${isIncluded ? ' (inclus)' : ' 40 € à régler au studio'}`);
-  await loadCoursesForDay(new Date(dateStr + 'T12:00:00'));
+  window._soinBooking = null;
+  showToast(`🌿 ${SOIN_NAMES[b.type]} réservé !${isIncluded ? ' Inclus dans ton abo ✓' : ' 40 € à régler au studio'}`);
+  await loadCoursesForDay(new Date(b.dateStr + 'T12:00:00'));
 }
 
 async function cancelMySoin(id) {
