@@ -1028,9 +1028,17 @@ function showApp() {
     if (typeof fbq !== 'undefined') fbq('track', 'Purchase', { currency: 'EUR' });
     navigate('reserver');
     setTimeout(() => showPostPurchaseModal(), 600);
-  } else if (hash === '#reserver') {
+  } else if (hash === '#reserver' || (hash === '' && params.get('date'))) {
+    const dateParam = params.get('date');
     window.location.hash = '';
+    if (dateParam) window.history.replaceState({}, '', window.location.pathname);
     navigate('reserver');
+    if (dateParam) {
+      setTimeout(() => {
+        const d = new Date(dateParam + 'T12:00:00');
+        if (!isNaN(d.getTime())) { selectedDay = d; loadCoursesForDay(d); }
+      }, 600);
+    }
   } else if (hash.startsWith('#reserver') && hash.includes('course=')) {
     const courseId = hash.replace(/.*course=/, '').split('&')[0];
     window.location.hash = '';
