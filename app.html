@@ -1413,9 +1413,14 @@ async function loadCoursesForWeek() {
 async function loadCoursesForDay(date) {
   document.getElementById('cours-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const dateStr = localDateStr(date);
-  const [{ data, error }, { data: cancelledData }] = await Promise.all([
+  const isWednesday = date.getDay() === 3;
+  const SOIN_SLOTS = ['14:00', '15:00', '16:00', '17:00', '18:00'];
+  const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
+
+  const [{ data, error }, { data: cancelledData }, { data: soinData }] = await Promise.all([
     db.from('course_instances_with_availability').select('*').eq('date', dateStr).eq('status', 'active').order('start_time'),
     db.from('course_instances_with_availability').select('*').eq('date', dateStr).eq('status', 'cancelled').order('start_time'),
+    isWednesday ? db.from('soin_appointments').select('*').eq('date', dateStr).eq('status', 'confirmed') : Promise.resolve({ data: [] }),
   ]);
 
   // Récupérer mes réservations annulées pour voir quels cours annulés j'avais
@@ -1496,10 +1501,71 @@ async function loadCoursesForDay(date) {
     }),
   ].sort((a, b) => a.time.localeCompare(b.time));
 
+  // Ajouter les créneaux soins le mercredi
+  if (isWednesday) {
+    const takenSlots = new Set((soinData || []).map(s => (s.start_time || '').slice(0, 5)));
+    const mySlot = (soinData || []).find(s => s.student_id === currentUser.id);
+    const isPast = date < new Date(new Date().setHours(0,0,0,0));
+    SOIN_SLOTS.forEach(slot => {
+      const taken = takenSlots.has(slot);
+      const isMine = mySlot && (mySlot.start_time || '').slice(0,5) === slot;
+      if (!isPast || isMine) {
+        allCards.push({
+          time: slot + ':00',
+          html: renderSoinSlotCard(dateStr, slot, isMine ? mySlot : null, taken && !isMine),
+        });
+      }
+    });
+    allCards.sort((a, b) => a.time.localeCompare(b.time));
+  }
+
   document.getElementById('cours-list').innerHTML = `
     <div class="section-label">${JOURS_FULL[(date.getDay() || 7) - 1]} ${date.getDate()} ${date.toLocaleString('fr', { month: 'long' })}</div>
     ${allCards.map(c => c.html).join('')}
   `;
+}
+
+function renderSoinSlotCard(dateStr, slot, myBooking, isTaken) {
+  const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
+  if (myBooking) {
+    const badge = myBooking.is_included
+      ? '<span style="font-size:10px;background:rgba(163,230,53,.12);color:#a3e635;border-radius:12px;padding:2px 8px;font-weight:500">Inclus abo ✓</span>'
+      : '<span style="font-size:10px;background:rgba(155,125,219,.15);color:var(--violet-light);border-radius:12px;padding:2px 8px;font-weight:500">40 € au studio</span>';
+    return `<div class="cours-card" style="border-color:rgba(163,230,53,0.35);background:rgba(163,230,53,0.04)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:3px;height:40px;background:#a3e635;border-radius:2px;flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:15px;font-weight:500">${SOIN_NAMES[myBooking.soin_type] || 'Soin Bien-être'}</span>
+            ${badge}
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">${slot} · 50 min · avec Aude</div>
+        </div>
+        <button onclick="cancelMySoin(${myBooking.id})" style="font-size:11px;padding:6px 10px;background:rgba(232,122,122,0.1);border:1px solid rgba(232,122,122,0.3);border-radius:8px;color:#e87a7a;cursor:pointer;flex-shrink:0">Annuler</button>
+      </div>
+    </div>`;
+  }
+  if (isTaken) {
+    return `<div class="cours-card" style="opacity:0.4;cursor:default">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:3px;height:40px;background:#a3e635;border-radius:2px;flex-shrink:0;opacity:.4"></div>
+        <div>
+          <div style="font-size:15px;font-weight:500">Soin Bien-être</div>
+          <div style="font-size:12px;color:var(--text3)">${slot} · Créneau complet</div>
+        </div>
+      </div>
+    </div>`;
+  }
+  return `<div class="cours-card" style="border-color:rgba(163,230,53,0.2);cursor:pointer" onclick="openSoinBookingModal('${dateStr}','${slot}')">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:3px;height:40px;background:#a3e635;border-radius:2px;flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:500;color:var(--text)">Soin Bien-être 🌿</div>
+        <div style="font-size:12px;color:var(--text3)">${slot} · 50 min · avec Aude</div>
+      </div>
+      <span style="font-size:13px;font-weight:600;color:#a3e635">Réserver →</span>
+    </div>
+  </div>`;
 }
 
 function renderCourseCard(ci, myStatus, myWaitlist, waitlistPos) {
@@ -3934,8 +4000,91 @@ async function loadHistorique() {
   el.innerHTML = html;
 }
 
+async function openSoinBookingModal(dateStr, slot) {
+  // Vérifier si l'élève a déjà un soin ce jour
+  const { data: existing } = await db.from('soin_appointments')
+    .select('id').eq('date', dateStr).eq('student_id', currentUser.id).eq('status', 'confirmed').maybeSingle();
+  if (existing) { showToast('Tu as déjà un soin réservé ce jour.'); return; }
+
+  // Vérifier abonnement engagement + soins restants
+  const { data: engSub } = await db.from('subscriptions')
+    .select('id').eq('student_id', currentUser.id).eq('status', 'active').not('engagement_until', 'is', null).maybeSingle();
+  let soinsRestants = 0;
+  if (engSub) {
+    const { count } = await db.from('soin_appointments')
+      .select('*', { count: 'exact', head: true }).eq('subscription_id', engSub.id).eq('is_included', true).eq('status', 'confirmed');
+    soinsRestants = Math.max(0, 4 - (count || 0));
+  }
+
+  const dateLabel = new Date(dateStr).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const priceLine = soinsRestants > 0
+    ? `<div style="background:rgba(163,230,53,.08);border:1px solid rgba(163,230,53,.25);border-radius:10px;padding:12px 14px;font-size:13px;color:#a3e635">✓ Inclus dans ton abonnement <span style="color:var(--text3)">(${soinsRestants} soin${soinsRestants>1?'s':''} restant${soinsRestants>1?'s':''})</span></div>`
+    : `<div style="background:rgba(155,125,219,.08);border:1px solid rgba(155,125,219,.25);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--violet-light)">💜 40 € à régler au studio</div>`;
+
+  const modal = document.createElement('div');
+  modal.id = 'soin-booking-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:flex-end;justify-content:center;padding:0';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:20px 20px 0 0;padding:28px 24px max(28px,env(safe-area-inset-bottom));width:100%;max-width:540px;max-height:90dvh;overflow-y:auto">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:var(--violet-light);margin-bottom:4px">Soin Bien-être 🌿</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:20px">${dateLabel} · ${slot} · 50 min · avec Aude</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Type de soin</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
+        <label style="display:flex;align-items:flex-start;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer">
+          <input type="radio" name="soin-type-choice" value="relaxant" checked style="margin-top:2px;accent-color:var(--violet)">
+          <div><div style="font-size:14px;font-weight:500">Soin Relaxant</div><div style="font-size:12px;color:var(--text3);margin-top:2px">Réflexologie infrarouge · Massage crânien</div></div>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer">
+          <input type="radio" name="soin-type-choice" value="drainant_visage" style="margin-top:2px;accent-color:var(--violet)">
+          <div><div style="font-size:14px;font-weight:500">Soin Drainant Visage</div><div style="font-size:12px;color:var(--text3);margin-top:2px">Réflexologie infrarouge · Drainage lymphatique</div></div>
+        </label>
+      </div>
+      ${priceLine}
+      <div style="display:flex;gap:10px;margin-top:18px">
+        <button onclick="document.getElementById('soin-booking-modal').remove()" style="flex:1;padding:13px;background:transparent;border:1px solid var(--border);border-radius:12px;color:var(--text3);font-size:14px;cursor:pointer">Annuler</button>
+        <button onclick="confirmSoinBooking('${dateStr}','${slot}',${engSub?.id||'null'},${soinsRestants})" style="flex:2;padding:13px;background:var(--violet-dark);border:1px solid var(--violet);border-radius:12px;color:var(--violet-light);font-size:14px;font-weight:500;cursor:pointer">Confirmer la réservation</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+async function confirmSoinBooking(dateStr, slot, subscriptionId, soinsRestants) {
+  const soinType = document.querySelector('input[name="soin-type-choice"]:checked')?.value || 'relaxant';
+  const isIncluded = subscriptionId && soinsRestants > 0;
+  const btn = document.querySelector('#soin-booking-modal button:last-child');
+  if (btn) { btn.disabled = true; btn.textContent = 'Réservation…'; }
+
+  const { error } = await db.from('soin_appointments').insert({
+    date: dateStr,
+    start_time: slot,
+    soin_type: soinType,
+    student_id: currentUser.id,
+    student_name: currentProfile.full_name,
+    student_phone: currentProfile.phone || null,
+    is_included: isIncluded,
+    subscription_id: isIncluded ? subscriptionId : null,
+    status: 'confirmed',
+  });
+
+  if (error) { showToast('Erreur : ' + error.message); if (btn) { btn.disabled = false; btn.textContent = 'Confirmer la réservation'; } return; }
+  document.getElementById('soin-booking-modal')?.remove();
+  const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
+  showToast(`🌿 ${SOIN_NAMES[soinType]} réservé !${isIncluded ? ' (inclus)' : ' 40 € à régler au studio'}`);
+  await loadCoursesForDay(new Date(dateStr + 'T12:00:00'));
+}
+
+async function cancelMySoin(id) {
+  if (!confirm('Annuler ce soin ?')) return;
+  const { error } = await db.from('soin_appointments').update({ status: 'cancelled' }).eq('id', id).eq('student_id', currentUser.id);
+  if (error) { showToast('Erreur : ' + error.message); return; }
+  showToast('Soin annulé.');
+  await loadCoursesForDay(selectedDay || new Date());
+}
+
 async function loadProfil() {
   const el = document.getElementById('profil-content');
+  const today = localDateStr(new Date());
   const [
     { data: subs },
     { data: credits },
@@ -3944,14 +4093,16 @@ async function loadProfil() {
     { data: children },
     { data: orders },
     { count: totalVictoires },
+    { data: upcomingSoins },
   ] = await Promise.all([
     db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active'),
     db.from('student_credits').select('*, products(name)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).order('expires_at'),
-    db.from('bookings').select('*, course_instances(date, start_time, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').gte('course_instances.date', localDateStr(new Date())).order('course_instances(date)').limit(3),
+    db.from('bookings').select('*, course_instances(date, start_time, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').gte('course_instances.date', today).order('course_instances(date)').limit(3),
     db.from('bookings').select('*', { count: 'exact', head: true }).eq('student_id', currentUser.id).eq('status', 'confirmed'),
     db.from('children').select('*').eq('parent_id', currentUser.id).order('first_name'),
     db.from('orders').select('*, products(name, price_cents)').eq('student_id', currentUser.id).neq('status', 'cancelled').order('created_at', { ascending: false }).limit(10),
     db.from('victories').select('*', { count: 'exact', head: true }).eq('student_id', currentUser.id),
+    db.from('soin_appointments').select('*').eq('student_id', currentUser.id).eq('status', 'confirmed').gte('date', today).order('date').order('start_time').limit(3),
   ]);
   // Badge enfants dans les paramètres
   const badge = document.getElementById('children-count-badge');
@@ -4015,6 +4166,26 @@ async function loadProfil() {
         ${!s.engagement_until || new Date(s.engagement_until) <= new Date() ? `<button onclick="cancelMySubscription('${s.stripe_subscription_id}')" style="flex:1;background:rgba(232,122,122,0.1);border:1px solid rgba(232,122,122,0.3);border-radius:8px;padding:8px;color:#e87a7a;font-size:12px;cursor:pointer">Annuler l'abonnement</button>` : `<button disabled style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:8px;color:var(--text3);font-size:11px;cursor:not-allowed">Annulation possible après engagement</button>`}
       </div>
     </div>`).join('') : ''}
+
+    ${upcomingSoins?.length ? `
+    <div class="card card-sm" style="margin-bottom:12px;border-color:rgba(163,230,53,0.2)">
+      <div style="font-size:11px;color:#a3e635;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">🌿 Mes soins à venir</div>
+      ${upcomingSoins.map(s => {
+        const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
+        const date = new Date(s.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+        const time = (s.start_time||'').slice(0,5);
+        const badge = s.is_included
+          ? '<span style="font-size:10px;background:rgba(163,230,53,.1);color:#a3e635;border-radius:10px;padding:1px 7px">Inclus</span>'
+          : '<span style="font-size:10px;background:rgba(155,125,219,.1);color:var(--violet-light);border-radius:10px;padding:1px 7px">40 €</span>';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="width:3px;height:32px;background:#a3e635;border-radius:2px;flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:13px;font-weight:500">${SOIN_NAMES[s.soin_type]||s.soin_type}</span>${badge}</div>
+            <div style="font-size:11px;color:var(--text3)">${date} · ${time} · avec Aude</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
 
     ${upcomingBookings?.length ? `
     <div class="card card-sm" style="margin-bottom:12px">
