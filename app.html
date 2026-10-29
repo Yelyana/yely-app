@@ -474,6 +474,12 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
       <div id="next-cours-content"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
+    <!-- Prochain soin -->
+    <div id="next-soin-widget" style="display:none" class="card" style="border-color:rgba(163,230,53,0.25)">
+      <div class="section-label" style="margin-bottom:10px;color:#a3e635">Prochain soin 🌿</div>
+      <div id="next-soin-content"></div>
+    </div>
+
     <!-- Practice card (affiché si crédits ou session active) -->
     <div id="practice-home-card" style="display:none"></div>
 
@@ -1179,6 +1185,42 @@ async function loadHome() {
       <div style="font-size:14px;color:var(--text2);margin-bottom:16px">Aucun cours prévu</div>
       <button class="btn btn-primary btn-sm" onclick="navigate('reserver')" style="width:auto;margin:0 auto">Réserver un cours</button>
     </div>`;
+  }
+
+  // Prochain soin
+  const { data: nextSoins } = await db.from('soin_appointments')
+    .select('*').eq('student_id', currentUser.id).eq('status', 'confirmed')
+    .gte('date', today0).order('date').order('start_time').limit(1);
+  const nextSoin = nextSoins?.[0] || null;
+  const soinWidget = document.getElementById('next-soin-widget');
+  if (nextSoin) {
+    const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
+    const soinDate = nextSoin.date + 'T' + (nextSoin.start_time || '12:00');
+    const soinDt = new Date(soinDate);
+    const hoursUntil = (soinDt - new Date()) / 3600000;
+    const canCancel = hoursUntil >= 24;
+    const badge = nextSoin.is_included
+      ? '<span style="font-size:10px;background:rgba(163,230,53,.1);color:#a3e635;border-radius:10px;padding:2px 8px;font-weight:500">Inclus abo</span>'
+      : '<span style="font-size:10px;background:rgba(155,125,219,.1);color:var(--violet-light);border-radius:10px;padding:2px 8px;font-weight:500">40 €</span>';
+    document.getElementById('next-soin-content').innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:${canCancel ? '10' : '0'}px">
+        <div style="width:3px;border-radius:2px;background:#a3e635;align-self:stretch;flex-shrink:0;min-height:36px"></div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="serif" style="font-size:18px;color:#a3e635;font-weight:300">${SOIN_NAMES[nextSoin.soin_type] || 'Soin Bien-être'}</span>
+            ${badge}
+          </div>
+          <div style="font-size:12px;color:var(--text2);margin-top:3px">${formatDate(nextSoin.date)} · ${(nextSoin.start_time||'').slice(0,5)} · avec Aude</div>
+        </div>
+      </div>
+      ${canCancel ? `<button onclick="cancelMySoin(${nextSoin.id})"
+        style="width:100%;padding:9px;border-radius:10px;border:1px solid rgba(232,122,122,0.35);background:rgba(232,122,122,0.07);color:#e87a7a;font-size:13px;cursor:pointer;font-family:inherit">
+        Annuler ce soin
+      </button>` : `<div style="font-size:11px;color:var(--text3);text-align:center;padding:4px 0">Annulation impossible — moins de 24h</div>`}`;
+    soinWidget.style.display = 'block';
+    soinWidget.style.borderColor = 'rgba(163,230,53,0.25)';
+  } else {
+    soinWidget.style.display = 'none';
   }
 
   // Journal prompt (cours d'hier sans journal)
