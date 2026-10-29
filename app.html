@@ -1137,7 +1137,7 @@ async function loadHome() {
   // Prochain cours
   const today0 = localDateStr(new Date());
   const { data: allMyBookings } = await db.from('bookings')
-    .select('id, course_instances(id, date, status, courses(custom_name, start_time, duration_minutes, level, salle, description, disciplines(name,color), profiles(full_name)))')
+    .select('id, course_instances(id, date, status, start_time, courses(custom_name, start_time, duration_minutes, level, salle, description, disciplines(name,color), profiles(full_name)))')
     .eq('student_id', currentUser.id).eq('status', 'confirmed');
   const futureBookings = (allMyBookings || [])
     .filter(b => b.course_instances?.date >= today0 && b.course_instances?.status !== 'cancelled')
@@ -1153,7 +1153,8 @@ async function loadHome() {
       const color = fd?.color || 'var(--violet)';
       const salleLabel = fc?.salle === 'terre' ? '🌿 Salle Terre' : '🦇 Salle Air';
       const teacherName = fc?.profiles?.full_name || '';
-      const dt = new Date(fci.date + 'T' + (fc?.start_time || '00:00'));
+      const effectiveTime = fci.start_time || fc?.start_time || '00:00';
+      const dt = new Date(fci.date + 'T' + effectiveTime);
       const hoursUntil = (dt - new Date()) / 3600000;
       const canCancel = hoursUntil >= 24;
       const isFirst = idx === 0;
@@ -1163,10 +1164,10 @@ async function loadHome() {
             <div style="width:3px;border-radius:2px;background:${color};align-self:stretch;flex-shrink:0;min-height:36px"></div>
             <div style="flex:1">
               <div class="serif" style="font-size:${isFirst ? '20' : '16'}px;color:var(--violet);font-weight:300">${esc(fd?.name || fc?.custom_name || 'Cours')}</div>
-              <div style="font-size:12px;color:var(--text2);margin-top:3px">${formatDate(fci.date)} · ${formatTime(fc?.start_time)}${teacherName ? ' · ' + esc(teacherName) : ''}${fc?.salle ? ' · ' + salleLabel : ''}</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:3px">${formatDate(fci.date)} · ${formatTime(effectiveTime)}${teacherName ? ' · ' + esc(teacherName) : ''}${fc?.salle ? ' · ' + salleLabel : ''}</div>
             </div>
           </div>
-          ${canCancel ? `<button onclick="cancelBooking(${bk.id}, ${fci.id}, '${fci.date}', '${fc?.start_time || ''}')"
+          ${canCancel ? `<button onclick="cancelBooking(${bk.id}, ${fci.id}, '${fci.date}', '${effectiveTime}')"
             style="width:100%;padding:9px;border-radius:10px;border:1px solid rgba(232,122,122,0.35);background:rgba(232,122,122,0.07);color:#e87a7a;font-size:13px;cursor:pointer;font-family:inherit">
             Annuler ce cours
           </button>` : `<div style="font-size:11px;color:var(--text3);text-align:center;padding:4px 0">Annulation impossible — moins de 24h</div>`}
@@ -1987,11 +1988,11 @@ async function bookSeries(ci, creditId) {
 async function sendConfirmationEmail(instanceId) {
   try {
     const { data: ci } = await db.from('course_instances')
-      .select('date, courses(custom_name, start_time, description, disciplines(name, color))')
+      .select('date, start_time, courses(custom_name, start_time, description, disciplines(name, color))')
       .eq('id', instanceId).single();
     const courseName = ci?.courses?.custom_name || ci?.courses?.disciplines?.name || 'Cours';
     const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
-    const time = ci?.courses?.start_time?.slice(0,5) || '';
+    const time = (ci?.start_time || ci?.courses?.start_time || '').slice(0,5);
     const description = ci?.courses?.description || '';
     const color = ci?.courses?.disciplines?.color || 'var(--violet)';
     showBookingSuccess(courseName, date, time, color);
@@ -2525,14 +2526,14 @@ async function cancelBooking(bookingId, instanceId, dateStr, startTime = '00:00'
 async function confirmCancel(bookingId) {
   // Vérifier que le booking appartient à l'utilisatrice ET re-vérifier la contrainte 24h
   const { data: booking, error: bkErr } = await db.from('bookings')
-    .select('*, course_instances(date, courses(start_time, custom_name, disciplines(name)))')
+    .select('*, course_instances(date, start_time, courses(start_time, custom_name, disciplines(name)))')
     .eq('id', bookingId)
     .eq('student_id', currentUser.id)
     .maybeSingle();
   if (bkErr) return showToast('Erreur lors de la vérification : ' + bkErr.message, true);
   if (!booking) { loadHome(); return showToast('Réservation introuvable — peut-être déjà annulée par le studio. Ton crédit est intact.', true); }
   if (booking.status === 'cancelled') { closeModal(); loadHome(); return showToast('Cette réservation a déjà été annulée. Ton crédit a été recrédité.', true); }
-  const courseDate = new Date(booking.course_instances.date + 'T' + (booking.course_instances.courses?.start_time || '00:00'));
+  const courseDate = new Date(booking.course_instances.date + 'T' + (booking.course_instances.start_time || booking.course_instances.courses?.start_time || '00:00'));
   if ((courseDate - new Date()) / 3600000 < 24) return showToast('Annulation impossible à moins de 24h du cours', true);
 
   const { data: result, error } = await db.rpc('cancel_booking', { p_booking_id: bookingId });
@@ -3796,7 +3797,7 @@ async function openTeacherProfileModal(teacherId, teacherName) {
   const refId = prof?.id || teacherId;
   const { data: upcoming } = refId
     ? await db.from('course_instances')
-        .select('date, courses(custom_name, start_time, disciplines(name,color))')
+        .select('date, start_time, courses(custom_name, start_time, disciplines(name,color))')
         .eq('teacher_id', refId)
         .eq('status','active')
         .gte('date', today)
@@ -3809,11 +3810,12 @@ async function openTeacherProfileModal(teacherId, teacherName) {
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Prochains cours</div>
       ${upcoming.map(ci => {
         const color = ci.courses?.disciplines?.color || '#a78bfa';
+        const effTime = ci.start_time || ci.courses?.start_time || '';
         return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <div style="width:3px;height:32px;border-radius:2px;background:${color};flex-shrink:0"></div>
           <div>
             <div style="font-size:12px;font-weight:600;color:var(--text)">${esc(ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours')}</div>
-            <div style="font-size:11px;color:var(--text3)">${new Date(ci.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})} · ${(ci.courses?.start_time||'').slice(0,5)}</div>
+            <div style="font-size:11px;color:var(--text3)">${new Date(ci.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})} · ${effTime.slice(0,5)}</div>
           </div>
         </div>`;
       }).join('')}
@@ -3945,7 +3947,7 @@ async function loadProfil() {
   ] = await Promise.all([
     db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active'),
     db.from('student_credits').select('*, products(name)').eq('student_id', currentUser.id).gt('sessions_remaining', 0).order('expires_at'),
-    db.from('bookings').select('*, course_instances(date, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').gte('course_instances.date', localDateStr(new Date())).order('course_instances(date)').limit(3),
+    db.from('bookings').select('*, course_instances(date, start_time, courses(custom_name, start_time, disciplines(name,color)))').eq('student_id', currentUser.id).eq('status', 'confirmed').gte('course_instances.date', localDateStr(new Date())).order('course_instances(date)').limit(3),
     db.from('bookings').select('*', { count: 'exact', head: true }).eq('student_id', currentUser.id).eq('status', 'confirmed'),
     db.from('children').select('*').eq('parent_id', currentUser.id).order('first_name'),
     db.from('orders').select('*, products(name, price_cents)').eq('student_id', currentUser.id).neq('status', 'cancelled').order('created_at', { ascending: false }).limit(10),
@@ -4022,7 +4024,7 @@ async function loadProfil() {
         const color = ci?.courses?.disciplines?.color || '#a78bfa';
         const name = ci?.courses?.custom_name || ci?.courses?.disciplines?.name || 'Cours';
         const date = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}) : '';
-        const time = ci?.courses?.start_time?.slice(0,5) || '';
+        const time = (ci?.start_time || ci?.courses?.start_time || '').slice(0,5);
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
           <div style="width:3px;height:32px;background:${color};border-radius:2px;flex-shrink:0"></div>
           <div>
