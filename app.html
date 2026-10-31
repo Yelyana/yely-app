@@ -4155,20 +4155,25 @@ async function confirmSoinBooking(useAbo) {
     showToast(`🌿 ${SOIN_NAMES[b.type]} réservé ! Inclus dans ton abo ✓`);
     await loadCoursesForDay(new Date(b.dateStr + 'T12:00:00'));
   } else {
-    // 40€ → Stripe Checkout
-    try {
-      const { data: { session } } = await db.auth.getSession();
-      const res = await fetch('https://xayixasuyuranscustyw.supabase.co/functions/v1/create-soin-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ date: b.dateStr, slot: b.slot, soin_type: b.type }),
-      });
-      const { url, error } = await res.json();
-      if (error || !url) { showToast('Erreur : ' + (error || 'pas de lien'), true); return; }
-      window.location.href = url;
-    } catch(e) {
-      showToast('Erreur : ' + e.message, true);
-    }
+    // 40€ → enregistrement + redirection PayPal d'Aude
+    const { error } = await db.from('soin_appointments').insert({
+      date: b.dateStr,
+      start_time: b.slot,
+      soin_type: b.type,
+      student_id: currentUser.id,
+      student_name: currentProfile.full_name,
+      student_phone: currentProfile.phone || null,
+      is_included: false,
+      status: 'confirmed',
+    });
+    if (error) { showToast('Erreur : ' + error.message, true); return; }
+    document.getElementById('soin-booking-modal')?.remove();
+    window._soinBooking = null;
+    showToast('🌿 Soin réservé ! Tu vas être redirigée vers PayPal pour régler les 40 €.');
+    await loadCoursesForDay(new Date(b.dateStr + 'T12:00:00'));
+    setTimeout(() => {
+      window.open('https://www.paypal.me/audekradra1/40', '_blank');
+    }, 1200);
   }
 }
 
