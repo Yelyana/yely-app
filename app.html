@@ -1219,7 +1219,7 @@ async function loadHome() {
             ${badge}
           </div>
           <div style="font-size:12px;color:var(--text2);margin-top:3px">${formatDate(nextSoin.date)} · ${(nextSoin.start_time||'').slice(0,5)} · avec Aude</div>
-          <a href="tel:+33666096575" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:12px;color:#a3e635;text-decoration:none;">📞 +33 6 66 09 65 75</a>
+          <a href="tel:+33666096575" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:12px;color:#a3e635;text-decoration:none;">📞 Un souci ? Une question ? Contacter Aude</a>
         </div>
       </div>
       ${canCancel ? `<button onclick="cancelMySoin(${nextSoin.id})"
@@ -4286,7 +4286,7 @@ async function loadProfil() {
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:6px"><span style="font-size:13px;font-weight:500">${SOIN_NAMES[s.soin_type]||s.soin_type}</span>${badge}</div>
             <div style="font-size:11px;color:var(--text3)">${date} · ${time} · avec Aude</div>
-            <a href="tel:+33666096575" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:11px;color:#a3e635;text-decoration:none;">📞 +33 6 66 09 65 75</a>
+            <a href="tel:+33666096575" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:11px;color:#a3e635;text-decoration:none;">📞 Un souci ? Une question ? Contacter Aude</a>
           </div>
         </div>`;
       }).join('')}
