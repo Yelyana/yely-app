@@ -4104,8 +4104,13 @@ async function openSoinBookingModal(dateStr, slot) {
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">Paiement</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
         ${aboBtn}
-        <button onclick="confirmSoinBooking(false)" style="width:100%;padding:16px;background:rgba(155,125,219,0.1);border:1.5px solid var(--violet);border-radius:14px;color:var(--violet-light);font-size:15px;font-weight:600;cursor:pointer;text-align:left">
-          <div>Tarif élève Yely — 40 € <span style="font-size:11px;text-decoration:line-through;opacity:.5">50 €</span></div>
+        <button onclick="confirmSoinBooking('paypal')" style="width:100%;padding:16px;background:rgba(155,125,219,0.1);border:1.5px solid var(--violet);border-radius:14px;color:var(--violet-light);font-size:15px;font-weight:600;cursor:pointer;text-align:left">
+          <div>Paiement 40 € par PayPal <span style="font-size:11px;text-decoration:line-through;opacity:.5">50 €</span></div>
+          <div style="font-size:12px;font-weight:400;margin-top:3px;opacity:.7">Tarif élève Yely · Redirection vers PayPal</div>
+        </button>
+        <button onclick="confirmSoinBooking('especes')" style="width:100%;padding:16px;background:rgba(240,234,224,0.04);border:1.5px solid var(--border);border-radius:14px;color:var(--text2);font-size:15px;font-weight:600;cursor:pointer;text-align:left">
+          <div>Paiement 40 € en espèces au studio <span style="font-size:11px;text-decoration:line-through;opacity:.5">50 €</span></div>
+          <div style="font-size:12px;font-weight:400;margin-top:3px;opacity:.7">Tarif élève Yely · À régler le jour du soin</div>
         </button>
       </div>
 
@@ -4131,12 +4136,12 @@ function selectSoinType(type) {
   });
 }
 
-async function confirmSoinBooking(useAbo) {
+async function confirmSoinBooking(mode) {
   const b = window._soinBooking;
   if (!b) return;
   const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
 
-  if (useAbo) {
+  if (mode === true || mode === 'abo') {
     // Inclus dans l'abonnement → insert direct
     const isIncluded = b.engSubId && b.soinsRestants > 0;
     const { error } = await db.from('soin_appointments').insert({
@@ -4156,7 +4161,7 @@ async function confirmSoinBooking(useAbo) {
     showToast(`🌿 ${SOIN_NAMES[b.type]} réservé ! Inclus dans ton abo ✓`);
     await loadCoursesForDay(new Date(b.dateStr + 'T12:00:00'));
   } else {
-    // 40€ → enregistrement + redirection PayPal d'Aude
+    // 40€ PayPal ou espèces → enregistrement direct
     const { error } = await db.from('soin_appointments').insert({
       date: b.dateStr,
       start_time: b.slot,
@@ -4171,7 +4176,11 @@ async function confirmSoinBooking(useAbo) {
     document.getElementById('soin-booking-modal')?.remove();
     window._soinBooking = null;
     await loadCoursesForDay(new Date(b.dateStr + 'T12:00:00'));
-    window.location.href = 'https://www.paypal.me/audekradra1/40';
+    if (mode === 'paypal') {
+      window.location.href = 'https://www.paypal.me/audekradra1/40';
+    } else {
+      showToast('🌿 Soin réservé ! Pense à régler 40 € en espèces le jour J.');
+    }
   }
 }
 
