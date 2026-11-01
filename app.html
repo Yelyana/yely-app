@@ -4170,11 +4170,8 @@ async function confirmSoinBooking(useAbo) {
     if (error) { showToast('Erreur : ' + error.message, true); return; }
     document.getElementById('soin-booking-modal')?.remove();
     window._soinBooking = null;
-    showToast('🌿 Soin réservé ! Tu vas être redirigée vers PayPal pour régler les 40 €.');
     await loadCoursesForDay(new Date(b.dateStr + 'T12:00:00'));
-    setTimeout(() => {
-      window.open('https://www.paypal.me/audekradra1/40', '_blank');
-    }, 1200);
+    window.location.href = 'https://www.paypal.me/audekradra1/40';
   }
 }
 
