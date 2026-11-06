@@ -1251,13 +1251,51 @@ async function loadHome() {
     }
   }
 
+  loadPracticeHomeWidget();
 }
 
 async function loadPracticeHomeWidget() {
   const card = document.getElementById('practice-home-card');
-  if (card) card.style.display = 'none';
   const deskBtn = document.getElementById('desk-nav-practice');
-  if (deskBtn) deskBtn.style.display = 'none';
+
+  const now = new Date();
+  const todayStr = localDateStr(now);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  const { data: instances } = await db
+    .from('course_instances')
+    .select('id, start_time, courses(duration_minutes, is_practice, start_time)')
+    .eq('date', todayStr)
+    .eq('status', 'active');
+
+  const active = (instances || []).find(inst => {
+    if (!inst.courses?.is_practice) return false;
+    const tStr = inst.start_time || inst.courses.start_time;
+    if (!tStr) return false;
+    const [h, m] = tStr.split(':').map(Number);
+    const startMin = h * 60 + m;
+    const endMin = startMin + (inst.courses.duration_minutes || 0);
+    return nowMin >= startMin && nowMin < endMin;
+  });
+
+  if (active) {
+    if (card) {
+      card.style.display = 'block';
+      card.innerHTML = `<div class="card" style="cursor:pointer;border-color:rgba(155,125,219,0.4)" onclick="navigate('practice')">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:28px">🦇</span>
+          <div>
+            <div class="serif" style="font-size:18px;color:var(--violet);font-weight:300">Practice Libre</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">Salle ouverte — démarrer ma session →</div>
+          </div>
+        </div>
+      </div>`;
+    }
+    if (deskBtn) deskBtn.style.display = '';
+  } else {
+    if (card) card.style.display = 'none';
+    if (deskBtn) deskBtn.style.display = 'none';
+  }
 }
 
 function renderQuickFeelings(bookingId, instanceId) {
