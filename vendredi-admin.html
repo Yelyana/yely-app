@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin · Vendredi Idéal · Yely</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&display=swap">
+<style>
+:root {
+  --bg:#0d0b10; --surface:#17121f; --surface2:#211a2e; --border:#2e2440;
+  --accent:#c4a0d4; --gold:#dbb96a; --green:#7ec8a0; --text:#f0eaf6; --text2:#a094b0; --text3:#6a5f7a;
+}
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; padding:28px 20px 60px; max-width:680px; margin:0 auto; }
+
+/* Login */
+#login { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:80vh; gap:16px; }
+.logo { font-family:'Cormorant Garamond',serif; font-size:13px; letter-spacing:.25em; text-transform:uppercase; color:var(--accent); margin-bottom:12px; }
+.pw-input { background:var(--surface); border:1.5px solid var(--border); border-radius:12px; padding:14px 18px; color:var(--text); font-size:16px; width:100%; max-width:300px; text-align:center; letter-spacing:.15em; }
+.pw-input:focus { outline:none; border-color:var(--accent); }
+.btn-login { background:linear-gradient(135deg,var(--accent),#9b70be); color:#fff; border:none; border-radius:40px; padding:13px 32px; font-size:15px; font-weight:500; cursor:pointer; font-family:inherit; transition:opacity .15s; }
+.btn-login:hover { opacity:.9; }
+.err { color:#e87a7a; font-size:13px; min-height:18px; }
+
+/* Dashboard */
+.page-logo { font-family:'Cormorant Garamond',serif; font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--accent); margin-bottom:8px; }
+h1 { font-family:'Cormorant Garamond',serif; font-size:32px; font-weight:300; margin-bottom:4px; }
+.sub { font-size:13px; color:var(--text3); margin-bottom:32px; }
+
+/* Tabs */
+.tabs { display:flex; gap:4px; background:var(--surface); border-radius:12px; padding:4px; margin-bottom:28px; }
+.tab { flex:1; text-align:center; padding:10px; border-radius:9px; font-size:13px; font-weight:500; cursor:pointer; color:var(--text2); transition:background .15s, color .15s; border:none; background:none; font-family:inherit; }
+.tab.active { background:var(--surface2); color:var(--text); }
+
+/* Stats */
+.stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:28px; }
+.stat { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; }
+.stat-n { font-family:'Cormorant Garamond',serif; font-size:40px; font-weight:300; color:var(--accent); line-height:1; font-variant-numeric:tabular-nums; }
+.stat-l { font-size:12px; color:var(--text2); margin-top:4px; }
+
+/* Section title */
+.section-title { font-size:11px; font-weight:500; letter-spacing:.15em; text-transform:uppercase; color:var(--accent); margin-bottom:14px; margin-top:28px; }
+
+/* Bars */
+.bars { display:flex; flex-direction:column; gap:9px; margin-bottom:8px; }
+.bar-row { display:flex; align-items:center; gap:10px; }
+.bar-name { font-size:12px; color:var(--text2); width:190px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bar-track { flex:1; background:var(--surface); border-radius:4px; height:8px; }
+.bar-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--gold)); border-radius:4px; transition:width .6s; }
+.bar-fill.green { background:linear-gradient(90deg,var(--green),#a8d8b0); }
+.bar-count { font-size:12px; color:var(--text3); width:24px; text-align:right; font-variant-numeric:tabular-nums; }
+
+/* Heatmap */
+.heatmap-wrap { overflow-x:auto; margin-bottom:8px; }
+table.heatmap { border-collapse:collapse; width:100%; font-size:12px; }
+table.heatmap th { padding:6px 8px; color:var(--text3); font-weight:400; white-space:nowrap; text-align:center; }
+table.heatmap th.row-head { text-align:left; color:var(--text2); font-weight:500; min-width:160px; }
+table.heatmap td { padding:5px 8px; text-align:center; border-radius:6px; font-variant-numeric:tabular-nums; min-width:60px; }
+.cell-0 { background:var(--surface); color:var(--text3); }
+.cell-1 { background:rgba(196,160,212,.15); color:var(--text2); }
+.cell-2 { background:rgba(196,160,212,.30); color:var(--text); }
+.cell-3 { background:rgba(196,160,212,.50); color:var(--text); font-weight:500; }
+.cell-4 { background:rgba(196,160,212,.70); color:#fff; font-weight:600; }
+
+/* Planning */
+.planning { display:flex; flex-direction:column; gap:12px; margin-bottom:8px; }
+.plan-slot { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+.plan-slot-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+.plan-slot-label { font-size:15px; font-weight:500; }
+.plan-slot-hours { font-size:12px; color:var(--text3); }
+.plan-courses { display:flex; flex-direction:column; gap:6px; }
+.plan-course { display:flex; align-items:center; gap:10px; }
+.plan-course-rank { font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:300; color:var(--accent); width:24px; flex-shrink:0; line-height:1; }
+.plan-course-name { font-size:13px; color:var(--text2); flex:1; }
+.plan-course-votes { font-size:12px; color:var(--text3); }
+.plan-empty { font-size:13px; color:var(--text3); font-style:italic; }
+.plan-note { font-size:11px; color:var(--text3); border-top:1px solid var(--border); margin-top:10px; padding-top:10px; line-height:1.5; }
+
+/* Cards */
+.cards { display:flex; flex-direction:column; gap:12px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; }
+.card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.card-who { font-size:14px; font-weight:500; }
+.card-date { font-size:11px; color:var(--text3); }
+.course-row { font-size:13px; color:var(--text2); padding:4px 0; display:flex; justify-content:space-between; border-bottom:1px solid var(--border); }
+.course-row:last-child { border-bottom:none; }
+.course-slot { font-size:12px; color:var(--accent); }
+.extra { font-size:12px; color:var(--text3); font-style:italic; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+
+.refresh-btn { background:var(--surface2); border:1px solid var(--border); border-radius:40px; padding:8px 18px; font-size:12px; color:var(--text2); cursor:pointer; font-family:inherit; margin-left:auto; display:block; transition:border-color .15s; }
+.refresh-btn:hover { border-color:var(--accent); color:var(--accent); }
+.loading { text-align:center; padding:60px; color:var(--text3); }
+.empty { text-align:center; padding:40px; color:var(--text3); font-size:14px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="logo">Yely in the Air</div>
+  <h1 style="font-size:28px;margin-bottom:4px">Admin · Vendredi Idéal</h1>
+  <p style="font-size:13px;color:var(--text3);margin-bottom:20px">Accès réservé</p>
+  <input class="pw-input" id="pw" type="password" placeholder="Mot de passe" onkeydown="if(event.key==='Enter')login()">
+  <button class="btn-login" onclick="login()">Entrer</button>
+  <p class="err" id="err"></p>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" hidden>
+  <p class="page-logo">Yely in the Air</p>
+  <h1>Vendredi Idéal</h1>
+  <p class="sub" id="last-refresh"></p>
+
+  <div class="stat-row">
+    <div class="stat"><div class="stat-n" id="s-total">—</div><div class="stat-l">réponses</div></div>
+    <div class="stat"><div class="stat-n" id="s-courses">—</div><div class="stat-l">cours demandés</div></div>
+    <div class="stat"><div class="stat-n" id="s-extras">—</div><div class="stat-l">idées libres</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('analyse')">📊 Analyse</button>
+    <button class="tab" onclick="switchTab('planning')">🗓 Planning</button>
+    <button class="tab" onclick="switchTab('reponses')">📋 Réponses</button>
+  </div>
+
+  <!-- TAB ANALYSE -->
+  <div id="tab-analyse">
+    <div class="section-title">Cours les plus demandés</div>
+    <div class="bars" id="bars-courses"></div>
+
+    <div class="section-title">Créneaux les plus demandés</div>
+    <div class="bars" id="bars-slots"></div>
+
+    <div class="section-title">Cours × Créneaux — Carte de chaleur</div>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:14px">Nombre de personnes qui veulent ce cours à cet horaire.</p>
+    <div class="heatmap-wrap">
+      <table class="heatmap" id="heatmap"></table>
+    </div>
+  </div>
+
+  <!-- TAB PLANNING -->
+  <div id="tab-planning" hidden>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.6">
+      Basé sur les réponses, voici les cours les plus demandés pour chaque créneau du vendredi. Les votes sans créneau précis ne sont pas comptés ici.
+    </p>
+    <div class="planning" id="planning"></div>
+    <div class="section-title" style="margin-top:28px">Idées libres des participantes</div>
+    <div id="extras-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <!-- TAB RÉPONSES -->
+  <div id="tab-reponses" hidden>
+    <button class="refresh-btn" onclick="refresh()">↻ Actualiser</button>
+    <div style="height:16px"></div>
+    <div class="cards" id="cards"></div>
+  </div>
+</div>
+
+<script>
+const API  = 'https://xayixasuyuranscustyw.supabase.co/functions/v1/get-vendredi-submissions';
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhheWl4YXN1eXVyYW5zY3VzdHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MjIwMTIsImV4cCI6MjA5ODE5ODAxMn0.Kp_cJd5YMtbFZnUvUhd-4wMf0enjcBWsGzjwQSnAPP4';
+
+const SLOT_ORDER = ['Matin','Midi','Début d\'après-midi','Fin d\'après-midi','Début de soirée','Soirée'];
+const SLOT_HOURS = {
+  'Matin':'9h – 11h30',
+  'Midi':'11h30 – 13h30',
+  "Début d'après-midi":'13h30 – 16h',
+  "Fin d'après-midi":'16h – 18h',
+  'Début de soirée':'18h – 19h30',
+  'Soirée':'19h30 – 21h',
+};
+
+// Salle Air = agrès & pole / Salle Terre = sol & bien-être
+// Floorwork peut aller dans les deux
+const SALLE = {
+  'Pole Dance':               'Air',
+  'Cerceau Aérien':           'Air',
+  'Floorwork — Danse Contemporaine': 'Air/Terre',
+  'Pilates Reformer':         'Terre',
+  'Yoga Doux':                'Terre',
+  'Yoga Flow':                'Terre',
+  'Yoga Prénatal':            'Terre',
+  'Yoga Maman-Bébé':          'Terre',
+  'Drainage Lymphatique':     'Terre',
+};
+function getSalle(name) { return SALLE[name] || ''; }
+
+let savedPw = '';
+try { savedPw = sessionStorage.getItem('vendredi_admin_pw') || ''; } catch(e){}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function login() {
+  const pw = document.getElementById('pw').value.trim();
+  if (!pw) return;
+  document.getElementById('err').textContent = '';
+  try {
+    const res = await fetch(API, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+ANON},
+      body: JSON.stringify({ password: pw })
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      document.getElementById('err').textContent = json.error || `Erreur ${res.status}`;
+      return;
+    }
+    savedPw = pw;
+    try { sessionStorage.setItem('vendredi_admin_pw', pw); } catch(e){}
+    showDashboard(json.data || []);
+  } catch(e) {
+    document.getElementById('err').textContent = 'Impossible de contacter le serveur.';
+  }
+}
+
+async function refresh() {
+  try {
+    const res = await fetch(API, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+ANON},
+      body: JSON.stringify({ password: savedPw })
+    });
+    const json = await res.json();
+    if (res.ok) showDashboard(json.data || []);
+  } catch(e){}
+}
+
+function switchTab(name) {
+  ['analyse','planning','reponses'].forEach(t => {
+    document.getElementById('tab-'+t).hidden = t !== name;
+    document.querySelectorAll('.tab')[['analyse','planning','reponses'].indexOf(t)].classList.toggle('active', t === name);
+  });
+}
+
+function showDashboard(data) {
+  document.getElementById('login').hidden = true;
+  document.getElementById('dashboard').hidden = false;
+  document.getElementById('last-refresh').textContent =
+    `${data.length} réponse${data.length!==1?'s':''} · mis à jour à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
+
+  // ── Stats ──────────────────────────────────────────────────
+  const courseTally = {};   // { courseName: count }
+  const slotTally   = {};   // { slotLabel: count }
+  const matrix      = {};   // { courseName: { slotLabel: count } }
+  let extraCount = 0;
+  const extras = [];
+
+  data.forEach(d => {
+    if (d.extra) { extraCount++; extras.push(d.extra); }
+    (d.courses||[]).forEach(c => {
+      courseTally[c.name] = (courseTally[c.name]||0)+1;
+      if (!matrix[c.name]) matrix[c.name] = {};
+      if (c.slot) {
+        slotTally[c.slot] = (slotTally[c.slot]||0)+1;
+        matrix[c.name][c.slot] = (matrix[c.name][c.slot]||0)+1;
+      }
+    });
+  });
+
+  document.getElementById('s-total').textContent   = data.length;
+  document.getElementById('s-courses').textContent = Object.keys(courseTally).length;
+  document.getElementById('s-extras').textContent  = extraCount;
+
+  // ── Bars : cours ───────────────────────────────────────────
+  const sortedCourses = Object.entries(courseTally).sort((a,b)=>b[1]-a[1]);
+  const maxC = sortedCourses[0]?.[1]||1;
+  document.getElementById('bars-courses').innerHTML = sortedCourses.map(([name,count]) => `
+    <div class="bar-row">
+      <span class="bar-name" title="${esc(name)}">${esc(name)}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(count/maxC*100)}%"></div></div>
+      <span class="bar-count">${count}</span>
+    </div>`).join('');
+
+  // ── Bars : créneaux ────────────────────────────────────────
+  const sortedSlots = SLOT_ORDER.filter(s => slotTally[s]).map(s => [s, slotTally[s]]);
+  const maxS = sortedSlots[0]?.[1]||1;
+  document.getElementById('bars-slots').innerHTML = sortedSlots.length
+    ? sortedSlots.map(([name,count]) => `
+        <div class="bar-row">
+          <span class="bar-name" title="${esc(name)}">${esc(name)}</span>
+          <div class="bar-track"><div class="bar-fill green" style="width:${Math.round(count/maxS*100)}%"></div></div>
+          <span class="bar-count">${count}</span>
+        </div>`).join('')
+    : '<div class="empty" style="padding:20px">Pas encore de créneaux choisis.</div>';
+
+  // ── Heatmap ────────────────────────────────────────────────
+  const activeSlots = SLOT_ORDER.filter(s => slotTally[s]);
+  const activeSlotsFull = activeSlots.length ? activeSlots : SLOT_ORDER;
+  const courseNames = sortedCourses.map(([n])=>n);
+
+  let heatHtml = '<thead><tr><th class="row-head">Cours</th>';
+  activeSlotsFull.forEach(s => { heatHtml += `<th>${esc(s)}</th>`; });
+  heatHtml += '</tr></thead><tbody>';
+
+  const allVals = [];
+  courseNames.forEach(cn => {
+    activeSlotsFull.forEach(sl => {
+      const v = matrix[cn]?.[sl]||0;
+      if (v>0) allVals.push(v);
+    });
+  });
+  const maxH = Math.max(...allVals, 1);
+
+  courseNames.forEach(cn => {
+    heatHtml += `<tr><th class="row-head">${esc(cn)}</th>`;
+    activeSlotsFull.forEach(sl => {
+      const v = matrix[cn]?.[sl]||0;
+      const tier = v===0?0:v<=maxH*.25?1:v<=maxH*.5?2:v<=maxH*.75?3:4;
+      heatHtml += `<td class="cell-${tier}">${v||'—'}</td>`;
+    });
+    heatHtml += '</tr>';
+  });
+  heatHtml += '</tbody>';
+  document.getElementById('heatmap').innerHTML = heatHtml;
+
+  // ── Planning ───────────────────────────────────────────────
+  const planSlots = activeSlots.length ? activeSlots : SLOT_ORDER;
+
+  document.getElementById('planning').innerHTML = planSlots.map(slot => {
+    const allForSlot = courseNames
+      .map(cn => ({ name: cn, votes: matrix[cn]?.[slot]||0, salle: getSalle(cn) }))
+      .filter(x => x.votes > 0)
+      .sort((a,b) => b.votes-a.votes);
+
+    const airTop   = allForSlot.filter(c => c.salle === 'Air').slice(0,2);
+    const terreTop = allForSlot.filter(c => c.salle === 'Terre').slice(0,2);
+    const mixTop   = allForSlot.filter(c => c.salle === 'Air/Terre').slice(0,1);
+
+    function courseRow(c, rank) {
+      return `<div class="plan-course">
+        <div class="plan-course-rank">${rank}</div>
+        <div class="plan-course-name">${esc(c.name)}</div>
+        <div class="plan-course-votes">${c.votes} vote${c.votes>1?'s':''}</div>
+      </div>`;
+    }
+
+    const airHtml = airTop.length
+      ? airTop.map((c,i) => courseRow(c, i+1)).join('')
+      : '<div class="plan-empty">Rien de demandé</div>';
+
+    const terreHtml = terreTop.length || mixTop.length
+      ? [...terreTop, ...mixTop].map((c,i) => courseRow(c, i+1)).join('')
+      : '<div class="plan-empty">Rien de demandé</div>';
+
+    const totalSlotVotes = slotTally[slot]||0;
+    const conflictAir   = airTop.length > 1;
+    const conflictTerre = (terreTop.length + mixTop.length) > 1;
+
+    return `<div class="plan-slot">
+      <div class="plan-slot-head">
+        <span class="plan-slot-label">${esc(slot)}</span>
+        <span class="plan-slot-hours">${esc(SLOT_HOURS[slot]||'')}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
+        <div>
+          <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:8px">🪂 Salle Air</div>
+          <div class="plan-courses">${airHtml}</div>
+          ${conflictAir ? `<div style="font-size:11px;color:var(--gold);margin-top:6px">⚠ 2 cours demandés — à arbitrer</div>` : ''}
+        </div>
+        <div>
+          <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:8px">🌿 Salle Terre</div>
+          <div class="plan-courses">${terreHtml}</div>
+          ${conflictTerre ? `<div style="font-size:11px;color:var(--gold);margin-top:6px">⚠ 2 cours demandés — à arbitrer</div>` : ''}
+        </div>
+      </div>
+      ${totalSlotVotes > 0 ? `<div class="plan-note">${totalSlotVotes} personne${totalSlotVotes>1?'s':''} veu${totalSlotVotes>1?'lent':'t'} un cours sur ce créneau</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // ── Idées libres ───────────────────────────────────────────
+  document.getElementById('extras-list').innerHTML = extras.length
+    ? extras.map(e => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--text2);font-style:italic">« ${esc(e)} »</div>`).join('')
+    : '<div class="empty" style="padding:20px">Aucune idée libre pour l\'instant.</div>';
+
+  // ── Réponses ───────────────────────────────────────────────
+  document.getElementById('cards').innerHTML = data.length === 0
+    ? '<div class="empty">Aucune réponse pour l\'instant.</div>'
+    : data.map(d => {
+        const who = [d.name, d.instagram ? '@'+d.instagram.replace(/^@/,'') : ''].filter(Boolean).join(' · ') || 'Anonyme';
+        const date = d.created_at ? new Date(d.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+        const courses = (d.courses||[]).map(c => `
+          <div class="course-row">
+            <span>${c.emoji||''} ${esc(c.name)}</span>
+            ${c.slot ? `<span class="course-slot">${esc(c.slot)}</span>` : '<span class="course-slot" style="color:var(--text3)">créneau libre</span>'}
+          </div>`).join('');
+        const extra = d.extra ? `<div class="extra">« ${esc(d.extra)} »</div>` : '';
+        return `<div class="card">
+          <div class="card-head"><span class="card-who">${esc(who)}</span><span class="card-date">${esc(date)}</span></div>
+          ${courses}${extra}
+        </div>`;
+      }).join('');
+}
+
+// Auto-login si mot de passe en mémoire
+if (savedPw) {
+  document.getElementById('pw').value = savedPw;
+  login();
+}
+</script>
+</body>
+</html>
