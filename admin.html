@@ -420,6 +420,8 @@ async function loadDashboard() {
       <div style="font-size:13px">Anniversaire${birthdays.length>1?'s':''} cette semaine : <strong>${birthdays.map(s=>esc(s.full_name)).join(', ')}</strong></div>
     </div>` : ''}
 
+    <div id="offered-approvals-section"></div>
+
     <div class="grid-3" style="margin-bottom:12px">
       <div class="stat-card" style="cursor:pointer" onclick="showPage('eleves')">
         <div class="stat-val">${totalStudents || 0}</div>
@@ -525,6 +527,73 @@ async function loadDashboard() {
       </div>
     </div>
   `;
+
+  // Charger les demandes en attente après le dashboard
+  await loadOfferedApprovals();
+}
+
+
+async function loadOfferedApprovals() {
+  const el = document.getElementById('offered-approvals-section');
+  if (!el) return;
+
+  const { data: pending } = await db.from('bookings')
+    .select('id, booked_at, student_id, credit_id, course_instance_id, profiles(full_name, email), course_instances(date, start_time, courses(custom_name, disciplines(name)))')
+    .eq('status', 'pending_approval')
+    .order('booked_at', { ascending: true });
+
+  if (!pending?.length) {
+    el.innerHTML = '';
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="background:rgba(219,185,106,0.08);border:1.5px solid rgba(219,185,106,0.4);border-radius:14px;padding:18px 20px;margin-bottom:20px" id="offered-approvals-block">
+      <div style="font-size:13px;font-weight:700;color:#c9a227;letter-spacing:.05em;text-transform:uppercase;margin-bottom:14px">⏳ Demandes en attente — Accès offert (${pending.length})</div>
+      ${pending.map(b => {
+        const ci = b.course_instances;
+        const courseName = ci?.courses?.custom_name || ci?.courses?.disciplines?.name || 'Cours';
+        const dateStr = ci?.date ? new Date(ci.date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' }) : '';
+        const timeStr = ci?.start_time ? ci.start_time.slice(0,5) : '';
+        const studentName = b.profiles?.full_name || '?';
+        return `
+          <div id="approval-row-${b.id}" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(219,185,106,0.2)">
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:600;color:var(--ivoire)">${esc(studentName)}</div>
+              <div style="font-size:13px;color:var(--text2)">${esc(courseName)} · ${dateStr}${timeStr ? ' ' + timeStr : ''}</div>
+            </div>
+            <button onclick="handleOfferedApproval(${b.id}, 'approve')" style="padding:7px 14px;border-radius:8px;border:none;background:rgba(125,191,155,0.2);color:#7dbf9b;font-size:13px;font-weight:600;cursor:pointer">✓ Valider</button>
+            <button onclick="handleOfferedApproval(${b.id}, 'reject')" style="padding:7px 14px;border-radius:8px;border:none;background:rgba(232,122,122,0.12);color:#e87a7a;font-size:13px;font-weight:600;cursor:pointer">✕ Refuser</button>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+async function handleOfferedApproval(bookingId, action) {
+  const row = document.getElementById(`approval-row-${bookingId}`);
+  if (row) row.style.opacity = '0.5';
+
+  const { data: { session } } = await db.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/handle-offered-approval`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ booking_id: bookingId, action }),
+  });
+  const result = await res.json();
+
+  if (result.ok) {
+    showToast(action === 'approve' ? '✅ Inscription validée — l\'élève est notifiée' : '✕ Demande refusée');
+    if (row) row.remove();
+    // Masquer le bloc si plus rien
+    const block = document.getElementById('offered-approvals-block');
+    if (block && !block.querySelector('[id^="approval-row-"]')) block.remove();
+  } else if (result.full) {
+    showToast('⚠️ Cours complet — impossible de valider', true);
+    if (row) row.style.opacity = '1';
+  } else {
+    showToast(result.error || 'Erreur', true);
+    if (row) row.style.opacity = '1';
+  }
 }
 
 
