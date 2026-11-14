@@ -528,8 +528,7 @@ async function loadDashboard() {
     </div>
   `;
 
-  // Charger les demandes en attente après le dashboard
-  await loadOfferedApprovals();
+  // Les demandes "Accès offert" se valident maintenant dans le détail de chaque cours (viewInstance)
 }
 
 
@@ -890,6 +889,11 @@ async function viewInstance(id) {
   ]);
   const classpassVisits = (allPartnerVisits || []).filter(v => !v.source || v.source === 'classpass');
   const wellpassVisits = (allPartnerVisits || []).filter(v => v.source === 'wellpass');
+  // Inscriptions "Accès offert" (en attente ou déjà confirmées) → encadré de validation
+  const { data: offeredRaw } = await db.from('bookings')
+    .select('id, status, payment_method, profiles(full_name), student_credits(products(price_cents))')
+    .eq('course_instance_id', id).in('status', ['pending_approval', 'confirmed']);
+  const offeredBookings = (offeredRaw || []).filter(b => b.student_credits?.products?.price_cents === 0);
   const { data: waitlist } = await db.from('waitlist')
     .select('*, profiles(full_name)')
     .eq('course_instance_id', id).order('position');
@@ -937,6 +941,22 @@ async function viewInstance(id) {
         </select>
         <button onclick="saveReplacement('${ci.id}')" style="padding:7px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;cursor:pointer;white-space:nowrap">Valider</button>
       </div>
+    </div>` : ''}
+    ${offeredBookings.length ? `
+    <div style="background:rgba(219,185,106,0.08);border:1.5px solid rgba(219,185,106,0.4);border-radius:12px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#c9a227;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">🎁 Accès offert</div>
+      ${offeredBookings.map(b => {
+        const pending = b.status === 'pending_approval';
+        const validated = b.payment_method === 'offert_valide';
+        return `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(219,185,106,0.2)">
+          <div style="flex:1;font-size:13px;font-weight:600">${esc(b.profiles?.full_name || '?')}
+            <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:4px">${pending ? '⏳ en attente' : validated ? '✓ validée' : 'inscrite directement'}</span>
+          </div>
+          ${validated ? '' : `<button onclick="offeredDecision('${b.id}','${id}','approve',${pending})" style="padding:5px 12px;border-radius:8px;border:none;background:rgba(125,191,155,0.2);color:#7dbf9b;font-size:12px;font-weight:600;cursor:pointer">✓ Accepter</button>`}
+          <button onclick="offeredDecision('${b.id}','${id}','reject',${pending})" style="padding:5px 12px;border-radius:8px;border:none;background:rgba(232,122,122,0.12);color:#e87a7a;font-size:12px;font-weight:600;cursor:pointer">✕ Pas</button>
+        </div>`;
+      }).join('')}
     </div>` : ''}
     <div style="margin-bottom:20px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inscrits (${(bookings?.length || 0) + (bookings||[]).filter(b=>b.guest_name).length + (allPartnerVisits?.length || 0)}/${c.max_students || '?'})</div>
@@ -1002,6 +1022,32 @@ async function viewInstance(id) {
     </div>
   `;
   openModal();
+}
+
+// Décision sur une inscription "Accès offert" depuis le détail du cours
+async function offeredDecision(bookingId, instanceId, action, isPending) {
+  if (isPending) {
+    // Demande en attente → fonction serveur (crédit, notif, email à l'élève)
+    const { data: { session } } = await db.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/handle-offered-approval`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking_id: bookingId, action }),
+    });
+    const result = await res.json();
+    if (!result.ok) return showToast(result.full ? '⚠️ Cours complet — impossible de valider' : (result.error || 'Erreur'), true);
+    if (action === 'approve') await db.from('bookings').update({ payment_method: 'offert_valide' }).eq('id', bookingId);
+    showToast(action === 'approve' ? '✅ Inscription validée — l\'élève est notifiée' : '✕ Demande refusée');
+    return viewInstance(instanceId);
+  }
+  // Déjà inscrite directement : Accepter = on garde, Pas = annulation + séance rendue
+  if (action === 'approve') {
+    const { error } = await db.from('bookings').update({ payment_method: 'offert_valide' }).eq('id', bookingId);
+    if (error) return showToast(error.message, true);
+    showToast('✅ Accès offert validé');
+    return viewInstance(instanceId);
+  }
+  return cancelBookingAdmin(bookingId, instanceId);
 }
 
 async function saveReplacement(instanceId) {
