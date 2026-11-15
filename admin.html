@@ -3371,7 +3371,7 @@ async function loadSoins() {
   <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
     <div>
       <div class="page-title">Soins Bien-être 🌿</div>
-      <div class="page-sub">avec Aude · Mercredis 14h–19h</div>
+      <div class="page-sub">avec Aude · Lundis et jeudis 17h–21h</div>
     </div>
     <button class="btn btn-primary" onclick="openNewSoinModal()">+ Nouveau soin</button>
   </div>
@@ -3404,11 +3404,10 @@ async function loadSoins() {
         <div>
           <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:6px">Heure</label>
           <select id="soin-time" style="width:100%;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-            <option value="14:00">14h00</option>
-            <option value="15:00">15h00</option>
-            <option value="16:00">16h00</option>
             <option value="17:00">17h00</option>
             <option value="18:00">18h00</option>
+            <option value="19:00">19h00</option>
+            <option value="20:00">20h00</option>
           </select>
         </div>
         <div>
@@ -3455,12 +3454,10 @@ async function loadSoins() {
 function openNewSoinModal() {
   const backdrop = document.getElementById('soin-modal-backdrop');
   backdrop.style.display = 'flex';
-  // Date par défaut : prochain mercredi
-  const now = new Date();
-  const day = now.getDay();
-  const daysUntilWed = (3 - day + 7) % 7 || 7;
-  const nextWed = new Date(now.getTime() + daysUntilWed * 86400000);
-  document.getElementById('soin-date').value = nextWed.toISOString().slice(0,10);
+  // Date par défaut : prochain lundi ou jeudi
+  const nextSoinDay = new Date();
+  do { nextSoinDay.setDate(nextSoinDay.getDate() + 1); } while (![1, 4].includes(nextSoinDay.getDay()));
+  document.getElementById('soin-date').value = nextSoinDay.toISOString().slice(0,10);
   document.getElementById('soin-student').value = '';
   document.getElementById('soin-phone').value = '';
   document.getElementById('soin-notes').value = '';

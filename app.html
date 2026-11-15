@@ -669,11 +669,11 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           <span style="font-size:28px">🌿</span>
           <div>
-            <div class="section-label" style="margin:0 0 2px">Avec Aude · Tous les mercredis</div>
+            <div class="section-label" style="margin:0 0 2px">Avec Aude · Tous les lundis et jeudis</div>
             <div class="serif" style="font-size:20px;color:var(--violet)">Soins bien-être</div>
           </div>
         </div>
-        <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:14px">Une parenthèse pour toi. Aude t'accueille le mercredi de 14h à 19h en salle Terre pour deux soins en profondeur. Hors engagement : 40€ tarif élève Yely (50€ tarif public).</p>
+        <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:14px">Une parenthèse pour toi. Aude t'accueille le lundi et le jeudi, de 17h à 21h, en salle Terre pour deux soins en profondeur. Hors engagement : 40€ tarif élève Yely (50€ tarif public).</p>
         <div style="background:linear-gradient(135deg,rgba(232,160,191,0.22),rgba(155,125,219,0.12));border:1.5px solid rgba(232,160,191,0.5);border-radius:12px;padding:14px 16px;margin-bottom:12px">
           <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#b03a6a;margin-bottom:4px">⭐ Abonnement avec engagement 12 mois</div>
           <div class="serif" style="font-size:20px;color:var(--text1);line-height:1.2;margin-bottom:2px">4 soins inclus par an</div>
@@ -697,7 +697,7 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
             <div class="serif" style="font-size:18px;color:#b03a6a;margin-left:12px;white-space:nowrap">40€<div style="font-size:10px;color:var(--text3);text-decoration:line-through;text-align:right;margin-top:-2px">50€</div></div>
           </div>
         </div>
-        <button onclick="navigate('reserver')" style="display:block;width:100%;text-align:center;background:rgba(232,160,191,0.14);border:1px solid rgba(232,160,191,0.4);color:#b03a6a;border-radius:50px;padding:12px 24px;font-size:13px;font-weight:600;cursor:pointer">Réserver mon soin dans le planning →</button><div style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">Les soins apparaissent dans le planning du mercredi</div>
+        <button onclick="navigate('reserver')" style="display:block;width:100%;text-align:center;background:rgba(232,160,191,0.14);border:1px solid rgba(232,160,191,0.4);color:#b03a6a;border-radius:50px;padding:12px 24px;font-size:13px;font-weight:600;cursor:pointer">Réserver mon soin dans le planning →</button><div style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">Les soins apparaissent dans le planning du lundi et du jeudi</div>
       </div>
 
       <!-- EVJF -->
@@ -1658,14 +1658,14 @@ async function loadCoursesForWeek() {
 async function loadCoursesForDay(date) {
   document.getElementById('cours-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const dateStr = localDateStr(date);
-  const isWednesday = date.getDay() === 3;
-  const SOIN_SLOTS = ['14:00', '15:00', '16:00', '17:00', '18:00'];
+  const isSoinDay = [1, 4].includes(date.getDay());
+  const SOIN_SLOTS = ['17:00', '18:00', '19:00', '20:00'];
   const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
 
   const [{ data, error }, { data: cancelledData }, { data: soinData }] = await Promise.all([
     db.from('course_instances_with_availability').select('*').eq('date', dateStr).eq('status', 'active').order('start_time'),
     db.from('course_instances_with_availability').select('*').eq('date', dateStr).eq('status', 'cancelled').order('start_time'),
-    isWednesday ? db.from('soin_appointments').select('*').eq('date', dateStr).eq('status', 'confirmed') : Promise.resolve({ data: [] }),
+    isSoinDay ? db.from('soin_appointments').select('*').eq('date', dateStr).eq('status', 'confirmed') : Promise.resolve({ data: [] }),
   ]);
 
   // Récupérer mes réservations annulées pour voir quels cours annulés j'avais
@@ -1674,7 +1674,7 @@ async function loadCoursesForDay(date) {
     ? await db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).in('course_instance_id', cancelledIds).eq('status', 'cancelled')
     : { data: [] };
   const myCancelledSet = new Set((myCancelledBookings || []).map(b => b.course_instance_id));
-  if ((error || !data?.length) && !(cancelledData?.length) && !isWednesday) {
+  if ((error || !data?.length) && !(cancelledData?.length) && !isSoinDay) {
     document.getElementById('cours-list').innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
       <div style="font-size:28px;margin-bottom:8px">🌿</div>
       <div>Pas de cours ce jour</div>
@@ -1746,8 +1746,8 @@ async function loadCoursesForDay(date) {
     }),
   ].sort((a, b) => a.time.localeCompare(b.time));
 
-  // Ajouter les créneaux soins le mercredi
-  if (isWednesday) {
+  // Ajouter les créneaux soins le lundi et le jeudi
+  if (isSoinDay) {
     const takenSlots = new Set((soinData || []).map(s => (s.start_time || '').slice(0, 5)));
     const mySlot = (soinData || []).find(s => s.student_id === currentUser.id);
     const isPast = date < new Date(new Date().setHours(0,0,0,0));
@@ -2190,7 +2190,7 @@ async function loadBookingForm(ci) {
       ${ci.description ? (() => {
         const descFirst = (ci.description.match(/^[^.!?]+[.!?]/) || [ci.description])[0].trim();
         const hasMore = ci.description.length > descFirst.length + 3;
-        return `<div style="font-size:12px;color:var(--text2);line-height:1.6;border-top:1px solid var(--border);padding-top:10px;margin-top:10px">
+        return `<div style="font-size:15px;color:var(--text);line-height:1.75;background:var(--bg2);border-radius:12px;padding:14px 16px;margin-top:12px;letter-spacing:0.1px">
           <span id="desc-short">${esc(descFirst)}</span>
           <span id="desc-full" style="display:none">${esc(ci.description).replace(/\n/g,'<br>')}</span>
           ${hasMore ? `<span id="desc-toggle" onclick="const f=document.getElementById('desc-full'),s=document.getElementById('desc-short'),t=document.getElementById('desc-toggle');if(f.style.display==='none'){f.style.display='inline';s.style.display='none';t.textContent=' Voir moins'}else{f.style.display='none';s.style.display='inline';t.textContent=' Voir plus'}" style="color:var(--violet-light);cursor:pointer;font-weight:600"> Voir plus</span>` : ''}
@@ -4270,7 +4270,7 @@ async function loadHistorique() {
 async function openSoinBookingModal(dateStr, slot) {
   const { data: existing } = await db.from('soin_appointments')
     .select('id').eq('date', dateStr).eq('student_id', currentUser.id).eq('status', 'confirmed').maybeSingle();
-  if (existing) { showToast('Tu as déjà un soin réservé ce mercredi.'); return; }
+  if (existing) { showToast('Tu as déjà un soin réservé ce jour-là.'); return; }
 
   const { data: engSub } = await db.from('subscriptions')
     .select('id').eq('student_id', currentUser.id).eq('status', 'active').not('engagement_until', 'is', null).maybeSingle();
