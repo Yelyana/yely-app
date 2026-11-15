@@ -667,7 +667,7 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
       </div>
 
       <!-- SOINS AVEC AUDE -->
-      <div class="card" style="margin-bottom:16px;padding:20px">
+      <div class="card" style="margin-bottom:16px;padding:20px;background:linear-gradient(135deg,rgba(232,160,191,0.28),rgba(232,160,191,0.14));border-color:rgba(232,160,191,0.6)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           <span style="font-size:28px">🌿</span>
           <div>
@@ -1778,8 +1778,10 @@ function renderSoinGroup(dateStr, slots, taken) {
   return `<div style="border:1.5px solid rgba(232,160,191,0.6);background:rgba(232,160,191,0.12);border-radius:14px;padding:10px 12px;margin-bottom:8px">
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
       <div style="font-size:13px;font-weight:700;color:#b03a6a">🌿 Soin bien-être avec Aude</div>
-      <div style="font-size:11px;color:var(--text3)">50 min · choisis ton heure</div>
+      <div style="font-size:11px;color:var(--text3)">50 min</div>
     </div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:10px">Un soin de 50 min : réflexologie infrarouge + massage crânien (détente) ou drainage lymphatique visage. <strong style="color:#b03a6a">Inclus dans l'abonnement avec engagement</strong>, sinon 40 € tarif élève.</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Choisis ton heure :</div>
     <div style="display:flex;gap:6px">${pills}</div>
   </div>`;
 }
@@ -4277,7 +4279,7 @@ async function openSoinBookingModal(dateStr, slot) {
   const dateLabel = new Date(dateStr).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   const hasAbo = soinsRestants > 0;
   const aboBtn = hasAbo
-    ? `<button onclick="confirmSoinBooking(true)" style="width:100%;padding:16px;background:rgba(232,160,191,0.14);border:1.5px solid #e8a0bf;border-radius:14px;color:#b03a6a;font-size:15px;font-weight:600;cursor:pointer;text-align:left">
+    ? `<button onclick="askSoinConfirm(true)" style="width:100%;padding:16px;background:rgba(232,160,191,0.14);border:1.5px solid #e8a0bf;border-radius:14px;color:#b03a6a;font-size:15px;font-weight:600;cursor:pointer;text-align:left">
         <div>J'ai un abonnement avec engagement</div>
         <div style="font-size:12px;font-weight:500;margin-top:3px">${soinsRestants} sur 4 soins inclus</div>
        </button>`
@@ -4311,11 +4313,11 @@ async function openSoinBookingModal(dateStr, slot) {
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">Paiement</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
         ${aboBtn}
-        <button onclick="confirmSoinBooking('paypal')" style="width:100%;padding:16px;background:rgba(155,125,219,0.1);border:1.5px solid var(--violet);border-radius:14px;color:var(--violet-light);font-size:15px;font-weight:600;cursor:pointer;text-align:left">
+        <button onclick="askSoinConfirm('paypal')" style="width:100%;padding:16px;background:rgba(155,125,219,0.1);border:1.5px solid var(--violet);border-radius:14px;color:var(--violet-light);font-size:15px;font-weight:600;cursor:pointer;text-align:left">
           <div>Paiement 40 € par PayPal <span style="font-size:11px;text-decoration:line-through;opacity:.5">50 €</span></div>
           <div style="font-size:12px;font-weight:400;margin-top:3px;opacity:.7">Tarif élève Yely · Redirection vers PayPal</div>
         </button>
-        <button onclick="confirmSoinBooking('especes')" style="width:100%;padding:16px;background:rgba(240,234,224,0.04);border:1.5px solid var(--border);border-radius:14px;color:var(--text2);font-size:15px;font-weight:600;cursor:pointer;text-align:left">
+        <button onclick="askSoinConfirm('especes')" style="width:100%;padding:16px;background:rgba(240,234,224,0.04);border:1.5px solid var(--border);border-radius:14px;color:var(--text2);font-size:15px;font-weight:600;cursor:pointer;text-align:left">
           <div>Paiement 40 € en espèces au studio <span style="font-size:11px;text-decoration:line-through;opacity:.5">50 €</span></div>
           <div style="font-size:12px;font-weight:400;margin-top:3px;opacity:.7">Tarif élève Yely · À régler le jour du soin</div>
         </button>
@@ -4341,6 +4343,33 @@ function selectSoinType(type) {
       const sub = btn.querySelector('div:last-child'); if (sub) sub.style.color = 'var(--text3)';
     }
   });
+}
+
+function askSoinConfirm(mode) {
+  const b = window._soinBooking; if (!b) return;
+  const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
+  const pay = mode === true ? "Inclus dans ton abonnement avec engagement (1 de tes soins)" : mode === 'paypal' ? '40 € par PayPal' : '40 € en espèces, à régler au studio le jour du soin';
+  const dateLabel = new Date(b.dateStr + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  document.getElementById('soin-confirm-modal')?.remove();
+  const m = document.createElement('div');
+  m.id = 'soin-confirm-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1050;display:flex;align-items:center;justify-content:center;padding:20px';
+  m.innerHTML = `<div style="background:var(--card);border-radius:22px;padding:26px 22px;width:100%;max-width:340px;text-align:center">
+    <div class="serif" style="font-size:22px;color:var(--violet);margin-bottom:12px">Confirmer ta réservation ?</div>
+    <div style="background:var(--bg2);border-radius:12px;padding:12px 14px;margin-bottom:16px;text-align:left">
+      <div style="font-size:14px;font-weight:600;color:var(--text)">${SOIN_NAMES[b.type]}</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:2px;text-transform:capitalize">${dateLabel} · ${b.slot.replace(':','h')}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">${pay}</div>
+    </div>
+    <button id="soin-confirm-yes" style="width:100%;padding:13px;border-radius:50px;border:none;background:#7B4FA6;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">Oui, je réserve</button>
+    <button onclick="document.getElementById('soin-confirm-modal').remove()" style="width:100%;padding:11px;border-radius:50px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:13px;cursor:pointer">Non, retour</button>
+  </div>`;
+  document.body.appendChild(m);
+  document.getElementById('soin-confirm-yes').onclick = async function () {
+    this.disabled = true; this.style.opacity = '0.6';
+    m.remove();
+    await confirmSoinBooking(mode);
+  };
 }
 
 async function confirmSoinBooking(mode) {
