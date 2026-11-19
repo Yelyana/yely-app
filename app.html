@@ -933,7 +933,7 @@ async function signup() {
 async function forgotPassword() {
   const email = document.getElementById('login-email').value.trim();
   if (!email) return showToast('Entre ton email d\'abord', true);
-  const { error } = await db.auth.resetPasswordForEmail(email);
+  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: 'https://app.yelyintheair.com' });
   if (error) return showToast(error.message || 'Erreur de connexion', true);
   showToast('Email de réinitialisation envoyé !');
 }
@@ -5086,6 +5086,9 @@ db.auth.onAuthStateChange(async (event, session) => {
     currentUser = null;
     currentProfile = null;
     showAuth();
+  } else if (event === 'PASSWORD_RECOVERY') {
+    // Lien « mot de passe oublié » : on ouvre directement la fenêtre pour choisir un nouveau mot de passe
+    setTimeout(() => { if (typeof changePassword === 'function') changePassword(); }, 1200);
   } else if (event === 'TOKEN_REFRESHED' && session?.user) {
     currentUser = session.user;
   }

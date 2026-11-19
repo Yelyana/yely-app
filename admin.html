@@ -1646,6 +1646,7 @@ async function loadEleves() {
     totalCours: statsMap[s.id]?.total || 0,
     lastCours: statsMap[s.id]?.lastDate || null,
     hasActive: activeSubIds.has(s.id) || activeCreditIds.has(s.id),
+    hasHealth: !!(s.health_info && s.health_info.accord_sante),
   }));
 
   renderEleves();
@@ -1668,6 +1669,7 @@ function renderEleves() {
     return s.lastCours && s.lastCours < threeWeeksAgo;
   });
   else if (_elevesFilter === 'fideles') data = data.filter(s => s.totalCours >= 8);
+  else if (_elevesFilter === 'sante') data = data.filter(s => !s.hasHealth);
   else if (_elevesFilter === 'actives') data = data.filter(s => s.hasActive);
   else if (_elevesFilter === 'nouvelles') data = data.filter(s => {
     const oneMonthAgo = localDateStr(new Date(Date.now()-30*24*60*60*1000));
@@ -1726,6 +1728,7 @@ function renderEleves() {
       ${filterBtn('fideles','💜 Fidèles')}
       ${filterBtn('nouvelles','🌱 Nouvelles')}
       ${filterBtn('relancer',`⚠️ À relancer${relancerCount?' ('+relancerCount+')':''}`)}
+      ${filterBtn('sante',`🩺 Sans fiche santé (${_allStudentsData.filter(s=>!s.hasHealth).length})`)}
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <span style="font-size:12px;color:var(--text3)">Trier par :</span>
@@ -1753,6 +1756,7 @@ function renderEleves() {
               <div style="font-size:10px;color:var(--text3)">${s.lastCours ? 'Dernière : ' + new Date(s.lastCours).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : 'Jamais venue'}</div>
             </div>
             ${!s.hasActive ? `<span style="font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:20px;background:#e87a7a22;color:#e87a7a">Sans forfait</span>` : ''}
+            <span title="${s.hasHealth ? 'Fiche santé signée' : 'Fiche santé non remplie'}" style="font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:20px;background:${s.hasHealth ? '#7dbf9b22' : '#e8a0bf33'};color:${s.hasHealth ? '#7dbf9b' : '#b03a6a'}">${s.hasHealth ? '🩺 ✓' : '🩺 à remplir'}</span>
             <span style="font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:20px;background:${badge.color}22;color:${badge.color}">${badge.label}</span>
           </div>
         </div>`;
