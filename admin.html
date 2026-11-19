@@ -613,23 +613,23 @@ if (planningDay > 5) planningDay = 0;
 function renderPlanningTemplate() {
   const colors = {
     coline:'#7c4a9e', yely:'#2a0a45', anita:'#b8895f',
-    catherine:'#5a8a7a', florie:'#c76b8a', myriam:'#4a7a9e', arecruter:'#a8a8a8'
+    catherine:'#5a8a7a', florie:'#c76b8a', morgane:'#4a7a9e', arecruter:'#a8a8a8'
   };
   const days = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
   const rows = [
-    { time:'9h30', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:{name:'Pole Niveau 1',who:'Coline / futur prof',c:'coline'},b:{name:'Pilates Reformer',who:'Myriam',c:'myriam'}} }},
-    { time:'10h30', data:{ Lundi:{a:null,b:{name:'Yoga Vinyasa — intense',who:'Catherine',c:'catherine'}}, Mardi:{a:null,b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:{name:'Yoga Vinyasa — intense',who:'Catherine',c:'catherine'}}, Vendredi:{a:null,b:null}, Samedi:{a:{name:'Pole Chorégraphie',who:'Coline / futur prof',c:'coline'},b:{name:'Pilates Reformer',who:'Myriam',c:'myriam'}} }},
+    { time:'9h30', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:{name:'Pole Niveau 1',who:'Coline / futur prof',c:'coline'},b:{name:'Pilates Reformer',who:'Morgane',c:'morgane'}} }},
+    { time:'10h30', data:{ Lundi:{a:null,b:{name:'Yoga Vinyasa — intense',who:'Catherine',c:'catherine'}}, Mardi:{a:null,b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:{name:'Yoga Vinyasa — intense',who:'Catherine',c:'catherine'}}, Vendredi:{a:null,b:null}, Samedi:{a:{name:'Pole Chorégraphie',who:'Coline / futur prof',c:'coline'},b:{name:'Pilates Reformer',who:'Morgane',c:'morgane'}} }},
     { time:'11h45', data:{ Lundi:{a:null,b:{name:'Yoga Doux',who:'Catherine',c:'catherine'}}, Mardi:{a:null,b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:{name:'Yin Yoga',who:'Catherine',c:'catherine'}}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
     { time:'14h00', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Kids Pole',who:'Coline',c:'coline'},b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
     { time:'15h15', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Kids Cerceau',who:'Coline',c:'coline'},b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
     { time:'16h30', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Parent / Enfant',who:'Coline',c:'coline'},b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
-    { time:'18h00', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Pole Découverte',who:'Coline',c:'coline'},b:{name:'✨ YELY SIGNATURE',who:'Souplesse, Backbends, Mobilité — Ana',c:'yely'}}, Jeudi:{a:null,b:null}, Vendredi:{a:{name:'Pole Découverte',who:'Coline',c:'coline'},b:{name:'Pilates Reformer',who:'Myriam',c:'myriam'}}, Samedi:{a:null,b:null} }},
+    { time:'18h00', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Pole Découverte',who:'Coline',c:'coline'},b:{name:'✨ YELY SIGNATURE',who:'Souplesse, Backbends, Mobilité — Ana',c:'yely'}}, Jeudi:{a:null,b:null}, Vendredi:{a:{name:'Pole Découverte',who:'Coline',c:'coline'},b:{name:'Pilates Reformer',who:'Morgane',c:'morgane'}}, Samedi:{a:null,b:null} }},
     { time:'18h45', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:{name:'Yoga Flow — accessible',who:'Anita',c:'anita'}}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
-    { time:'19h00', data:{ Lundi:{a:{name:'Pole Découverte',who:'Coline',c:'coline'},b:{name:'Pilates Reformer',who:'Myriam',c:'myriam'}}, Mardi:{a:{name:'Pole Découverte',who:'À recruter',c:'arecruter'},b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:{name:'Cerceau aérien',who:'Coline / futur prof',c:'coline'},b:{name:'Yoga Flow — accessible',who:'Florie',c:'florie'}}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+    { time:'19h00', data:{ Lundi:{a:{name:'Pole Découverte',who:'Coline',c:'coline'},b:{name:'Pilates Reformer',who:'Morgane',c:'morgane'}}, Mardi:{a:{name:'Pole Découverte',who:'À recruter',c:'arecruter'},b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:{name:'Cerceau aérien',who:'Coline / futur prof',c:'coline'},b:{name:'Yoga Flow — accessible',who:'Florie',c:'florie'}}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
     { time:'19h15', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Pole Niveau 2',who:'Coline',c:'coline'},b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
-    { time:'19h45', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:{name:'Pole Niveau 2',who:'Coline',c:'coline'},b:{name:'Pilates Reformer',who:'Myriam',c:'myriam'}}, Samedi:{a:null,b:null} }},
+    { time:'19h45', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:{name:'Pole Niveau 2',who:'Coline',c:'coline'},b:{name:'Pilates Reformer',who:'Morgane',c:'morgane'}}, Samedi:{a:null,b:null} }},
     { time:'20h00', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:{name:'Yoga Doux',who:'Anita',c:'anita'}}, Mercredi:{a:null,b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
-    { time:'20h15', data:{ Lundi:{a:{name:'Pole Niveau 2',who:'Coline',c:'coline'},b:{name:'Pilates Reformer',who:'Myriam',c:'myriam'}}, Mardi:{a:{name:'Pole Chorégraphie',who:'À recruter',c:'arecruter'},b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:{name:'Yoga Aérien',who:'À recruter',c:'arecruter'},b:{name:'Yoga Vinyasa — intense',who:'Florie',c:'florie'}}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
+    { time:'20h15', data:{ Lundi:{a:{name:'Pole Niveau 2',who:'Coline',c:'coline'},b:{name:'Pilates Reformer',who:'Morgane',c:'morgane'}}, Mardi:{a:{name:'Pole Chorégraphie',who:'À recruter',c:'arecruter'},b:null}, Mercredi:{a:null,b:null}, Jeudi:{a:{name:'Yoga Aérien',who:'À recruter',c:'arecruter'},b:{name:'Yoga Vinyasa — intense',who:'Florie',c:'florie'}}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
     { time:'20h30–22h30', data:{ Lundi:{a:null,b:null}, Mardi:{a:null,b:null}, Mercredi:{a:{name:'Practice encadrée (2h)',who:'Coline',c:'coline'},b:null}, Jeudi:{a:null,b:null}, Vendredi:{a:null,b:null}, Samedi:{a:null,b:null} }},
   ];
 
@@ -649,7 +649,7 @@ function renderPlanningTemplate() {
 
   const legendHtml = [
     {c:'coline',label:'Coline'},{c:'yely',label:'Ana / Yely'},{c:'anita',label:'Anita'},
-    {c:'catherine',label:'Catherine'},{c:'florie',label:'Florie'},{c:'myriam',label:'Myriam'}
+    {c:'catherine',label:'Catherine'},{c:'florie',label:'Florie'},{c:'morgane',label:'Morgane'}
   ].map(l => `<span style="display:flex;align-items:center;gap:5px;font-size:11px"><span style="width:10px;height:10px;border-radius:3px;background:${colors[l.c]};display:inline-block"></span>${l.label}</span>`).join('');
 
   const gridRows = rows.map(row => {
@@ -1428,7 +1428,7 @@ const COURSE_DESCRIPTIONS = {
   'pole chorégraphie': "Une chorégraphie complète, construite sur plusieurs semaines, sur un morceau choisi ensemble. On travaille les transitions, le rythme et l'interprétation plutôt que la performance pure. C'est là qu'on comprend que la pole est une danse.\n\nDès le niveau 1.",
   'cerceau aérien': "Le cerceau suspendu : montées, figures, transitions dans les airs. Un travail de gainage et de force très différent de la pole, et beaucoup plus accessible qu'il n'y paraît vu du sol. On commence à hauteur basse, toujours.\n\nDébutantes bienvenues.",
   'practice encadrée': "Un créneau pour vous entraîner librement, avec une professeure présente dans la salle pour corriger et sécuriser. Ce n'est pas un cours dirigé : vous venez travailler ce que vous voulez, à votre rythme. Réservé aux personnes ayant déjà suivi des cours chez nous.",
-  'fly art': "Un atelier d'aérien animé par Myriam, sur ses propres agrès. Un format qu'on ne trouve nulle part ailleurs dans le secteur, et une seule soirée par mois. Places très limitées, réservation indispensable.",
+  'fly art': "Un atelier d'aérien sur agrès spécifiques. Un format qu'on ne trouve nulle part ailleurs dans le secteur, et une seule soirée par mois. Places très limitées, réservation indispensable.",
   'pole kids': "De la gymnastique acrobatique verticale pour les enfants : grimper, se suspendre, se renverser en sécurité. On y développe la force, la coordination et la confiance en soi. À partir de 7 ans.",
   'pilates reformer': "Du Pilates sur machine à ressorts, qui accompagne le mouvement au lieu de le forcer. Sans impact, très précis, redoutablement efficace sur le gainage profond et les douleurs de dos. 5 personnes maximum — votre professeure vous voit en permanence.\n\nChaussettes antidérapantes obligatoires.",
   'yoga doux': "Un yoga lent, avec des postures tenues longtemps, un vrai travail de respiration et une relaxation complète en fin de séance. Le cours à prendre pour relâcher la semaine. Aucune souplesse demandée — c'est le yoga qui vous l'apporte, pas l'inverse.",
