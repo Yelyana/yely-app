@@ -159,10 +159,6 @@ select option { background: var(--bg); }
           <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
           Planning
         </button>
-        <button class="nav-link" onclick="showPage('salles')" id="nav-salles">
-          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75h16.5v16.5H3.75zM3.75 12h16.5M12 3.75v16.5"/></svg>
-          Salles
-        </button>
         <button class="nav-link" onclick="showPage('eleves')" id="nav-eleves">
           <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
           Élèves
@@ -324,14 +320,13 @@ function showPage(page) {
   document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
   const nav = document.getElementById('nav-' + page);
   if (nav) nav.classList.add('active');
-  const pages = { dashboard: loadDashboard, planning: loadPlanning, salles: loadSalles, eleves: loadEleves, profs: loadProfs, revenus: loadRevenus, forfaits: loadForfaits, merch: loadMerch, soins: loadSoins };
+  const pages = { dashboard: loadDashboard, planning: loadPlanning, eleves: loadEleves, profs: loadProfs, revenus: loadRevenus, forfaits: loadForfaits, merch: loadMerch, soins: loadSoins };
   if (pages[page]) pages[page]();
 }
 
-// ── SALLES : grille horaire façon Google Agenda (Air | Terre) ─────────────
-let sallesOffset = 0;
-let sallesRoom = 'both';
-const SALLES_START = 8, SALLES_END = 23, SALLES_PX = 46;
+// ── PLANNING : grille horaire façon Google Agenda (Air | Terre) + locations de salles ─────────────
+let planningRoom = 'both';
+const PL_START = 8, PL_END = 23, PL_PX = 46;
 
 function salleColor(name, color) {
   if (color) return color;
@@ -344,49 +339,8 @@ function salleColor(name, color) {
   return '#8f86b5';
 }
 const sMin = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + (m || 0); };
-const sHM = min => `${String(Math.floor(min / 60)).padStart(2, '0')}h${String(min % 60).padStart(2, '0') === '00' ? '' : String(min % 60).padStart(2, '0')}`;
-
-async function loadSalles() {
-  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
-  const today = new Date();
-  const dow = today.getDay() === 0 ? 6 : today.getDay() - 1;
-  const monday = new Date(today); monday.setDate(today.getDate() - dow + sallesOffset * 7); monday.setHours(0, 0, 0, 0);
-  const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
-  const from = localDateStr(days[0]), to = localDateStr(days[6]);
-  const [{ data: inst }, { data: slots }, { data: appts }] = await Promise.all([
-    db.from('course_instances_with_availability').select('*').gte('date', from).lte('date', to).eq('status', 'active'),
-    db.from('soin_slots').select('*').gte('date', from).lte('date', to),
-    db.from('soin_appointments').select('*').gte('date', from).lte('date', to).eq('status', 'confirmed'),
-  ]);
-  window._salles = { days, inst: inst || [], slots: slots || [], appts: appts || [], picked: null };
-  renderSalles();
-}
-
-function sallesEvents(day) {
-  const d = localDateStr(day), S = window._salles, out = [];
-  S.inst.filter(c => c.date === d).forEach(c => {
-    const start = sMin(c.start_time), end = start + (c.duration_minutes || 60);
-    const name = c.custom_name || c.discipline_name || 'Cours';
-    out.push({
-      room: c.salle === 'terre' ? 'terre' : 'air', start, end, kind: c.is_practice ? 'practice' : 'course',
-      color: salleColor(name, c.discipline_color), title: name.replace(/\s*[🚺🎀⭕️🙃]+/gu, '').trim(),
-      sub: `${sHM(start)}–${sHM(end)}${c.teacher_name ? ' · ' + c.teacher_name.split(' ')[0] : ''}`,
-      count: `${c.booked_count ?? 0}/${c.max_students ?? '?'}`,
-      detail: `${name} · ${sHM(start)}–${sHM(end)} · salle ${c.salle === 'terre' ? 'Terre' : 'Air'} · ${c.teacher_name || 'professeure à définir'} · ${c.booked_count ?? 0}/${c.max_students ?? '?'} inscrites`,
-    });
-  });
-  S.slots.filter(s => s.date === d).forEach(s => {
-    const start = sMin(s.start_time), a = S.appts.find(x => x.date === d && sMin(x.start_time) === start);
-    out.push({
-      room: 'terre', start, end: start + 60, kind: a ? 'soin-booked' : s.status === 'validated' ? 'soin-valid' : 'soin-prop',
-      color: '#e8a0bf', title: a ? `🌿 ${(a.student_name || '').split(' ')[0]}` : s.status === 'validated' ? '🌿 Validé · libre' : '🌿 Proposé',
-      sub: a ? `${a.is_included ? 'inclus abo' : '40 €'}` : s.status === 'validated' ? 'visible dans l\'app' : 'en attente d\'Aude',
-      detail: a ? `Soin avec Aude · ${sHM(start)} · ${a.student_name} · ${a.is_included ? 'inclus dans l\'abonnement' : '40 €'}`
-        : `Créneau de soin ${sHM(start)}–${sHM(start + 60)} · ${s.status === 'validated' ? 'validé par Aude, réservable dans l\'app' : 'proposé, Aude ne l\'a pas encore validé (invisible pour les élèves)'}`,
-    });
-  });
-  return out;
-}
+const sHM = min => `${String(Math.floor(min / 60)).padStart(2, '0')}h${min % 60 === 0 ? '' : String(min % 60).padStart(2, '0')}`;
+const eurosOf = c => c == null ? '' : `${(c / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`;
 
 function layoutLane(evs) {
   evs.sort((a, b) => a.start - b.start || a.end - b.end);
@@ -395,64 +349,166 @@ function layoutLane(evs) {
   evs.forEach(e => { e.cols = Math.max(1, ...evs.filter(o => o.start < e.end && o.end > e.start).map(o => o.col + 1)); });
   return evs;
 }
+function planningNote(txt) { const el = document.getElementById('pl-detail'); if (el) el.textContent = txt; }
 
-function renderSalles() {
-  const S = window._salles, days = S.days, H = SALLES_END - SALLES_START, rooms = sallesRoom === 'both' ? ['air', 'terre'] : [sallesRoom];
-  const todayStr = localDateStr(new Date()), nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-  const fmt = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-  const chip = (k, l) => `<button onclick="sallesRoom='${k}';renderSalles()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);cursor:pointer;font-size:12px;font-family:inherit;background:${sallesRoom === k ? 'var(--violet-dark)' : 'var(--bg2)'};color:${sallesRoom === k ? '#fff' : 'var(--text2)'}">${l}</button>`;
-  const counts = { prop: S.slots.filter(s => s.status === 'proposed').length, valid: S.slots.filter(s => s.status === 'validated').length, booked: S.appts.length };
+// Grille semaine : cours, pratique libre, soins d'Aude (proposés / validés / réservés), locations de salles
+function planningGridHtml(days, instances, slots, appts, rentals, cpCountMap) {
+  const rooms = planningRoom === 'both' ? ['air', 'terre'] : [planningRoom];
+  const H = PL_END - PL_START, todayStr = localDateStr(new Date()), nowD = new Date(), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
+  const evsFor = (day) => {
+    const d = localDateStr(day), out = [];
+    (instances || []).filter(ci => ci.date === d).forEach(ci => {
+      const c = ci.courses || {};
+      const start = sMin(ci.start_time || c.start_time), end = start + (c.duration_minutes || 60);
+      const name = c.custom_name || c.disciplines?.name || 'Cours';
+      const enrolled = (ci.bookings || []).filter(b => b.status === 'confirmed').length + (cpCountMap[ci.id] || 0);
+      const max = c.max_students || 0;
+      const prof = ((ci.replacement?.full_name) || c.profiles?.full_name || '').split(' ')[0];
+      out.push({ room: c.salle === 'terre' ? 'terre' : 'air', start, end, kind: c.is_practice ? 'practice' : 'course',
+        color: salleColor(name, c.disciplines?.color), title: name.replace(/\p{Extended_Pictographic}|️/gu, '').trim(),
+        sub: `${sHM(start)}–${sHM(end)}${prof ? ' · ' + prof : ''}`, count: `${enrolled}${max ? '/' + max : ''}`, full: max > 0 && enrolled >= max,
+        click: `viewInstance('${ci.id}')` });
+    });
+    (slots || []).filter(s => s.date === d).forEach(s => {
+      const start = sMin(s.start_time), a = (appts || []).find(x => x.date === d && sMin(x.start_time) === start);
+      const kind = a ? 'soin-booked' : s.status === 'validated' ? 'soin-valid' : 'soin-prop';
+      const note = a ? `Soin avec Aude · ${sHM(start)} · ${a.student_name} · ${a.is_included ? 'inclus dans l\'abonnement' : '40 €'}`
+        : `Créneau de soin ${sHM(start)}–${sHM(start + 60)} · ${s.status === 'validated' ? 'validé par Aude, réservable dans l\'app' : 'proposé : Aude ne l\'a pas encore validé, invisible pour les élèves'}`;
+      out.push({ room: 'terre', start, end: start + 60, kind, color: '#e8a0bf',
+        title: a ? `🌿 ${(a.student_name || '').split(' ')[0]}` : s.status === 'validated' ? '🌿 Validé' : '🌿 Proposé',
+        sub: a ? (a.is_included ? 'inclus abo' : '40 €') : s.status === 'validated' ? 'libre, visible' : 'en attente d\'Aude', count: '', click: `planningNote(${JSON.stringify(note)})` });
+    });
+    (rentals || []).filter(r => r.date === d && r.status === 'confirmed').forEach(r => {
+      const start = sMin(r.start_time), end = sMin(r.end_time);
+      (r.room === 'both' ? ['air', 'terre'] : [r.room]).forEach(room => out.push({ room, start, end, kind: 'rental', color: '#e0b84a',
+        title: `🔑 ${r.renter_name}`, sub: `${sHM(start)}–${sHM(end)}${r.purpose ? ' · ' + r.purpose : ''}`,
+        count: r.price_cents != null ? `${eurosOf(r.price_cents)}${r.paid ? ' ✓' : ''}` : '', click: `openRentalModal(${r.id})` }));
+    });
+    return out;
+  };
+  const lines = `repeating-linear-gradient(to bottom, transparent 0, transparent ${PL_PX - 1}px, rgba(155,125,219,.14) ${PL_PX - 1}px, rgba(155,125,219,.14) ${PL_PX}px)`;
   let hourLabels = '';
-  for (let h = SALLES_START; h < SALLES_END; h++) hourLabels += `<div style="position:absolute;top:${(h - SALLES_START) * SALLES_PX - 7}px;right:6px;font-size:10px;color:var(--text3)">${h}h</div>`;
-  const lines = `repeating-linear-gradient(to bottom, transparent 0, transparent ${SALLES_PX - 1}px, rgba(155,125,219,.14) ${SALLES_PX - 1}px, rgba(155,125,219,.14) ${SALLES_PX}px)`;
-  let cols = '';
-  days.forEach(day => {
-    const isToday = localDateStr(day) === todayStr, evs = sallesEvents(day);
-    let lanes = '';
-    rooms.forEach(room => {
+  for (let h = PL_START; h < PL_END; h++) hourLabels += `<div style="position:absolute;top:${(h - PL_START) * PL_PX - 7}px;right:6px;font-size:10px;color:var(--text3)">${h}h</div>`;
+  const cols = days.map(day => {
+    const isToday = localDateStr(day) === todayStr, evs = evsFor(day);
+    const lanes = rooms.map(room => {
       const laneEvs = layoutLane(evs.filter(e => e.room === room));
-      let blocks = laneEvs.map(e => {
-        const top = Math.max(0, (e.start - SALLES_START * 60) * SALLES_PX / 60), h = Math.max(20, (e.end - e.start) * SALLES_PX / 60 - 2);
-        const idx = evs.indexOf(e), w = 100 / e.cols, left = e.col * w;
+      const blocks = laneEvs.map(e => {
+        const top = Math.max(0, (e.start - PL_START * 60) * PL_PX / 60), h = Math.max(20, (e.end - e.start) * PL_PX / 60 - 2), w = 100 / e.cols;
         let st = `background:${e.color}33;border-left:3px solid ${e.color};color:var(--text)`;
         if (e.kind === 'practice') st = `background:repeating-linear-gradient(135deg,${e.color}22,${e.color}22 6px,${e.color}0f 6px,${e.color}0f 12px);border-left:3px dashed ${e.color};color:var(--text2)`;
+        if (e.kind === 'rental') st = `background:rgba(224,184,74,.28);border:1.5px solid #e0b84a;color:#fff3c9`;
         if (e.kind === 'soin-prop') st = `background:transparent;border:1.5px dashed #e8a0bf;color:#f3c9dc`;
         if (e.kind === 'soin-valid') st = `background:rgba(232,160,191,.22);border:1.5px solid #e8a0bf;color:#ffd9e8`;
         if (e.kind === 'soin-booked') st = `background:rgba(232,160,191,.6);border:1.5px solid #e8a0bf;color:#fff`;
-        return `<div onclick="sallesPick(${JSON.stringify(e.detail).replace(/"/g, '&quot;')})" style="position:absolute;top:${top}px;height:${h}px;left:calc(${left}% + 1px);width:calc(${w}% - 3px);${st};border-radius:6px;padding:2px 5px;overflow:hidden;font-size:10.5px;line-height:1.25;cursor:pointer" title="${esc(e.detail)}"><b style="font-weight:600">${esc(e.title)}</b>${e.count ? ` <span style="opacity:.85">${e.count}</span>` : ''}<div style="opacity:.8">${esc(e.sub)}</div></div>`;
+        const cnt = e.count ? ` <span style="opacity:.9;${e.full ? 'color:#e87a7a;font-weight:700' : ''}">${esc(e.count)}</span>` : '';
+        return `<div onclick="${esc(e.click)}" style="position:absolute;top:${top}px;height:${h}px;left:calc(${e.col * w}% + 1px);width:calc(${w}% - 3px);${st};border-radius:6px;padding:2px 5px;overflow:hidden;font-size:10.5px;line-height:1.25;cursor:pointer" title="${esc(e.title + ' · ' + e.sub)}"><b style="font-weight:600">${esc(e.title)}</b>${cnt}<div style="opacity:.8">${esc(e.sub)}</div></div>`;
       }).join('');
-      const nowLine = isToday && nowMin >= SALLES_START * 60 && nowMin < SALLES_END * 60 ? `<div style="position:absolute;left:0;right:0;top:${(nowMin - SALLES_START * 60) * SALLES_PX / 60}px;height:2px;background:#e87a7a;z-index:2"></div>` : '';
-      lanes += `<div style="position:relative;flex:1;min-width:0;height:${H * SALLES_PX}px;background:${lines};${room === 'terre' && rooms.length > 1 ? 'border-left:1px solid var(--border);' : ''}">${blocks}${nowLine}</div>`;
-    });
+      const nowLine = isToday && nowMin >= PL_START * 60 && nowMin < PL_END * 60 ? `<div style="position:absolute;left:0;right:0;top:${(nowMin - PL_START * 60) * PL_PX / 60}px;height:2px;background:#e87a7a;z-index:2"></div>` : '';
+      return `<div style="position:relative;flex:1;min-width:0;height:${H * PL_PX}px;background:${lines};${room === 'terre' && rooms.length > 1 ? 'border-left:1px solid var(--border);' : ''}">${blocks}${nowLine}</div>`;
+    }).join('');
     const head = `<div style="padding:6px 4px;text-align:center;font-size:12px;${isToday ? 'color:#fff;background:var(--violet-dark);border-radius:8px' : 'color:var(--text2)'}"><div style="font-weight:600">${day.toLocaleDateString('fr-FR', { weekday: 'short' })} ${day.getDate()}</div>${rooms.length > 1 ? '<div style="display:flex;font-size:9px;letter-spacing:.08em;text-transform:uppercase;opacity:.75"><span style="flex:1">Air</span><span style="flex:1">Terre</span></div>' : ''}</div>`;
-    cols += `<div style="min-width:0;border-left:1px solid var(--border)">${head}<div style="display:flex">${lanes}</div></div>`;
-  });
-  const legend = (c, t, dashed) => `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><i style="width:12px;height:12px;border-radius:3px;background:${dashed ? 'transparent' : c + '55'};border:1.5px ${dashed ? 'dashed' : 'solid'} ${c};display:inline-block"></i>${t}</span>`;
-  document.getElementById('main-content').innerHTML = `
-    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
-      <div><div class="page-title">Salles</div><div class="page-sub">Qui occupe quelle salle, à quelle heure · semaine du ${fmt(days[0])} au ${fmt(days[6])}</div></div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="sallesOffset--;loadSalles()">←</button>
-        <button class="btn btn-ghost btn-sm" onclick="sallesOffset=0;loadSalles()">Aujourd'hui</button>
-        <button class="btn btn-ghost btn-sm" onclick="sallesOffset++;loadSalles()">→</button>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${chip('both', 'Les deux salles')}${chip('air', 'Air')}${chip('terre', 'Terre')}</div>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
-      ${legend('#9b7ddb', 'Cours')}
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><i style="width:12px;height:12px;border-radius:3px;border:1.5px dashed #9b7ddb;display:inline-block;background:repeating-linear-gradient(135deg,#9b7ddb22,#9b7ddb22 3px,transparent 3px,transparent 6px)"></i>Pratique libre</span>
-      ${legend('#e8a0bf', 'Soin proposé (Aude doit valider)', true)}${legend('#e8a0bf', 'Soin validé, libre')}${legend('#e8a0bf', 'Soin réservé')}
-      <span style="font-size:11px;color:var(--text3)">Soins cette semaine : ${counts.prop} proposés · ${counts.valid} validés · ${counts.booked} réservés</span>
-    </div>
-    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--bg2)">
-      <div style="display:grid;grid-template-columns:40px repeat(7,minmax(${rooms.length > 1 ? 150 : 100}px,1fr));min-width:${40 + 7 * (rooms.length > 1 ? 150 : 100)}px">
-        <div style="position:relative;margin-top:${rooms.length > 1 ? 38 : 28}px;height:${H * SALLES_PX}px">${hourLabels}</div>
-        ${cols}
-      </div>
-    </div>
-    <div id="salles-detail" style="margin-top:12px;min-height:22px;font-size:13px;color:var(--text2)">Touche un bloc pour voir le détail.</div>`;
+    return `<div style="min-width:0;border-left:1px solid var(--border)">${head}<div style="display:flex">${lanes}</div></div>`;
+  }).join('');
+  const colMin = rooms.length > 1 ? 150 : 100;
+  return `<div style="overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--bg2)">
+    <div style="display:grid;grid-template-columns:40px repeat(7,minmax(${colMin}px,1fr));min-width:${40 + 7 * colMin}px">
+      <div style="position:relative;margin-top:${rooms.length > 1 ? 38 : 28}px;height:${H * PL_PX}px">${hourLabels}</div>${cols}
+    </div></div>
+    <div id="pl-detail" style="margin-top:10px;min-height:20px;font-size:13px;color:var(--text2)">Touche un cours pour l'ouvrir, une location pour la modifier.</div>`;
 }
-function sallesPick(txt) { const el = document.getElementById('salles-detail'); if (el) el.textContent = txt; }
+
+// ── Locations de salles ──
+async function openRentalModal(id, presetDate) {
+  let r = { room: 'terre', date: presetDate || localDateStr(new Date()), start_time: '10:00', end_time: '12:00', renter_name: '', renter_contact: '', purpose: '', price_cents: null, paid: false, payment_method: '', notes: '' };
+  if (id) { const { data } = await db.from('room_rentals').select('*').eq('id', id).single(); if (data) r = data; }
+  const f = 'width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;font-size:14px';
+  const lab = t => `<label style="display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${t}</label>`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">${id ? 'Location de salle' : 'Nouvelle location de salle'}</div>
+    <div class="form-group">${lab('Salle')}<select id="rt-room" style="${f}">
+      <option value="terre" ${r.room === 'terre' ? 'selected' : ''}>🌿 Salle Terre</option><option value="air" ${r.room === 'air' ? 'selected' : ''}>🦇 Salle Air</option><option value="both" ${r.room === 'both' ? 'selected' : ''}>Les deux salles</option></select></div>
+    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px" class="form-group">
+      <div>${lab('Date')}<input id="rt-date" type="date" value="${esc(r.date)}" style="${f}"></div>
+      <div>${lab('Début')}<input id="rt-start" type="time" value="${esc(String(r.start_time).slice(0, 5))}" style="${f}"></div>
+      <div>${lab('Fin')}<input id="rt-end" type="time" value="${esc(String(r.end_time).slice(0, 5))}" style="${f}"></div></div>
+    <div class="form-group">${lab('Qui loue')}<input id="rt-name" value="${esc(r.renter_name)}" placeholder="Nom ou structure" style="${f}"></div>
+    <div class="form-group">${lab('Contact (téléphone ou mail)')}<input id="rt-contact" value="${esc(r.renter_contact || '')}" style="${f}"></div>
+    <div class="form-group">${lab('Pour quoi')}<input id="rt-purpose" value="${esc(r.purpose || '')}" placeholder="Cours, shooting, anniversaire…" style="${f}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" class="form-group">
+      <div>${lab('Prix (€)')}<input id="rt-price" type="number" min="0" step="1" value="${r.price_cents != null ? r.price_cents / 100 : ''}" style="${f}"></div>
+      <div>${lab('Paiement')}<select id="rt-method" style="${f}"><option value="">—</option>${['espèces', 'virement', 'carte', 'autre'].map(m => `<option ${r.payment_method === m ? 'selected' : ''}>${m}</option>`).join('')}</select></div></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:14px"><input id="rt-paid" type="checkbox" ${r.paid ? 'checked' : ''} style="width:18px;height:18px"> Payée</label>
+    <div class="form-group">${lab('Notes')}<textarea id="rt-notes" rows="2" style="${f}">${esc(r.notes || '')}</textarea></div>
+    <div id="rt-msg" style="font-size:12px;color:#f5c4a8;min-height:16px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="saveRental(${id || 'null'})">Enregistrer</button>
+      ${id ? `<button class="btn btn-ghost" style="color:#e87a7a" onclick="cancelRental(${id})">Annuler la location</button>` : ''}
+      <button class="btn btn-ghost" onclick="closeModal({target:document.getElementById('modal')})">Fermer</button>
+    </div>`;
+  openModal();
+}
+
+async function saveRental(id) {
+  const g = x => document.getElementById(x).value.trim();
+  const row = { room: g('rt-room'), date: g('rt-date'), start_time: g('rt-start'), end_time: g('rt-end'), renter_name: g('rt-name'),
+    renter_contact: g('rt-contact') || null, purpose: g('rt-purpose') || null, notes: g('rt-notes') || null,
+    price_cents: g('rt-price') === '' ? null : Math.round(parseFloat(g('rt-price')) * 100), payment_method: g('rt-method') || null,
+    paid: document.getElementById('rt-paid').checked };
+  const msg = document.getElementById('rt-msg');
+  if (!row.renter_name || !row.date || !row.start_time || !row.end_time) { msg.textContent = 'Indique la date, les horaires et qui loue.'; return; }
+  if (row.end_time <= row.start_time) { msg.textContent = 'L\'heure de fin doit être après le début.'; return; }
+  row.paid_at = row.paid ? new Date().toISOString() : null;
+  // Prévenir si la salle est déjà occupée à ce moment-là
+  const rooms = row.room === 'both' ? ['air', 'terre'] : [row.room];
+  const [{ data: cis }, { data: others }] = await Promise.all([
+    db.from('course_instances').select('id, start_time, courses(custom_name, start_time, duration_minutes, salle, disciplines(name))').eq('date', row.date).neq('status', 'cancelled'),
+    db.from('room_rentals').select('id, room, start_time, end_time, renter_name').eq('date', row.date).eq('status', 'confirmed'),
+  ]);
+  const a = sMin(row.start_time), b = sMin(row.end_time), clashes = [];
+  (cis || []).forEach(ci => { const c = ci.courses || {}, s = sMin(ci.start_time || c.start_time), e = s + (c.duration_minutes || 60); if (rooms.includes(c.salle === 'terre' ? 'terre' : 'air') && s < b && e > a) clashes.push(`${c.custom_name || c.disciplines?.name || 'cours'} ${sHM(s)}`); });
+  (others || []).forEach(o => { if (o.id !== id && (o.room === 'both' || rooms.includes(o.room) || row.room === 'both') && sMin(o.start_time) < b && sMin(o.end_time) > a) clashes.push(`location ${o.renter_name}`); });
+  if (clashes.length && !confirm(`La salle est déjà occupée : ${clashes.join(', ')}.\nEnregistrer quand même ?`)) return;
+  const { error } = id ? await db.from('room_rentals').update(row).eq('id', id) : await db.from('room_rentals').insert(row);
+  if (error) { msg.textContent = error.message; return; }
+  closeModal({ target: document.getElementById('modal') });
+  showToast('Location enregistrée ✓');
+  renderPlanning();
+}
+async function cancelRental(id) {
+  if (!confirm('Annuler cette location ? Elle disparaîtra du planning.')) return;
+  const { error } = await db.from('room_rentals').update({ status: 'cancelled' }).eq('id', id);
+  if (error) return showToast(error.message, true);
+  closeModal({ target: document.getElementById('modal') });
+  showToast('Location annulée');
+  renderPlanning();
+}
+async function toggleRentalPaid(id, paid) {
+  const { error } = await db.from('room_rentals').update({ paid, paid_at: paid ? new Date().toISOString() : null }).eq('id', id);
+  if (error) return showToast(error.message, true);
+  renderPlanning();
+}
+
+function rentalsSectionHtml(rentals, unpaid) {
+  const roomName = r => r === 'both' ? 'Les deux salles' : r === 'terre' ? '🌿 Terre' : '🦇 Air';
+  const dueTotal = (unpaid || []).reduce((s, r) => s + (r.price_cents || 0), 0);
+  const row = r => {
+    const d = new Date(r.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border);flex-wrap:wrap">
+      <div style="min-width:120px;font-size:13px"><b>${esc(d)}</b><div style="font-size:11px;color:var(--text3)">${sHM(sMin(r.start_time))}–${sHM(sMin(r.end_time))} · ${roomName(r.room)}</div></div>
+      <div style="flex:1;min-width:140px;font-size:13px">${esc(r.renter_name)}<div style="font-size:11px;color:var(--text3)">${esc(r.purpose || '')}</div></div>
+      <div style="font-size:14px;font-weight:600;min-width:70px;text-align:right">${r.price_cents != null ? eurosOf(r.price_cents) : '<span style="color:var(--text3);font-weight:400">prix ?</span>'}</div>
+      <button class="btn btn-sm" onclick="toggleRentalPaid(${r.id}, ${!r.paid})" style="background:${r.paid ? 'rgba(125,191,155,.15)' : 'rgba(232,160,191,.15)'};border:1px solid ${r.paid ? 'rgba(125,191,155,.4)' : 'rgba(232,160,191,.4)'};color:${r.paid ? '#7dbf9b' : '#e8a0bf'}">${r.paid ? '✓ Payée' : 'À encaisser'}</button>
+      <button class="btn btn-ghost btn-sm" onclick="openRentalModal(${r.id})">Modifier</button></div>`;
+  };
+  return `<div style="margin-top:22px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+      <div style="font-size:16px;font-weight:600">🔑 Locations de salles</div>
+      <button class="btn btn-primary btn-sm" onclick="openRentalModal(null)">+ Nouvelle location</button></div>
+    ${(unpaid || []).length ? `<div style="font-size:12px;color:#e8a0bf;margin:4px 0 6px">${unpaid.length} location${unpaid.length > 1 ? 's' : ''} à encaisser${dueTotal ? ' · ' + eurosOf(dueTotal) : ''}</div>` : ''}
+    ${(rentals || []).length ? (rentals || []).map(row).join('') : '<div style="font-size:13px;color:var(--text3);padding:10px 0">Aucune location sur cette période.</div>'}
+  </div>`;
+}
 
 // ── DASHBOARD ─────────────────────────────────────────────
 async function loadDashboard() {
@@ -735,7 +791,7 @@ async function generateInstances() {
 }
 
 // ── PLANNING ──────────────────────────────────────────────
-let planningView = 'month';
+let planningView = 'week';
 let planningOffset = 0;
 let planningDay = (new Date().getDay() + 6) % 7; // 0=Lun … 5=Sam, défaut = aujourd'hui
 if (planningDay > 5) planningDay = 0;
@@ -859,6 +915,17 @@ async function renderPlanning() {
       .neq('status', 'cancelled').order('date').order('courses(start_time)'),
     db.from('soin_appointments').select('*').gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd)).eq('status','confirmed').order('date').order('start_time'),
   ]);
+  const todayStrP = fmt(new Date());
+  const [{ data: slotData }, { data: rentalData }, { data: unpaidData }] = await Promise.all([
+    db.from('soin_slots').select('*').gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd)),
+    db.from('room_rentals').select('*').gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd)).eq('status', 'confirmed').order('date').order('start_time'),
+    db.from('room_rentals').select('*').eq('status', 'confirmed').eq('paid', false).lte('date', todayStrP).order('date'),
+  ]);
+  const rentalsByDate = {};
+  (rentalData || []).forEach(r => { (rentalsByDate[r.date] = rentalsByDate[r.date] || []).push(r); });
+  const rentalPillHtml = r => `<div class="cours-pill" style="background:rgba(224,184,74,.15);border-left:3px solid #e0b84a;cursor:pointer" onclick="openRentalModal(${r.id})">
+    <div style="font-size:12px;font-weight:500;color:#e0b84a">${sHM(sMin(r.start_time))} 🔑</div>
+    <div style="font-size:11px;color:var(--text2)">${esc(r.renter_name)}</div></div>`;
   const soinsByDate = {};
   (soinData||[]).forEach(s => { if (!soinsByDate[s.date]) soinsByDate[s.date] = []; soinsByDate[s.date].push(s); });
   const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
@@ -928,48 +995,8 @@ async function renderPlanning() {
 
   let gridHtml = '';
   if (planningView === 'week') {
-    const days = Array.from({length:6}, (_,i) => { const d = new Date(rangeStart); d.setDate(rangeStart.getDate()+i); return d; });
-
-    // Grouper par date + salle
-    const byDateSalle = {};
-    (instances || []).forEach(ci => {
-      const key = ci.date;
-      if (!byDateSalle[key]) byDateSalle[key] = { air: [], terre: [] };
-      const salle = ci.courses?.salle === 'terre' ? 'terre' : 'air';
-      byDateSalle[key][salle].push(ci);
-    });
-
-    const dayCols = days.map((d, i) => {
-      const key = fmt(d);
-      const isToday = key === fmt(today);
-      const data = byDateSalle[key] || { air: [], terre: [] };
-      const airCours = data.air.sort((a,b) => (a.start_time||a.courses?.start_time||'').localeCompare(b.start_time||b.courses?.start_time||''));
-      const terreCours = data.terre.sort((a,b) => (a.start_time||a.courses?.start_time||'').localeCompare(b.start_time||b.courses?.start_time||''));
-      const hasCours = airCours.length || terreCours.length;
-      return `
-        <div style="min-width:0;flex:1">
-          <div style="text-align:center;padding:8px 4px 10px;margin-bottom:8px;border-radius:10px;background:${isToday?'var(--accent)':'var(--bg2)'}">
-            <div style="font-size:11px;font-weight:700;color:${isToday?'#fff':'var(--text3)'};text-transform:uppercase;letter-spacing:0.5px">${JOURS[i].slice(0,3)}</div>
-            <div style="font-size:18px;font-weight:700;color:${isToday?'#fff':'var(--text)'};line-height:1.2">${d.getDate()}</div>
-          </div>
-          ${(hasCours || (soinsByDate[key]||[]).length) ? `
-            ${airCours.length ? `
-              <div style="font-size:9px;font-weight:700;color:#9b7ddb;letter-spacing:0.5px;margin-bottom:4px;padding:0 2px">🦇 AIR</div>
-              ${airCours.map(pillHtml).join('')}
-            ` : ''}
-            ${terreCours.length ? `
-              <div style="font-size:9px;font-weight:700;color:#5a8a7a;letter-spacing:0.5px;margin:${airCours.length?'10px':0} 0 4px;padding:0 2px">🌿 TERRE</div>
-              ${terreCours.map(pillHtml).join('')}
-            ` : ''}
-            ${(soinsByDate[key]||[]).length ? `
-              <div style="font-size:9px;font-weight:700;color:#a3e635;letter-spacing:0.5px;margin:${hasCours?'10px':0} 0 4px;padding:0 2px">💚 SOINS</div>
-              ${(soinsByDate[key]||[]).map(soinPillHtml).join('')}
-            ` : ''}
-          ` : `<div style="text-align:center;padding:20px 4px;color:var(--text3);font-size:11px">—</div>`}
-        </div>`;
-    }).join('');
-
-    gridHtml = `<div style="overflow-x:auto;padding-bottom:8px"><div style="display:flex;gap:10px;min-width:600px">${dayCols}</div></div>`;
+    const days7 = Array.from({ length: 7 }, (_, i) => { const d = new Date(rangeStart); d.setDate(rangeStart.getDate() + i); return d; });
+    gridHtml = planningGridHtml(days7, instances, slotData, soinData, rentalData, cpCountMap);
   } else {
     const firstDow = (rangeStart.getDay() + 6) % 7;
     const daysInMonth = rangeEnd.getDate();
@@ -980,7 +1007,7 @@ async function renderPlanning() {
       const isToday = key === fmt(today);
       cells.push(`<td style="vertical-align:top;min-width:120px;padding:6px;border-radius:8px;background:${isToday?'var(--accent)11':'transparent'}">
         <div style="font-size:11px;font-weight:600;color:${isToday?'var(--accent)':'var(--text3)'};margin-bottom:4px">${day}</div>
-        ${(byDate[key]||[]).map(pillHtml).join('')}${(soinsByDate[key]||[]).map(soinPillHtml).join('')}
+        ${(byDate[key]||[]).map(pillHtml).join('')}${(soinsByDate[key]||[]).map(soinPillHtml).join('')}${(rentalsByDate[key]||[]).map(rentalPillHtml).join('')}
       </td>`);
     }
     while (cells.length % 7 !== 0) cells.push('<td style="background:transparent"></td>');
@@ -989,20 +1016,35 @@ async function renderPlanning() {
     gridHtml = `<div style="overflow-x:auto"><table><thead><tr>${JOURS.map(j=>`<th>${j}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
   }
 
+  const chip = (on, label, click) => `<button onclick="${click}" style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);cursor:pointer;font-size:12px;font-family:inherit;background:${on ? 'var(--violet-dark)' : 'var(--bg2)'};color:${on ? '#fff' : 'var(--text2)'}">${label}</button>`;
+  const legendItem = (c, t, dashed) => `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><i style="width:12px;height:12px;border-radius:3px;background:${dashed ? 'transparent' : c + '55'};border:1.5px ${dashed ? 'dashed' : 'solid'} ${c};display:inline-block"></i>${t}</span>`;
+  const slotCounts = { prop: (slotData || []).filter(x => x.status === 'proposed').length, valid: (slotData || []).filter(x => x.status === 'validated').length, booked: (soinData || []).length };
+  const legendHtml = planningView === 'week' ? `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+      ${legendItem('#9b7ddb', 'Cours')}
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><i style="width:12px;height:12px;border-radius:3px;border:1.5px dashed #9b7ddb;display:inline-block;background:repeating-linear-gradient(135deg,#9b7ddb22,#9b7ddb22 3px,transparent 3px,transparent 6px)"></i>Pratique libre</span>
+      ${legendItem('#e0b84a', 'Location de salle')}${legendItem('#e8a0bf', 'Soin proposé (Aude doit valider)', true)}${legendItem('#e8a0bf', 'Soin validé, libre')}${legendItem('#e8a0bf', 'Soin réservé')}
+      <span style="font-size:11px;color:var(--text3)">⭐ Événement unique · Soins cette semaine : ${slotCounts.prop} proposés · ${slotCounts.valid} validés · ${slotCounts.booked} réservés</span></div>` : `<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);margin-bottom:12px"><span style="font-size:14px">⭐</span> Événement unique</div>`;
   document.getElementById('main-content').innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
-      <div class="page-title">Planning</div>
-      ${currentProfile?.role !== 'assistant' ? `<button class="btn btn-primary" onclick="openCourseModal(null, window._planningDisciplines, window._planningTeachers)">+ Nouveau cours</button>` : ''}
+      <div><div class="page-title">Planning</div><div class="page-sub">Qui occupe quelle salle, et à quelle heure</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="openRentalModal(null)">🔑 Location de salle</button>
+        ${currentProfile?.role !== 'assistant' ? `<button class="btn btn-primary" onclick="openCourseModal(null, window._planningDisciplines, window._planningTeachers)">+ Nouveau cours</button>` : ''}
+      </div>
     </div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
       <div style="display:flex;align-items:center;gap:8px">
         <button onclick="planningOffset--;renderPlanning()" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer">‹</button>
         <span style="font-size:14px;font-weight:500;min-width:160px;text-align:center">${title}</span>
         <button onclick="planningOffset++;renderPlanning()" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer">›</button>
+        <button onclick="planningOffset=0;renderPlanning()" style="padding:4px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:12px">Aujourd'hui</button>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3)"><span style="font-size:14px">⭐</span> Événement unique</div>
+      <div style="display:flex;gap:6px">${chip(planningView === 'week', 'Semaine', "planningView='week';planningOffset=0;renderPlanning()")}${chip(planningView === 'month', 'Mois', "planningView='month';planningOffset=0;renderPlanning()")}</div>
+      ${planningView === 'week' ? `<div style="display:flex;gap:6px;margin-left:auto">${chip(planningRoom === 'both', 'Les deux salles', "planningRoom='both';renderPlanning()")}${chip(planningRoom === 'air', '🦇 Air', "planningRoom='air';renderPlanning()")}${chip(planningRoom === 'terre', '🌿 Terre', "planningRoom='terre';renderPlanning()")}</div>` : ''}
     </div>
+    ${legendHtml}
     ${gridHtml}
+    ${rentalsSectionHtml(rentalData, unpaidData)}
   `;
 }
 
