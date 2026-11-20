@@ -326,7 +326,7 @@ function showPage(page) {
 
 // ── PLANNING : grille horaire façon Google Agenda (Air | Terre) + locations de salles ─────────────
 let planningRoom = 'both';
-let planningShowCancelled = false;
+let planningShowCancelled = true;   // les séances annulées restent visibles, en grisé
 const PL_START = 8, PL_END = 23, PL_PX = 46;
 
 function salleColor(name, color) {
@@ -378,14 +378,19 @@ function planningGridHtml(days, instances, slots, appts, rentals, cpCountMap) {
         sub: `${sHM(start)}–${sHM(end)}${prof ? ' · ' + prof : ''}`, count: `${enrolled}${max ? '/' + max : ''}`, full: max > 0 && enrolled >= max,
         click: `viewInstance('${ci.id}')` });
     });
-    (slots || []).filter(s => s.date === d).forEach(s => {
-      const start = sMin(s.start_time), a = (appts || []).find(x => x.date === d && sMin(x.start_time) === start);
-      const kind = a ? 'soin-booked' : s.status === 'validated' ? 'soin-valid' : 'soin-prop';
-      const note = a ? `Soin avec Aude · ${sHM(start)} · ${a.student_name} · ${a.is_included ? 'inclus dans l\'abonnement' : '40 €'}`
-        : `Créneau de soin ${sHM(start)}–${sHM(start + 60)} · ${s.status === 'validated' ? 'validé par Aude, réservable dans l\'app' : 'proposé : Aude ne l\'a pas encore validé, invisible pour les élèves'}`;
-      out.push({ room: 'terre', start, end: start + 60, kind, color: '#e8a0bf',
-        title: a ? `🌿 ${(a.student_name || '').split(' ')[0]}` : s.status === 'validated' ? '🌿 Validé' : '🌿 Proposé',
-        sub: a ? (a.is_included ? 'inclus abo' : '40 €') : s.status === 'validated' ? 'libre, visible' : 'en attente d\'Aude', count: '', click: `planningNote(${JSON.stringify(note)})` });
+    // Soins réservés (même si leur créneau n'a pas encore été « validé » : ancien mode)
+    (appts || []).filter(a => a.date === d).forEach(a => {
+      const start = sMin(a.start_time);
+      out.push({ room: 'terre', start, end: start + 60, kind: 'soin-booked', color: '#e8a0bf',
+        title: `🌿 ${(a.student_name || '').split(' ')[0]}`, sub: a.is_included ? 'inclus abo' : '40 €', count: '',
+        click: `planningNote(${JSON.stringify(`Soin avec Aude · ${sHM(start)} · ${a.student_name} · ${a.is_included ? 'inclus dans l\'abonnement' : '40 €'}`)})` });
+    });
+    // Créneaux validés par Aude et encore libres (les créneaux simplement proposés ne sont pas affichés)
+    (slots || []).filter(s => s.date === d && s.status === 'validated').forEach(s => {
+      const start = sMin(s.start_time);
+      if ((appts || []).some(a => a.date === d && sMin(a.start_time) === start)) return;
+      out.push({ room: 'terre', start, end: start + 60, kind: 'soin-valid', color: '#e8a0bf', title: '🌿 Soin libre', sub: 'validé par Aude', count: '',
+        click: `planningNote(${JSON.stringify(`Créneau de soin ${sHM(start)}–${sHM(start + 60)} · validé par Aude, réservable dans l'app`)})` });
     });
     (rentals || []).filter(r => r.date === d && r.status === 'confirmed').forEach(r => {
       const start = sMin(r.start_time), end = sMin(r.end_time);
@@ -955,7 +960,7 @@ async function renderPlanning() {
   (cpVisits || []).filter(v => v.source === 'wellpass').forEach(v => { wpCountMap[v.course_instance_id] = (wpCountMap[v.course_instance_id] || 0) + 1; });
 
   const nowMs = Date.now();
-  const visibleInstances = (instances || []).filter(ci => ci.status !== 'cancelled').filter(ci => {
+  const visibleInstances = (instances || []).filter(ci => ci.status !== 'cancelled' || ci.courses?.is_active !== false).filter(ci => {
     const [h, m] = (ci.start_time || ci.courses?.start_time || '00:00').split(':').map(Number);
     const dur = ci.courses?.duration_minutes || 0;
     const courseEnd = new Date(ci.date + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00');
@@ -978,6 +983,11 @@ async function renderPlanning() {
 
   const pillHtml = (ci) => {
     const c = ci.courses || {};
+    if (ci.status === 'cancelled') {
+      const cn = (c.custom_name || c.disciplines?.name || 'Cours');
+      return `<div class="cours-pill" style="background:repeating-linear-gradient(135deg,rgba(138,130,155,.18),rgba(138,130,155,.18) 5px,transparent 5px,transparent 10px);border-left:3px solid #8a829a;cursor:pointer;opacity:.85" onclick="viewInstance('${ci.id}')">
+        <div style="font-size:12px;color:var(--text3);text-decoration:line-through">${(ci.start_time || c.start_time)?.slice(0,5) || ''} · ${esc(cn)}</div><div style="font-size:10px;color:var(--text3)">annulé</div></div>`;
+    }
     const discColor = c.disciplines?.color || '#a78bfa';
     const salleColor = c.salle === 'terre' ? '#4a8a6a' : '#8B6B4E';
     const name = c.custom_name || c.disciplines?.name || 'Cours';
@@ -1034,8 +1044,8 @@ async function renderPlanning() {
   const legendHtml = planningView === 'week' ? `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
       ${legendItem('#9b7ddb', 'Cours')}
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><i style="width:12px;height:12px;border-radius:3px;border:1.5px dashed #9b7ddb;display:inline-block;background:repeating-linear-gradient(135deg,#9b7ddb22,#9b7ddb22 3px,transparent 3px,transparent 6px)"></i>Pratique libre</span>
-      ${legendItem('#e0b84a', 'Location de salle')}${legendItem('#e8a0bf', 'Soin proposé (Aude doit valider)', true)}${legendItem('#e8a0bf', 'Soin validé, libre')}${legendItem('#e8a0bf', 'Soin réservé')}
-      <span style="font-size:11px;color:var(--text3)">⭐ Événement unique · Soins cette semaine : ${slotCounts.prop} proposés · ${slotCounts.valid} validés · ${slotCounts.booked} réservés</span></div>` : `<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);margin-bottom:12px"><span style="font-size:14px">⭐</span> Événement unique</div>`;
+      ${legendItem('#e0b84a', 'Location de salle')}${legendItem('#e8a0bf', 'Soin validé par Aude (libre)')}${legendItem('#e8a0bf', 'Soin réservé')}${legendItem('#8a829a', 'Séance annulée', true)}
+      <span style="font-size:11px;color:var(--text3)">⭐ Événement unique · Soins cette semaine : ${slotCounts.valid} libres validés · ${slotCounts.booked} réservés</span></div>` : `<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);margin-bottom:12px"><span style="font-size:14px">⭐</span> Événement unique</div>`;
   document.getElementById('main-content').innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
       <div><div class="page-title">Planning</div><div class="page-sub">Qui occupe quelle salle, et à quelle heure</div></div>
@@ -1052,7 +1062,7 @@ async function renderPlanning() {
         <button onclick="planningOffset=0;renderPlanning()" style="padding:4px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:12px">Aujourd'hui</button>
       </div>
       <div style="display:flex;gap:6px">${chip(planningView === 'week', 'Semaine', "planningView='week';planningOffset=0;renderPlanning()")}${chip(planningView === 'month', 'Mois', "planningView='month';planningOffset=0;renderPlanning()")}</div>
-      ${planningView === 'week' ? `<div style="display:flex;gap:6px;margin-left:auto">${chip(planningRoom === 'both', 'Les deux salles', "planningRoom='both';renderPlanning()")}${chip(planningRoom === 'air', '🦇 Air', "planningRoom='air';renderPlanning()")}${chip(planningRoom === 'terre', '🌿 Terre', "planningRoom='terre';renderPlanning()")}${chip(planningShowCancelled, 'Séances annulées', "planningShowCancelled=!planningShowCancelled;renderPlanning()")}</div>` : ''}
+      ${planningView === 'week' ? `<div style="display:flex;gap:6px;margin-left:auto">${chip(planningRoom === 'both', 'Les deux salles', "planningRoom='both';renderPlanning()")}${chip(planningRoom === 'air', '🦇 Air', "planningRoom='air';renderPlanning()")}${chip(planningRoom === 'terre', '🌿 Terre', "planningRoom='terre';renderPlanning()")}</div>` : ''}
     </div>
     ${legendHtml}
     ${gridHtml}
