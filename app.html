@@ -5615,6 +5615,28 @@ async function endPractice(sessionId) {
   navigate('home');
 }
 
+// Planning toujours à jour : on recharge quand l'app revient au premier plan (après 20 s d'absence)
+// et toutes les 3 minutes quand l'élève regarde le planning, pour suivre les changements du back-office.
+(function liveRefresh() {
+  let hiddenAt = 0;
+  function refreshLive(onlyPlanning) {
+    try {
+      if (!currentUser) return;
+      if (currentScreen === 'reserver') {
+        if (_planningView === 'week') loadCoursesForWeek();
+        else loadCoursesForDay(selectedDay || new Date());
+      } else if (!onlyPlanning && currentScreen === 'home') {
+        loadHome();
+      }
+    } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); }
+    else if (hiddenAt && Date.now() - hiddenAt > 20000) { refreshLive(false); }
+  });
+  setInterval(() => { if (!document.hidden) refreshLive(true); }, 180000);
+})();
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').then(reg => {
     reg.addEventListener('updatefound', () => {
