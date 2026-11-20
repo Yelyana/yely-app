@@ -564,19 +564,32 @@ async function loadDashboard() {
     { data: activePracticeSessions },
     { count: activeSubsCount },
     { count: activeCardsCount },
+    { data: recentVisits },
   ] = await Promise.all([
     db.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student').neq('full_name', 'Compte supprimé'),
     db.from('bookings').select('*', { count: 'exact', head: true }).gte('booked_at', monthStart).eq('status', 'confirmed'),
     db.from('bookings').select('*', { count: 'exact', head: true }).gte('booked_at', lastMonthStart).lt('booked_at', lastMonthEnd).eq('status', 'confirmed'),
     db.from('bookings').select('*, profiles(full_name), course_instances(date, courses(custom_name, disciplines(name,color)))').eq('status', 'confirmed').order('booked_at', { ascending: false }).limit(6),
-    db.from('course_instances').select('*, start_time, courses(custom_name, start_time, max_students, disciplines(name,color))').eq('date', today).neq('status','cancelled').order('courses(start_time)'),
+    db.from('course_instances').select('*, start_time, courses(custom_name, start_time, max_students, disciplines(name,color)), bookings(id, status)').eq('date', today).neq('status','cancelled').order('courses(start_time)'),
     db.from('bookings').select('course_instance_id, course_instances(courses(custom_name, disciplines(name,color), max_students))').eq('status','confirmed').gte('booked_at', monthStart),
     db.from('profiles').select('id, full_name, birthday, created_at').eq('role', 'student').neq('full_name', 'Compte supprimé'),
     db.from('student_credits').select('products(name), sessions_total').gte('purchased_at', monthStart),
     db.from('practice_sessions').select('*, profiles(full_name)').eq('status', 'active'),
     db.from('subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
     db.from('student_credits').select('*', { count: 'exact', head: true }).gt('sessions_remaining', 0),
+    db.from('classpass_visits').select('id, visitor_name, source, created_at, course_instances(date, courses(custom_name, disciplines(name,color)))').order('created_at', { ascending: false }).limit(8),
   ]);
+
+  const todayIds = (todayCours || []).map(c => c.id);
+  const { data: todayVisits } = todayIds.length ? await db.from('classpass_visits').select('course_instance_id, source').in('course_instance_id', todayIds) : { data: [] };
+  const todayPartner = {};
+  (todayVisits || []).forEach(v => { todayPartner[v.course_instance_id] = (todayPartner[v.course_instance_id] || 0) + 1; });
+
+  // Dernières réservations : app + ClassPass + Wellpass, de la plus récente à la plus ancienne
+  const recentAll = [
+    ...(recentBookings || []).map(b => ({ ts: b.booked_at, who: b.profiles?.full_name || '—', course: b.course_instances?.courses, date: b.course_instances?.date, source: 'app' })),
+    ...(recentVisits || []).map(v => ({ ts: v.created_at, who: v.visitor_name || '—', course: v.course_instances?.courses, date: v.course_instances?.date, source: v.source === 'wellpass' ? 'wellpass' : 'classpass' })),
+  ].sort((a, b) => String(b.ts).localeCompare(String(a.ts))).slice(0, 8);
 
   const bookingsTrend = bookingsLastMonth > 0 ? Math.round((bookingsMonth - bookingsLastMonth) / bookingsLastMonth * 100) : null;
 
@@ -678,13 +691,17 @@ async function loadDashboard() {
           ${todayCours?.length ? todayCours.map(ci => {
             const color = ci.courses?.disciplines?.color || '#a78bfa';
             const name = ci.courses?.custom_name || ci.courses?.disciplines?.name || 'Cours';
-            const max = ci.courses?.max_students || 10;
-            return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)" onclick="viewInstance('${ci.id}')" style="cursor:pointer">
+            const max = ci.courses?.max_students || 0;
+            const partner = todayPartner[ci.id] || 0;
+            const enrolled = (ci.bookings || []).filter(b => b.status === 'confirmed').length + partner;
+            const fs = fillState(enrolled, max);
+            return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewInstance('${ci.id}')">
               <div style="width:3px;height:36px;background:${color};border-radius:2px;flex-shrink:0"></div>
-              <div style="flex:1">
+              <div style="flex:1;min-width:0">
                 <div style="font-size:13px;font-weight:500">${esc(name)}</div>
-                <div style="font-size:11px;color:var(--text3)">${(ci.start_time||ci.courses?.start_time)?.slice(0,5)} · ${max} places</div>
+                <div style="font-size:11px;color:var(--text3)">${(ci.start_time||ci.courses?.start_time)?.slice(0,5)} · ${max ? max + ' places' : 'places non définies'}${partner ? ` · dont ${partner} ClassPass/Wellpass` : ''}</div>
               </div>
+              <div style="text-align:right;flex-shrink:0">${fillBadgeHtml(enrolled, max)}${fs.word ? `<div style="font-size:9.5px;font-weight:700;letter-spacing:.04em;margin-top:2px;color:${fs.key === 'full' ? '#ff8a98' : '#f0948f'}">${fs.word}</div>` : ''}</div>
             </div>`;
           }).join('') : '<div style="color:var(--text3);padding:20px;text-align:center">Pas de cours aujourd\'hui</div>'}
         </div>
@@ -692,16 +709,19 @@ async function loadDashboard() {
       <div>
         <div class="section-title">Dernières réservations</div>
         <div class="card">
-          ${recentBookings?.length ? recentBookings.map(b => {
-            const color = b.course_instances?.courses?.disciplines?.color || '#a78bfa';
-            const name = b.course_instances?.courses?.custom_name || b.course_instances?.courses?.disciplines?.name || '';
-            const date = b.course_instances?.date ? new Date(b.course_instances.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '';
-            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-              <div style="display:flex;align-items:center;gap:10px">
+          ${recentAll.length ? recentAll.map(b => {
+            const color = b.course?.disciplines?.color || '#a78bfa';
+            const name = b.course?.custom_name || b.course?.disciplines?.name || '';
+            const date = b.date ? new Date(b.date + 'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '';
+            const tag = b.source === 'classpass' ? '<span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(106,169,224,.2);color:#6aa9e0">ClassPass</span>'
+              : b.source === 'wellpass' ? '<span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(125,191,155,.2);color:#7dbf9b">Wellpass</span>'
+              : '<span class="badge badge-green">✓ App</span>';
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);gap:8px">
+              <div style="display:flex;align-items:center;gap:10px;min-width:0">
                 <div style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0"></div>
-                <div><div style="font-size:13px">${esc(b.profiles?.full_name||'—')}</div>
+                <div style="min-width:0"><div style="font-size:13px">${esc(b.who)}</div>
                 <div style="font-size:11px;color:var(--text3)">${esc(name)} · ${date}</div></div>
-              </div><span class="badge badge-green">✓</span>
+              </div>${tag}
             </div>`;
           }).join('') : '<div style="color:var(--text3);padding:20px;text-align:center">Aucune réservation</div>'}
         </div>
