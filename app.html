@@ -4115,8 +4115,8 @@ async function openTeacherProfileModal(teacherId, teacherName) {
   document.getElementById('booking-modal').classList.add('open');
 
   const query = teacherId
-    ? db.from('public_profiles').select('id, full_name, avatar_url, bio, instagram_url').eq('id', teacherId).maybeSingle()
-    : db.from('public_profiles').select('id, full_name, avatar_url, bio, instagram_url').eq('full_name', teacherName).maybeSingle();
+    ? db.from('public_profiles').select('id, full_name, avatar_url').eq('id', teacherId).maybeSingle()
+    : db.from('public_profiles').select('id, full_name, avatar_url').eq('full_name', teacherName).maybeSingle();
   const { data: prof } = await query;
 
   const name = prof?.full_name || teacherName || 'Professeure';
