@@ -3,223 +3,208 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0f0d16">
 <title>Aude · Soins Bien-être — Yely in the Air</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&display=swap">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500;700&display=swap">
 <style>
 :root {
   --bg: #0f0d16; --bg2: #17141f; --card: #1c1826;
   --violet: #9b7ddb; --violet-light: #c4a8f5; --violet-dark: #3d2f62;
+  --pink: #e8a0bf; --pink-bg: rgba(232,160,191,.16);
   --text: #f0ecfa; --text2: #b8b0cc; --text3: #8a829a;
   --border: rgba(155,125,219,.18); --green: #a3e635;
   color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; }
 body { background: var(--bg); color: var(--text); font-family: "DM Sans", system-ui, sans-serif; font-weight: 300; line-height: 1.6; min-height: 100dvh; }
-.wrap { max-width: 680px; margin: 0 auto; padding: 32px 20px max(40px, env(safe-area-inset-bottom)); }
-.header { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
-.avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--violet-dark); border: 1.5px solid var(--violet); display: flex; align-items: center; justify-content: center; font-family: "Cormorant Garamond", serif; font-size: 22px; font-style: italic; color: var(--violet-light); flex-shrink: 0; }
-.header-text h1 { font-family: "Cormorant Garamond", serif; font-size: 26px; font-weight: 300; color: var(--violet-light); }
-.header-text p { font-size: 12px; color: var(--text3); margin-top: 2px; }
-.month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-.month-nav button { background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text2); padding: 6px 12px; font-size: 13px; cursor: pointer; font-family: inherit; }
-.month-nav button:hover { border-color: var(--violet); color: var(--violet-light); }
-.month-label { font-family: "Cormorant Garamond", serif; font-size: 22px; font-weight: 300; color: var(--text); flex: 1; }
-.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 28px; }
-.stat { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; text-align: center; }
-.stat-val { font-family: "Cormorant Garamond", serif; font-size: 32px; font-weight: 300; color: var(--violet-light); line-height: 1; }
-.stat-lbl { font-size: 11px; color: var(--text3); margin-top: 4px; text-transform: uppercase; letter-spacing: .05em; }
-.section-title { font-size: 10px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: var(--text3); margin-bottom: 14px; }
-.soin-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 14px; }
-.soin-date { min-width: 56px; text-align: center; }
-.soin-day { font-size: 22px; font-family: "Cormorant Garamond", serif; font-weight: 300; color: var(--violet-light); line-height: 1; }
-.soin-month { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
-.soin-body { flex: 1; }
-.soin-name { font-size: 14px; font-weight: 500; color: var(--text); }
-.soin-meta { font-size: 12px; color: var(--text3); margin-top: 3px; }
+.wrap { max-width: 680px; margin: 0 auto; padding: 24px 16px max(110px, env(safe-area-inset-bottom)); }
+.header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--violet-dark); border: 1.5px solid var(--violet); display: flex; align-items: center; justify-content: center; font-family: "Cormorant Garamond", serif; font-size: 22px; color: var(--violet-light); flex-shrink: 0; }
+.header h1 { font-family: "Cormorant Garamond", serif; font-size: 26px; font-weight: 300; color: var(--violet-light); line-height: 1.1; }
+.header p { font-size: 12px; color: var(--text3); }
+.tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+.tab { flex: 1; padding: 12px 8px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); color: var(--text2); font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.tab.on { background: var(--violet-dark); border-color: var(--violet); color: #fff; }
+.intro { font-size: 14px; color: var(--text2); line-height: 1.65; margin-bottom: 14px; }
+.banner { background: rgba(232,160,191,.12); border: 1px solid rgba(232,160,191,.35); color: #f3c9dc; border-radius: 12px; padding: 11px 14px; font-size: 13px; line-height: 1.55; margin-bottom: 14px; }
+.counts { display: flex; gap: 8px; margin-bottom: 16px; }
+.count { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; text-align: center; }
+.count b { display: block; font-family: "Cormorant Garamond", serif; font-size: 28px; font-weight: 400; line-height: 1; color: var(--violet-light); }
+.count span { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; }
+.week { font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--text3); margin: 22px 0 10px; }
+.day { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: 10px; }
+.day-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+.day-title { font-size: 15px; font-weight: 500; text-transform: capitalize; }
+.all { background: none; border: 1px solid var(--border); color: var(--violet-light); border-radius: 20px; font-family: inherit; font-size: 12px; padding: 5px 12px; cursor: pointer; }
+.slots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.slot { border-radius: 12px; border: 1.5px dashed var(--border); background: transparent; color: var(--text2); font-family: inherit; font-size: 16px; padding: 14px 8px; cursor: pointer; text-align: center; min-height: 54px; transition: transform .08s; }
+.slot:active { transform: scale(.97); }
+.slot small { display: block; font-size: 11px; color: var(--text3); margin-top: 1px; }
+.slot.on { border: 1.5px solid var(--violet); background: linear-gradient(135deg, #4a3a7c, #6a4fa6); color: #fff; font-weight: 500; }
+.slot.on small { color: #e4d8fb; }
+.slot.booked { border: 1.5px solid var(--pink); background: var(--pink-bg); color: #ffd9e8; cursor: default; text-align: left; padding: 10px 12px; }
+.slot.booked small { color: #f3c9dc; }
+.empty { text-align: center; padding: 36px 16px; color: var(--text3); font-size: 14px; }
+.savebar { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px max(14px, env(safe-area-inset-bottom)); background: rgba(15,13,22,.96); border-top: 1px solid var(--border); display: none; }
+.savebar.show { display: block; }
+.savebar button { display: block; width: 100%; max-width: 648px; margin: 0 auto; border: 0; border-radius: 14px; padding: 16px; font-family: inherit; font-size: 17px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #6a4fa6, #9b7ddb); cursor: pointer; }
+.savebar button:disabled { opacity: .6; }
+.toast { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); background: #2d6a3f; color: #fff; padding: 12px 20px; border-radius: 30px; font-size: 14px; font-weight: 500; z-index: 50; display: none; }
+.month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.month-nav button { background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text2); padding: 8px 14px; font-size: 14px; cursor: pointer; font-family: inherit; }
+.month-label { font-family: "Cormorant Garamond", serif; font-size: 22px; flex: 1; }
+.soin-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 14px; }
+.soin-date { min-width: 52px; text-align: center; }
+.soin-day { font-size: 24px; font-family: "Cormorant Garamond", serif; color: var(--violet-light); line-height: 1; }
+.soin-month { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; }
+.soin-name { font-size: 14px; font-weight: 500; }
+.soin-meta { font-size: 12px; color: var(--text3); margin-top: 2px; }
 .soin-student { font-size: 13px; color: var(--text2); margin-top: 6px; }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 500; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 500; margin-left: 6px; }
 .badge-included { background: rgba(163,230,53,.12); color: var(--green); }
 .badge-paid { background: rgba(155,125,219,.15); color: var(--violet-light); }
-.empty { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 14px; }
-.invoice-block { background: var(--card); border: 1px solid rgba(163,230,53,.25); border-radius: 16px; padding: 22px; margin-top: 28px; }
-.invoice-title { font-family: "Cormorant Garamond", serif; font-size: 20px; font-weight: 300; color: var(--green); margin-bottom: 16px; }
-.invoice-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text2); }
-.invoice-row:last-child { border-bottom: none; }
-.invoice-total { font-size: 16px; font-weight: 500; color: var(--text); }
-.invoice-total-val { font-family: "Cormorant Garamond", serif; font-size: 28px; color: var(--green); }
+.invoice { background: var(--card); border: 1px solid rgba(163,230,53,.25); border-radius: 16px; padding: 20px; margin-top: 24px; }
+.invoice h3 { font-family: "Cormorant Garamond", serif; font-size: 20px; font-weight: 300; color: var(--green); margin-bottom: 12px; }
+.invoice .row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text2); }
+.invoice .total { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 15px; font-weight: 500; }
+.invoice .total b { font-family: "Cormorant Garamond", serif; font-size: 28px; color: var(--green); }
 .spinner { width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--violet); border-radius: 50%; animation: spin .8s linear infinite; margin: 60px auto; }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
-<div id="auth-screen" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:36px 32px;max-width:360px;width:100%;text-align:center">
-    <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;color:var(--violet-light);margin-bottom:6px">Aude</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:28px">Soins Bien-être · Yely in the Air</div>
-    <input type="password" id="pwd-input" placeholder="Mot de passe" onkeydown="if(event.key==='Enter')checkPwd()"
-      style="width:100%;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;font-family:inherit;text-align:center;letter-spacing:0.1em;margin-bottom:12px">
-    <div id="pwd-error" style="font-size:12px;color:#e87a7a;min-height:18px;margin-bottom:10px"></div>
-    <button onclick="checkPwd()" style="width:100%;padding:12px;background:var(--violet-dark);border:1px solid var(--violet);border-radius:10px;color:var(--violet-light);font-size:14px;font-family:inherit;cursor:pointer">Accéder</button>
-  </div>
-</div>
+<div class="toast" id="toast"></div>
 <div class="wrap">
   <div class="header">
     <div class="avatar">A</div>
-    <div class="header-text">
-      <h1>Aude</h1>
-      <p>Soins Bien-être · Yely in the Air · Mercredis 14h–19h</p>
-    </div>
+    <div><h1>Aude</h1><p>Soins Bien-être · Yely in the Air</p></div>
   </div>
-
-  <div class="month-nav">
-    <button onclick="changeMonth(-1)">←</button>
-    <div class="month-label" id="month-label">…</div>
-    <button onclick="changeMonth(1)">→</button>
+  <div class="tabs">
+    <button class="tab on" id="tab-slots" onclick="showTab('slots')">Mes créneaux</button>
+    <button class="tab" id="tab-soins" onclick="showTab('soins')">Mes soins</button>
   </div>
-
   <div id="content"><div class="spinner"></div></div>
 </div>
+<div class="savebar" id="savebar"><button id="savebtn" onclick="save()">Valider mes choix</button></div>
 
 <script>
-const SUPABASE_URL = 'https://xayixasuyuranscustyw.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhheWl4YXN1eXVyYW5zY3VzdHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MjIwMTIsImV4cCI6MjA5ODE5ODAxMn0.Kp_cJd5YMtbFZnUvUhd-4wMf0enjcBWsGzjwQSnAPP4';
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const API = 'https://xayixasuyuranscustyw.supabase.co/functions/v1/aude-portal';
+const T = new URLSearchParams(location.search).get('t') || '';
+const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let data = null, tab = 'slots', month = null;
+const changes = new Map();   // "date|HH:MM" -> 'validated' | 'proposed' (état voulu)
 
-const PWD_HASH = '8b4f2a9c3e1d7b6f0a5c8e2d4f1b9a3c'; // sha256-like placeholder, replaced below
-const CORRECT = 'soins2026';
-function checkPwd() {
-  const val = document.getElementById('pwd-input').value;
-  if (val === CORRECT) {
-    document.getElementById('auth-screen').style.display = 'none';
-    loadMonth();
-  } else {
-    document.getElementById('pwd-error').textContent = 'Mot de passe incorrect';
-    document.getElementById('pwd-input').value = '';
-    document.getElementById('pwd-input').focus();
-  }
+async function call(body) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: T, ...body }) });
+  return { status: r.status, data: await r.json().catch(() => ({})) };
+}
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2600); }
+const key = s => s.date + '|' + s.time;
+const label = t => t.replace(':00', 'h').replace(':', 'h');
+function dayLabel(d) { return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); }
+function mondayOf(d) { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toISOString().slice(0, 10); }
+function weekLabel(m) { const a = new Date(m + 'T12:00:00'), b = new Date(a); b.setDate(a.getDate() + 6); const f = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); return `Semaine du ${f(a)} au ${f(b)}`; }
+
+function effective(s) { return changes.has(key(s)) ? changes.get(key(s)) : s.status; }
+
+function renderSlots() {
+  const slots = data.slots;
+  const on = slots.filter(s => effective(s) === 'validated').length;
+  const off = slots.filter(s => effective(s) === 'proposed').length;
+  const booked = slots.filter(s => s.status === 'booked').length;
+  let html = '';
+  if (!data.visibleToStudents) html += `<div class="banner">Pour l'instant, les élèves ne voient pas encore ces créneaux dans l'app : Ana activera la nouvelle réservation quand tu auras validé les tiens.</div>`;
+  html += `<p class="intro">La salle Terre est libre sur ces horaires. <b>Coche ceux où tu veux accueillir des élèves</b> : seuls les créneaux que tu valides apparaissent dans l'app. Un soin dure 50 minutes.</p>`;
+  html += `<div class="counts"><div class="count"><b>${on}</b><span>Validés</span></div><div class="count"><b>${off}</b><span>À valider</span></div><div class="count"><b>${booked}</b><span>Réservés</span></div></div>`;
+  if (!slots.length) html += `<div class="empty">Aucun créneau proposé pour le moment.<br>Ils apparaissent automatiquement dès que la salle Terre est libre.</div>`;
+  let curWeek = '', byDay = {};
+  slots.forEach(s => { (byDay[s.date] = byDay[s.date] || []).push(s); });
+  Object.keys(byDay).sort().forEach(d => {
+    const w = mondayOf(d);
+    if (w !== curWeek) { curWeek = w; html += `<div class="week">${weekLabel(w)}</div>`; }
+    const list = byDay[d];
+    const free = list.filter(s => s.status !== 'booked');
+    const allOn = free.length && free.every(s => effective(s) === 'validated');
+    html += `<div class="day"><div class="day-head"><div class="day-title">${dayLabel(d)}</div>${free.length ? `<button class="all" onclick="toggleDay('${d}')">${allOn ? 'Tout décocher' : 'Tout cocher'}</button>` : ''}</div><div class="slots">`;
+    list.forEach(s => {
+      const k = key(s), end = String(parseInt(s.time) + 1).padStart(2, '0') + ':00';
+      if (s.status === 'booked') {
+        const b = s.booking || {};
+        html += `<div class="slot booked">🔒 ${label(s.time)}–${label(end)}<small>Réservé · ${esc((b.name || '').split(' ')[0])}</small><small>${esc(b.type || '')}${b.included ? ' · inclus abo' : ''}</small></div>`;
+      } else {
+        const v = effective(s) === 'validated';
+        html += `<button class="slot ${v ? 'on' : ''}" onclick="toggle('${k}')">${v ? '✓ ' : ''}${label(s.time)}–${label(end)}<small>${v ? 'Validé' : 'Pas encore validé'}</small></button>`;
+      }
+    });
+    html += `</div></div>`;
+  });
+  document.getElementById('content').innerHTML = html;
+  const n = changes.size;
+  document.getElementById('savebar').classList.toggle('show', n > 0);
+  document.getElementById('savebtn').textContent = `Valider mes choix (${n} changement${n > 1 ? 's' : ''})`;
 }
 
-let currentYear = new Date().getFullYear();
-let currentMonth = new Date().getMonth(); // 0-indexed
-
-const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
-const SOIN_DESC = { relaxant: 'Réflexologie infrarouge · Massage crânien', drainant_visage: 'Réflexologie infrarouge · Drainage lymphatique' };
-
-function pad(n) { return String(n).padStart(2, '0'); }
-
-function changeMonth(d) {
-  currentMonth += d;
-  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-  loadMonth();
+function original(k) { const s = data.slots.find(x => key(x) === k); return s ? s.status : null; }
+function setState(k, v) { if (original(k) === v) changes.delete(k); else changes.set(k, v); }
+function toggle(k) { const s = data.slots.find(x => key(x) === k); setState(k, effective(s) === 'validated' ? 'proposed' : 'validated'); renderSlots(); }
+function toggleDay(d) {
+  const free = data.slots.filter(s => s.date === d && s.status !== 'booked');
+  const allOn = free.every(s => effective(s) === 'validated');
+  free.forEach(s => setState(key(s), allOn ? 'proposed' : 'validated'));
+  renderSlots();
 }
 
-async function loadMonth() {
-  const start = `${currentYear}-${pad(currentMonth+1)}-01`;
-  const endDate = new Date(currentYear, currentMonth+1, 1);
-  const end = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-01`;
-
-  document.getElementById('month-label').textContent = `${MONTHS_FR[currentMonth]} ${currentYear}`;
-  document.getElementById('content').innerHTML = '<div class="spinner"></div>';
-
-  const { data: soins, error } = await db
-    .from('soin_appointments')
-    .select('*')
-    .gte('date', start)
-    .lt('date', end)
-    .eq('status', 'confirmed')
-    .order('date')
-    .order('start_time');
-
-  if (error) {
-    document.getElementById('content').innerHTML = `<div class="empty">Erreur : ${error.message}</div>`;
-    return;
-  }
-
-  const list = soins || [];
-  const paid = list.filter(s => !s.is_included);
-  const included = list.filter(s => s.is_included);
-  const totalCA = paid.length * 40;
-
-  // Stats
-  const statsHtml = `
-    <div class="stats-row">
-      <div class="stat"><div class="stat-val">${list.length}</div><div class="stat-lbl">Soins total</div></div>
-      <div class="stat"><div class="stat-val">${paid.length}</div><div class="stat-lbl">Payants</div></div>
-      <div class="stat"><div class="stat-val">${included.length}</div><div class="stat-lbl">Inclus abo</div></div>
-    </div>`;
-
-  // Cards
-  let cardsHtml = '';
-  if (list.length === 0) {
-    cardsHtml = '<div class="empty">Aucun soin ce mois</div>';
-  } else {
-    const today = new Date().toISOString().slice(0,10);
-    const upcoming = list.filter(s => s.date >= today);
-    const past = list.filter(s => s.date < today);
-
-    if (upcoming.length) {
-      cardsHtml += `<div class="section-title" style="margin-top:4px">À venir</div>`;
-      cardsHtml += upcoming.map(s => soinCard(s)).join('');
-    }
-    if (past.length) {
-      cardsHtml += `<div class="section-title" style="margin-top:20px">Passés</div>`;
-      cardsHtml += past.map(s => soinCard(s)).join('');
-    }
-  }
-
-  // Invoice block
-  const invoiceRows = paid.map(s => {
-    const d = new Date(s.date);
-    const label = `${d.getDate()} ${MONTHS_FR[d.getMonth()].slice(0,3)} · ${s.start_time?.slice(0,5)} · ${SOIN_NAMES[s.soin_type]||s.soin_type}`;
-    return `<div class="invoice-row"><span>${label}</span><span>40 €</span></div>`;
-  }).join('');
-
-  const invoiceHtml = `
-    <div class="invoice-block">
-      <div class="invoice-title">🧾 Récapitulatif facturation</div>
-      ${paid.length === 0
-        ? '<div style="font-size:13px;color:var(--text3)">Aucun soin payant ce mois</div>'
-        : `${invoiceRows}
-           <div class="invoice-row" style="margin-top:8px">
-             <span class="invoice-total">Total à facturer à Yely in the Air</span>
-             <span class="invoice-total-val">${totalCA} €</span>
-           </div>`}
-      ${included.length ? `<div style="font-size:11px;color:var(--text3);margin-top:10px">${included.length} soin${included.length>1?'s':''} inclus dans abonnement — non facturé${included.length>1?'s':''}</div>` : ''}
-    </div>`;
-
-  document.getElementById('content').innerHTML = statsHtml + cardsHtml + invoiceHtml;
+async function save() {
+  const btn = document.getElementById('savebtn'); btn.disabled = true; btn.textContent = 'Enregistrement…';
+  const validate = [], release = [];
+  changes.forEach((v, k) => { const [date, time] = k.split('|'); (v === 'validated' ? validate : release).push({ date, time }); });
+  const { data: r } = await call({ op: 'save', validate, release });
+  btn.disabled = false;
+  if (!r.ok) { toast('Oups, réessaie dans un instant'); renderSlots(); return; }
+  changes.clear();
+  await load();
+  toast(r.refused?.length ? 'Enregistré (certains créneaux sont déjà réservés)' : 'C\'est enregistré ✨');
 }
 
 function soinCard(s) {
-  const d = new Date(s.date);
-  const day = d.getDate();
-  const month = MONTHS_FR[d.getMonth()].slice(0,3).toLowerCase();
-  const time = s.start_time?.slice(0,5) || '';
-  const badge = s.is_included
-    ? '<span class="badge badge-included">Inclus abo</span>'
-    : '<span class="badge badge-paid">40 €</span>';
-  return `
-    <div class="soin-card">
-      <div class="soin-date">
-        <div class="soin-day">${day}</div>
-        <div class="soin-month">${month}</div>
-      </div>
-      <div class="soin-body">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span class="soin-name">${SOIN_NAMES[s.soin_type]||s.soin_type}</span>
-          ${badge}
-        </div>
-        <div class="soin-meta">${time} · 50 min · ${SOIN_DESC[s.soin_type]||''}</div>
-        <div class="soin-student">👤 ${s.student_name}${s.student_phone ? ' · ' + s.student_phone : ''}</div>
-        ${s.notes ? `<div style="font-size:11px;color:var(--text3);margin-top:6px;font-style:italic">${s.notes}</div>` : ''}
-      </div>
-    </div>`;
+  const d = new Date(s.date + 'T12:00:00');
+  const badge = s.is_included ? '<span class="badge badge-included">Inclus abo</span>' : '<span class="badge badge-paid">40 €</span>';
+  return `<div class="soin-card"><div class="soin-date"><div class="soin-day">${d.getDate()}</div><div class="soin-month">${MONTHS[d.getMonth()].slice(0, 3)}</div></div><div>
+    <div class="soin-name">${esc(s.type)}${badge}</div><div class="soin-meta">${esc(s.start_time)} · 50 min</div>
+    <div class="soin-student">👤 ${esc(s.student_name)}${s.student_phone ? ' · ' + esc(s.student_phone) : ''}</div>${s.notes ? `<div class="soin-meta" style="font-style:italic;margin-top:6px">${esc(s.notes)}</div>` : ''}</div></div>`;
 }
 
-// loadMonth() appelé après auth seulement
+function renderSoins() {
+  const [y, m] = data.month.split('-').map(Number);
+  const list = data.monthAppointments;
+  const today = new Date().toISOString().slice(0, 10);
+  const paid = list.filter(s => !s.is_included), inc = list.filter(s => s.is_included);
+  let html = `<div class="month-nav"><button onclick="changeMonth(-1)">←</button><div class="month-label">${MONTHS[m - 1]} ${y}</div><button onclick="changeMonth(1)">→</button></div>`;
+  html += `<div class="counts"><div class="count"><b>${list.length}</b><span>Soins</span></div><div class="count"><b>${paid.length}</b><span>Payants</span></div><div class="count"><b>${inc.length}</b><span>Inclus abo</span></div></div>`;
+  if (!list.length) html += `<div class="empty">Aucun soin ce mois-ci</div>`;
+  const up = list.filter(s => s.date >= today), past = list.filter(s => s.date < today);
+  if (up.length) html += `<div class="week">À venir</div>` + up.map(soinCard).join('');
+  if (past.length) html += `<div class="week">Passés</div>` + past.map(soinCard).join('');
+  html += `<div class="invoice"><h3>🧾 Récapitulatif facturation</h3>` + (paid.length
+    ? paid.map(s => { const d = new Date(s.date + 'T12:00:00'); return `<div class="row"><span>${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)} · ${esc(s.start_time)} · ${esc(s.type)}</span><span>40 €</span></div>`; }).join('') + `<div class="total"><span>Total à facturer à Yely in the Air</span><b>${paid.length * 40} €</b></div>`
+    : `<div style="font-size:13px;color:var(--text3)">Aucun soin payant ce mois-ci</div>`)
+    + (inc.length ? `<div style="font-size:11px;color:var(--text3);margin-top:10px">${inc.length} soin${inc.length > 1 ? 's' : ''} inclus dans un abonnement : non facturé${inc.length > 1 ? 's' : ''} à l'unité</div>` : '') + `</div>`;
+  document.getElementById('content').innerHTML = html;
+  document.getElementById('savebar').classList.remove('show');
+}
+
+async function changeMonth(d) { const [y, m] = month.split('-').map(Number); const x = new Date(Date.UTC(y, m - 1 + d, 1)); month = x.toISOString().slice(0, 7); await load(); }
+function showTab(t) { tab = t; document.getElementById('tab-slots').classList.toggle('on', t === 'slots'); document.getElementById('tab-soins').classList.toggle('on', t === 'soins'); render(); }
+function render() { if (tab === 'slots') renderSlots(); else renderSoins(); }
+
+async function load() {
+  const { status, data: d } = await call({ op: 'get', month });
+  if (status !== 200) { document.getElementById('content').innerHTML = `<div class="empty">Ce lien n'est pas valide.<br>Ouvre l'espace depuis le dernier mail ou message d'Ana.</div>`; return false; }
+  data = d; month = d.month; render(); return true;
+}
+if (!T) document.getElementById('content').innerHTML = `<div class="empty">Ouvre cette page depuis ton lien personnel.</div>`; else load();
 </script>
 </body>
 </html>

@@ -1661,13 +1661,15 @@ async function loadCoursesForDay(date) {
   document.getElementById('cours-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const dateStr = localDateStr(date);
   const isSoinDay = [1, 4].includes(date.getDay());
-  const SOIN_SLOTS = ['17:00', '18:00', '19:00', '20:00'];
   const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
 
-  const [{ data, error }, { data: cancelledData }, { data: soinData }] = await Promise.all([
+  const [{ data, error }, { data: cancelledData }, { data: soinData }, { data: soinSlots }] = await Promise.all([
     db.from('course_instances_with_availability').select('*').eq('date', dateStr).eq('status', 'active').order('start_time'),
     db.from('course_instances_with_availability').select('*').eq('date', dateStr).eq('status', 'cancelled').order('start_time'),
-    isSoinDay ? db.from('soin_appointments').select('*').eq('date', dateStr).eq('status', 'confirmed') : Promise.resolve({ data: [] }),
+    // Mon soin éventuel (je ne lis que MES réservations)
+    isSoinDay ? db.from('soin_appointments').select('*').eq('date', dateStr).eq('status', 'confirmed').eq('student_id', currentUser.id) : Promise.resolve({ data: [] }),
+    // Créneaux de soin ouverts ce jour-là (validés par Aude) + lesquels sont déjà pris : heures seulement, aucune donnée personnelle
+    isSoinDay ? db.rpc('soin_slots_for_day', { p_date: dateStr }) : Promise.resolve({ data: [] }),
   ]);
 
   // Récupérer mes réservations annulées pour voir quels cours annulés j'avais
@@ -1750,14 +1752,15 @@ async function loadCoursesForDay(date) {
 
   // Ajouter les créneaux soins le lundi et le jeudi
   if (isSoinDay) {
-    const takenSlots = new Set((soinData || []).map(s => (s.start_time || '').slice(0, 5)));
-    const mySlot = (soinData || []).find(s => s.student_id === currentUser.id);
+    const openSlots = (soinSlots || []).map(s => s.slot);
+    const takenSlots = new Set((soinSlots || []).filter(s => s.taken).map(s => s.slot));
+    const mySlot = (soinData || [])[0];
     const isPast = date < new Date(new Date().setHours(0,0,0,0));
     if (mySlot) {
       const t = (mySlot.start_time || '').slice(0, 5);
       allCards.push({ time: t + ':00', html: renderSoinSlotCard(dateStr, t, mySlot, false) });
-    } else if (!isPast) {
-      allCards.push({ time: SOIN_SLOTS[0] + ':00', html: renderSoinGroup(dateStr, SOIN_SLOTS, takenSlots) });
+    } else if (!isPast && openSlots.length) {
+      allCards.push({ time: openSlots[0] + ':00', html: renderSoinGroup(dateStr, openSlots, takenSlots) });
     }
     allCards.sort((a, b) => a.time.localeCompare(b.time));
   }

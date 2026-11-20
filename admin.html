@@ -159,6 +159,10 @@ select option { background: var(--bg); }
           <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
           Planning
         </button>
+        <button class="nav-link" onclick="showPage('salles')" id="nav-salles">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75h16.5v16.5H3.75zM3.75 12h16.5M12 3.75v16.5"/></svg>
+          Salles
+        </button>
         <button class="nav-link" onclick="showPage('eleves')" id="nav-eleves">
           <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
           Élèves
@@ -320,9 +324,135 @@ function showPage(page) {
   document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
   const nav = document.getElementById('nav-' + page);
   if (nav) nav.classList.add('active');
-  const pages = { dashboard: loadDashboard, planning: loadPlanning, eleves: loadEleves, profs: loadProfs, revenus: loadRevenus, forfaits: loadForfaits, merch: loadMerch, soins: loadSoins };
+  const pages = { dashboard: loadDashboard, planning: loadPlanning, salles: loadSalles, eleves: loadEleves, profs: loadProfs, revenus: loadRevenus, forfaits: loadForfaits, merch: loadMerch, soins: loadSoins };
   if (pages[page]) pages[page]();
 }
+
+// ── SALLES : grille horaire façon Google Agenda (Air | Terre) ─────────────
+let sallesOffset = 0;
+let sallesRoom = 'both';
+const SALLES_START = 8, SALLES_END = 23, SALLES_PX = 46;
+
+function salleColor(name, color) {
+  if (color) return color;
+  const n = (name || '').toLowerCase();
+  if (n.includes('pole')) return '#9b7ddb';
+  if (n.includes('cerceau') || n.includes('aérien') || n.includes('aerien') || n.includes('upside')) return '#6aa9e0';
+  if (n.includes('yoga')) return '#7dbf9b';
+  if (n.includes('pilates') || n.includes('reformer')) return '#e0a36a';
+  if (n.includes('souplesse')) return '#d98fb5';
+  return '#8f86b5';
+}
+const sMin = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + (m || 0); };
+const sHM = min => `${String(Math.floor(min / 60)).padStart(2, '0')}h${String(min % 60).padStart(2, '0') === '00' ? '' : String(min % 60).padStart(2, '0')}`;
+
+async function loadSalles() {
+  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
+  const today = new Date();
+  const dow = today.getDay() === 0 ? 6 : today.getDay() - 1;
+  const monday = new Date(today); monday.setDate(today.getDate() - dow + sallesOffset * 7); monday.setHours(0, 0, 0, 0);
+  const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
+  const from = localDateStr(days[0]), to = localDateStr(days[6]);
+  const [{ data: inst }, { data: slots }, { data: appts }] = await Promise.all([
+    db.from('course_instances_with_availability').select('*').gte('date', from).lte('date', to).eq('status', 'active'),
+    db.from('soin_slots').select('*').gte('date', from).lte('date', to),
+    db.from('soin_appointments').select('*').gte('date', from).lte('date', to).eq('status', 'confirmed'),
+  ]);
+  window._salles = { days, inst: inst || [], slots: slots || [], appts: appts || [], picked: null };
+  renderSalles();
+}
+
+function sallesEvents(day) {
+  const d = localDateStr(day), S = window._salles, out = [];
+  S.inst.filter(c => c.date === d).forEach(c => {
+    const start = sMin(c.start_time), end = start + (c.duration_minutes || 60);
+    const name = c.custom_name || c.discipline_name || 'Cours';
+    out.push({
+      room: c.salle === 'terre' ? 'terre' : 'air', start, end, kind: c.is_practice ? 'practice' : 'course',
+      color: salleColor(name, c.discipline_color), title: name.replace(/\s*[🚺🎀⭕️🙃]+/gu, '').trim(),
+      sub: `${sHM(start)}–${sHM(end)}${c.teacher_name ? ' · ' + c.teacher_name.split(' ')[0] : ''}`,
+      count: `${c.booked_count ?? 0}/${c.max_students ?? '?'}`,
+      detail: `${name} · ${sHM(start)}–${sHM(end)} · salle ${c.salle === 'terre' ? 'Terre' : 'Air'} · ${c.teacher_name || 'professeure à définir'} · ${c.booked_count ?? 0}/${c.max_students ?? '?'} inscrites`,
+    });
+  });
+  S.slots.filter(s => s.date === d).forEach(s => {
+    const start = sMin(s.start_time), a = S.appts.find(x => x.date === d && sMin(x.start_time) === start);
+    out.push({
+      room: 'terre', start, end: start + 60, kind: a ? 'soin-booked' : s.status === 'validated' ? 'soin-valid' : 'soin-prop',
+      color: '#e8a0bf', title: a ? `🌿 ${(a.student_name || '').split(' ')[0]}` : s.status === 'validated' ? '🌿 Validé · libre' : '🌿 Proposé',
+      sub: a ? `${a.is_included ? 'inclus abo' : '40 €'}` : s.status === 'validated' ? 'visible dans l\'app' : 'en attente d\'Aude',
+      detail: a ? `Soin avec Aude · ${sHM(start)} · ${a.student_name} · ${a.is_included ? 'inclus dans l\'abonnement' : '40 €'}`
+        : `Créneau de soin ${sHM(start)}–${sHM(start + 60)} · ${s.status === 'validated' ? 'validé par Aude, réservable dans l\'app' : 'proposé, Aude ne l\'a pas encore validé (invisible pour les élèves)'}`,
+    });
+  });
+  return out;
+}
+
+function layoutLane(evs) {
+  evs.sort((a, b) => a.start - b.start || a.end - b.end);
+  const cols = [];
+  evs.forEach(e => { let c = cols.findIndex(end => end <= e.start); if (c < 0) { c = cols.length; cols.push(0); } cols[c] = e.end; e.col = c; });
+  evs.forEach(e => { e.cols = Math.max(1, ...evs.filter(o => o.start < e.end && o.end > e.start).map(o => o.col + 1)); });
+  return evs;
+}
+
+function renderSalles() {
+  const S = window._salles, days = S.days, H = SALLES_END - SALLES_START, rooms = sallesRoom === 'both' ? ['air', 'terre'] : [sallesRoom];
+  const todayStr = localDateStr(new Date()), nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const fmt = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  const chip = (k, l) => `<button onclick="sallesRoom='${k}';renderSalles()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);cursor:pointer;font-size:12px;font-family:inherit;background:${sallesRoom === k ? 'var(--violet-dark)' : 'var(--bg2)'};color:${sallesRoom === k ? '#fff' : 'var(--text2)'}">${l}</button>`;
+  const counts = { prop: S.slots.filter(s => s.status === 'proposed').length, valid: S.slots.filter(s => s.status === 'validated').length, booked: S.appts.length };
+  let hourLabels = '';
+  for (let h = SALLES_START; h < SALLES_END; h++) hourLabels += `<div style="position:absolute;top:${(h - SALLES_START) * SALLES_PX - 7}px;right:6px;font-size:10px;color:var(--text3)">${h}h</div>`;
+  const lines = `repeating-linear-gradient(to bottom, transparent 0, transparent ${SALLES_PX - 1}px, rgba(155,125,219,.14) ${SALLES_PX - 1}px, rgba(155,125,219,.14) ${SALLES_PX}px)`;
+  let cols = '';
+  days.forEach(day => {
+    const isToday = localDateStr(day) === todayStr, evs = sallesEvents(day);
+    let lanes = '';
+    rooms.forEach(room => {
+      const laneEvs = layoutLane(evs.filter(e => e.room === room));
+      let blocks = laneEvs.map(e => {
+        const top = Math.max(0, (e.start - SALLES_START * 60) * SALLES_PX / 60), h = Math.max(20, (e.end - e.start) * SALLES_PX / 60 - 2);
+        const idx = evs.indexOf(e), w = 100 / e.cols, left = e.col * w;
+        let st = `background:${e.color}33;border-left:3px solid ${e.color};color:var(--text)`;
+        if (e.kind === 'practice') st = `background:repeating-linear-gradient(135deg,${e.color}22,${e.color}22 6px,${e.color}0f 6px,${e.color}0f 12px);border-left:3px dashed ${e.color};color:var(--text2)`;
+        if (e.kind === 'soin-prop') st = `background:transparent;border:1.5px dashed #e8a0bf;color:#f3c9dc`;
+        if (e.kind === 'soin-valid') st = `background:rgba(232,160,191,.22);border:1.5px solid #e8a0bf;color:#ffd9e8`;
+        if (e.kind === 'soin-booked') st = `background:rgba(232,160,191,.6);border:1.5px solid #e8a0bf;color:#fff`;
+        return `<div onclick="sallesPick(${JSON.stringify(e.detail).replace(/"/g, '&quot;')})" style="position:absolute;top:${top}px;height:${h}px;left:calc(${left}% + 1px);width:calc(${w}% - 3px);${st};border-radius:6px;padding:2px 5px;overflow:hidden;font-size:10.5px;line-height:1.25;cursor:pointer" title="${esc(e.detail)}"><b style="font-weight:600">${esc(e.title)}</b>${e.count ? ` <span style="opacity:.85">${e.count}</span>` : ''}<div style="opacity:.8">${esc(e.sub)}</div></div>`;
+      }).join('');
+      const nowLine = isToday && nowMin >= SALLES_START * 60 && nowMin < SALLES_END * 60 ? `<div style="position:absolute;left:0;right:0;top:${(nowMin - SALLES_START * 60) * SALLES_PX / 60}px;height:2px;background:#e87a7a;z-index:2"></div>` : '';
+      lanes += `<div style="position:relative;flex:1;min-width:0;height:${H * SALLES_PX}px;background:${lines};${room === 'terre' && rooms.length > 1 ? 'border-left:1px solid var(--border);' : ''}">${blocks}${nowLine}</div>`;
+    });
+    const head = `<div style="padding:6px 4px;text-align:center;font-size:12px;${isToday ? 'color:#fff;background:var(--violet-dark);border-radius:8px' : 'color:var(--text2)'}"><div style="font-weight:600">${day.toLocaleDateString('fr-FR', { weekday: 'short' })} ${day.getDate()}</div>${rooms.length > 1 ? '<div style="display:flex;font-size:9px;letter-spacing:.08em;text-transform:uppercase;opacity:.75"><span style="flex:1">Air</span><span style="flex:1">Terre</span></div>' : ''}</div>`;
+    cols += `<div style="min-width:0;border-left:1px solid var(--border)">${head}<div style="display:flex">${lanes}</div></div>`;
+  });
+  const legend = (c, t, dashed) => `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><i style="width:12px;height:12px;border-radius:3px;background:${dashed ? 'transparent' : c + '55'};border:1.5px ${dashed ? 'dashed' : 'solid'} ${c};display:inline-block"></i>${t}</span>`;
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div><div class="page-title">Salles</div><div class="page-sub">Qui occupe quelle salle, à quelle heure · semaine du ${fmt(days[0])} au ${fmt(days[6])}</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="sallesOffset--;loadSalles()">←</button>
+        <button class="btn btn-ghost btn-sm" onclick="sallesOffset=0;loadSalles()">Aujourd'hui</button>
+        <button class="btn btn-ghost btn-sm" onclick="sallesOffset++;loadSalles()">→</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${chip('both', 'Les deux salles')}${chip('air', 'Air')}${chip('terre', 'Terre')}</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+      ${legend('#9b7ddb', 'Cours')}
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><i style="width:12px;height:12px;border-radius:3px;border:1.5px dashed #9b7ddb;display:inline-block;background:repeating-linear-gradient(135deg,#9b7ddb22,#9b7ddb22 3px,transparent 3px,transparent 6px)"></i>Pratique libre</span>
+      ${legend('#e8a0bf', 'Soin proposé (Aude doit valider)', true)}${legend('#e8a0bf', 'Soin validé, libre')}${legend('#e8a0bf', 'Soin réservé')}
+      <span style="font-size:11px;color:var(--text3)">Soins cette semaine : ${counts.prop} proposés · ${counts.valid} validés · ${counts.booked} réservés</span>
+    </div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--bg2)">
+      <div style="display:grid;grid-template-columns:40px repeat(7,minmax(${rooms.length > 1 ? 150 : 100}px,1fr));min-width:${40 + 7 * (rooms.length > 1 ? 150 : 100)}px">
+        <div style="position:relative;margin-top:${rooms.length > 1 ? 38 : 28}px;height:${H * SALLES_PX}px">${hourLabels}</div>
+        ${cols}
+      </div>
+    </div>
+    <div id="salles-detail" style="margin-top:12px;min-height:22px;font-size:13px;color:var(--text2)">Touche un bloc pour voir le détail.</div>`;
+}
+function sallesPick(txt) { const el = document.getElementById('salles-detail'); if (el) el.textContent = txt; }
 
 // ── DASHBOARD ─────────────────────────────────────────────
 async function loadDashboard() {
