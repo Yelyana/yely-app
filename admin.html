@@ -326,6 +326,7 @@ function showPage(page) {
 
 // ── PLANNING : grille horaire façon Google Agenda (Air | Terre) + locations de salles ─────────────
 let planningRoom = 'both';
+let planningShowCancelled = false;
 const PL_START = 8, PL_END = 23, PL_PX = 46;
 
 function salleColor(name, color) {
@@ -359,6 +360,14 @@ function planningGridHtml(days, instances, slots, appts, rentals, cpCountMap) {
     const d = localDateStr(day), out = [];
     (instances || []).filter(ci => ci.date === d).forEach(ci => {
       const c = ci.courses || {};
+      if (ci.status === 'cancelled') {
+        if (c.is_active === false) return;   // anciennes versions du planning : on n'affiche pas
+        const cs = sMin(ci.start_time || c.start_time);
+        out.push({ room: c.salle === 'terre' ? 'terre' : 'air', start: cs, end: cs + (c.duration_minutes || 60), kind: 'cancelled', color: '#8a829a',
+          title: 'Annulé · ' + (c.custom_name || c.disciplines?.name || 'Cours').replace(/\p{Extended_Pictographic}|\uFE0F/gu, '').trim(),
+          sub: sHM(cs), count: '', click: `viewInstance('${ci.id}')` });
+        return;
+      }
       const start = sMin(ci.start_time || c.start_time), end = start + (c.duration_minutes || 60);
       const name = c.custom_name || c.disciplines?.name || 'Cours';
       const enrolled = (ci.bookings || []).filter(b => b.status === 'confirmed').length + (cpCountMap[ci.id] || 0);
@@ -397,6 +406,7 @@ function planningGridHtml(days, instances, slots, appts, rentals, cpCountMap) {
         const top = Math.max(0, (e.start - PL_START * 60) * PL_PX / 60), h = Math.max(20, (e.end - e.start) * PL_PX / 60 - 2), w = 100 / e.cols;
         let st = `background:${e.color}33;border-left:3px solid ${e.color};color:var(--text)`;
         if (e.kind === 'practice') st = `background:repeating-linear-gradient(135deg,${e.color}22,${e.color}22 6px,${e.color}0f 6px,${e.color}0f 12px);border-left:3px dashed ${e.color};color:var(--text2)`;
+        if (e.kind === 'cancelled') st = `background:repeating-linear-gradient(135deg,rgba(138,130,155,.18),rgba(138,130,155,.18) 5px,transparent 5px,transparent 10px);border-left:3px solid #8a829a;color:var(--text3);text-decoration:line-through`;
         if (e.kind === 'rental') st = `background:rgba(224,184,74,.28);border:1.5px solid #e0b84a;color:#fff3c9`;
         if (e.kind === 'soin-prop') st = `background:transparent;border:1.5px dashed #e8a0bf;color:#f3c9dc`;
         if (e.kind === 'soin-valid') st = `background:rgba(232,160,191,.22);border:1.5px solid #e8a0bf;color:#ffd9e8`;
@@ -410,9 +420,9 @@ function planningGridHtml(days, instances, slots, appts, rentals, cpCountMap) {
     const head = `<div style="padding:6px 4px;text-align:center;font-size:12px;${isToday ? 'color:#fff;background:var(--violet-dark);border-radius:8px' : 'color:var(--text2)'}"><div style="font-weight:600">${day.toLocaleDateString('fr-FR', { weekday: 'short' })} ${day.getDate()}</div>${rooms.length > 1 ? '<div style="display:flex;font-size:9px;letter-spacing:.08em;text-transform:uppercase;opacity:.75"><span style="flex:1">Air</span><span style="flex:1">Terre</span></div>' : ''}</div>`;
     return `<div style="min-width:0;border-left:1px solid var(--border)">${head}<div style="display:flex">${lanes}</div></div>`;
   }).join('');
-  const colMin = rooms.length > 1 ? 150 : 100;
+  const colMin = rooms.length > 1 ? 118 : 96;
   return `<div style="overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--bg2)">
-    <div style="display:grid;grid-template-columns:40px repeat(7,minmax(${colMin}px,1fr));min-width:${40 + 7 * colMin}px">
+    <div style="display:grid;grid-template-columns:40px repeat(${days.length},minmax(${colMin}px,1fr));min-width:${40 + days.length * colMin}px">
       <div style="position:relative;margin-top:${rooms.length > 1 ? 38 : 28}px;height:${H * PL_PX}px">${hourLabels}</div>${cols}
     </div></div>
     <div id="pl-detail" style="margin-top:10px;min-height:20px;font-size:13px;color:var(--text2)">Touche un cours pour l'ouvrir, une location pour la modifier.</div>`;
@@ -910,9 +920,9 @@ async function renderPlanning() {
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const [{ data: instances }, { data: soinData }] = await Promise.all([
     db.from('course_instances')
-      .select('*, start_time, courses(id, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name)), bookings(id,status), replacement:replacement_teacher_id(full_name)')
+      .select('*, start_time, courses(id, is_active, custom_name, start_time, duration_minutes, max_students, is_recurring, is_practice, level, description, salle, discipline_id, disciplines(name,color), profiles(full_name)), bookings(id,status), replacement:replacement_teacher_id(full_name)')
       .gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd))
-      .neq('status', 'cancelled').order('date').order('courses(start_time)'),
+      .neq('status', planningShowCancelled ? '__aucun__' : 'cancelled').order('date').order('courses(start_time)'),
     db.from('soin_appointments').select('*').gte('date', fmt(rangeStart)).lte('date', fmt(rangeEnd)).eq('status','confirmed').order('date').order('start_time'),
   ]);
   const todayStrP = fmt(new Date());
@@ -945,7 +955,7 @@ async function renderPlanning() {
   (cpVisits || []).filter(v => v.source === 'wellpass').forEach(v => { wpCountMap[v.course_instance_id] = (wpCountMap[v.course_instance_id] || 0) + 1; });
 
   const nowMs = Date.now();
-  const visibleInstances = (instances || []).filter(ci => {
+  const visibleInstances = (instances || []).filter(ci => ci.status !== 'cancelled').filter(ci => {
     const [h, m] = (ci.start_time || ci.courses?.start_time || '00:00').split(':').map(Number);
     const dur = ci.courses?.duration_minutes || 0;
     const courseEnd = new Date(ci.date + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00');
@@ -996,7 +1006,9 @@ async function renderPlanning() {
   let gridHtml = '';
   if (planningView === 'week') {
     const days7 = Array.from({ length: 7 }, (_, i) => { const d = new Date(rangeStart); d.setDate(rangeStart.getDate() + i); return d; });
-    gridHtml = planningGridHtml(days7, instances, slotData, soinData, rentalData, cpCountMap);
+    const sunStr = fmt(days7[6]);
+    const hasSun = (instances || []).some(ci => ci.date === sunStr && ci.status !== 'cancelled') || (rentalData || []).some(r => r.date === sunStr) || (slotData || []).some(x => x.date === sunStr);
+    gridHtml = planningGridHtml(hasSun ? days7 : days7.slice(0, 6), instances, slotData, soinData, rentalData, cpCountMap);
   } else {
     const firstDow = (rangeStart.getDay() + 6) % 7;
     const daysInMonth = rangeEnd.getDate();
@@ -1040,7 +1052,7 @@ async function renderPlanning() {
         <button onclick="planningOffset=0;renderPlanning()" style="padding:4px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:12px">Aujourd'hui</button>
       </div>
       <div style="display:flex;gap:6px">${chip(planningView === 'week', 'Semaine', "planningView='week';planningOffset=0;renderPlanning()")}${chip(planningView === 'month', 'Mois', "planningView='month';planningOffset=0;renderPlanning()")}</div>
-      ${planningView === 'week' ? `<div style="display:flex;gap:6px;margin-left:auto">${chip(planningRoom === 'both', 'Les deux salles', "planningRoom='both';renderPlanning()")}${chip(planningRoom === 'air', '🦇 Air', "planningRoom='air';renderPlanning()")}${chip(planningRoom === 'terre', '🌿 Terre', "planningRoom='terre';renderPlanning()")}</div>` : ''}
+      ${planningView === 'week' ? `<div style="display:flex;gap:6px;margin-left:auto">${chip(planningRoom === 'both', 'Les deux salles', "planningRoom='both';renderPlanning()")}${chip(planningRoom === 'air', '🦇 Air', "planningRoom='air';renderPlanning()")}${chip(planningRoom === 'terre', '🌿 Terre', "planningRoom='terre';renderPlanning()")}${chip(planningShowCancelled, 'Séances annulées', "planningShowCancelled=!planningShowCancelled;renderPlanning()")}</div>` : ''}
     </div>
     ${legendHtml}
     ${gridHtml}
