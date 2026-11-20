@@ -2110,13 +2110,15 @@ async function openStudentDetail(studentId) {
         <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
           <span>${esc(c.products?.name)}</span><span class="badge badge-violet">${c.sessions_remaining} séances</span>
         </div>`).join('')||''}
-      ${subs?.filter(s=>s.status==='active'||s.status==='pending_cancel').map(s=>`
+      ${subs?.filter(s=>s.status==='active'||s.status==='pending_cancel'||s.status==='past_due').map(s=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
           <span>${esc(s.products?.name)}</span>
           <div style="display:flex;align-items:center;gap:6px">
             ${s.status==='pending_cancel'
               ? `<span class="badge" style="background:rgba(232,122,122,0.15);color:#e87a7a">Annulation en cours</span>`
-              : `<span class="badge badge-green">Actif</span>`}
+              : s.status==='past_due'
+                ? `<span class="badge" style="background:rgba(232,122,122,0.15);color:#e87a7a">Paiement échoué · en pause</span>`
+                : `<span class="badge badge-green">Actif</span>`}
             ${s.stripe_subscription_id && s.status==='active' && (!s.engagement_until || new Date(s.engagement_until) <= new Date())
               ? `<button onclick="adminCancelSubscription('${s.stripe_subscription_id}','${studentId}')" style="font-size:10px;color:#e87a7a;background:transparent;border:1px solid #e87a7a;border-radius:6px;padding:2px 7px;cursor:pointer">Annuler</button>`
               : s.engagement_until && new Date(s.engagement_until) > new Date()
