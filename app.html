@@ -671,11 +671,11 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           <span style="font-size:28px">🌿</span>
           <div>
-            <div class="section-label" style="margin:0 0 2px">Avec Aude · Tous les lundis et jeudis</div>
+            <div class="section-label" style="margin:0 0 2px">Avec Aude · Créneaux dans le planning</div>
             <div class="serif" style="font-size:20px;color:var(--violet)">Soins bien-être</div>
           </div>
         </div>
-        <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:14px">Une parenthèse pour toi. Aude t'accueille le lundi et le jeudi, de 17h à 21h, en salle Terre pour deux soins en profondeur. Hors engagement : 40€ tarif élève Yely (50€ tarif public).</p>
+        <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:14px">Une parenthèse pour toi. Aude t'accueille en salle Terre, sur les créneaux qu'elle ouvre dans le planning, pour deux soins en profondeur. Hors engagement : 40€ tarif élève Yely (50€ tarif public).</p>
         <div style="background:linear-gradient(135deg,rgba(232,160,191,0.22),rgba(155,125,219,0.12));border:1.5px solid rgba(232,160,191,0.5);border-radius:12px;padding:14px 16px;margin-bottom:12px">
           <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#b03a6a;margin-bottom:4px">⭐ Abonnement avec engagement 12 mois</div>
           <div class="serif" style="font-size:20px;color:var(--text1);line-height:1.2;margin-bottom:2px">4 soins inclus par an</div>
@@ -699,7 +699,7 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
             <div class="serif" style="font-size:18px;color:#b03a6a;margin-left:12px;white-space:nowrap">40€<div style="font-size:10px;color:var(--text3);text-decoration:line-through;text-align:right;margin-top:-2px">50€</div></div>
           </div>
         </div>
-        <button onclick="navigate('reserver')" style="display:block;width:100%;text-align:center;background:rgba(232,160,191,0.14);border:1px solid rgba(232,160,191,0.4);color:#b03a6a;border-radius:50px;padding:12px 24px;font-size:13px;font-weight:600;cursor:pointer">Réserver mon soin dans le planning →</button><div style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">Les soins apparaissent dans le planning du lundi et du jeudi</div>
+        <button onclick="navigate('reserver')" style="display:block;width:100%;text-align:center;background:rgba(232,160,191,0.14);border:1px solid rgba(232,160,191,0.4);color:#b03a6a;border-radius:50px;padding:12px 24px;font-size:13px;font-weight:600;cursor:pointer">Réserver mon soin dans le planning →</button><div style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">Les soins apparaissent dans le planning, aux jours où Aude les ouvre</div>
       </div>
 
       <!-- EVJF -->
@@ -1309,8 +1309,14 @@ async function loadHome() {
   // Prochain cours
   const today0 = localDateStr(new Date());
   const { data: allMyBookings } = await db.from('bookings')
-    .select('id, course_instances(id, date, status, start_time, courses(custom_name, start_time, duration_minutes, level, salle, description, disciplines(name,color), profiles(full_name)))')
+    .select('id, course_instances(id, date, status, start_time, courses(teacher_id, custom_name, start_time, duration_minutes, level, salle, description, disciplines(name,color)))')
     .eq('student_id', currentUser.id).eq('status', 'confirmed');
+  {
+    const tIds = [...new Set((allMyBookings || []).map(b => b.course_instances?.courses?.teacher_id).filter(Boolean))];
+    const { data: tProfs } = tIds.length ? await db.from('public_profiles').select('id, full_name').in('id', tIds) : { data: [] };
+    const tNames = Object.fromEntries((tProfs || []).map(t => [t.id, t.full_name]));
+    (allMyBookings || []).forEach(b => { const c = b.course_instances?.courses; if (c) c.profiles = { full_name: tNames[c.teacher_id] || '' }; });
+  }
   const futureBookings = (allMyBookings || [])
     .filter(b => b.course_instances?.date >= today0 && b.course_instances?.status !== 'cancelled')
     .sort((a, b) => a.course_instances.date.localeCompare(b.course_instances.date));
@@ -1660,7 +1666,8 @@ async function loadCoursesForWeek() {
 async function loadCoursesForDay(date) {
   document.getElementById('cours-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const dateStr = localDateStr(date);
-  const isSoinDay = [1, 4].includes(date.getDay());
+  const isSoinDay = true;   // les soins peuvent être ouverts n'importe quel jour par Aude
+  const isPastDay = date < new Date(new Date().setHours(0, 0, 0, 0));
   const SOIN_NAMES = { relaxant: 'Soin Relaxant', drainant_visage: 'Soin Drainant Visage' };
 
   const [{ data, error }, { data: cancelledData }, { data: soinData }, { data: soinSlots }] = await Promise.all([
@@ -1678,7 +1685,8 @@ async function loadCoursesForDay(date) {
     ? await db.from('bookings').select('course_instance_id').eq('student_id', currentUser.id).in('course_instance_id', cancelledIds).eq('status', 'cancelled')
     : { data: [] };
   const myCancelledSet = new Set((myCancelledBookings || []).map(b => b.course_instance_id));
-  if ((error || !data?.length) && !(cancelledData?.length) && !isSoinDay) {
+  const hasSoinToShow = (soinData || []).length > 0 || (!isPastDay && (soinSlots || []).length > 0);
+  if ((error || !data?.length) && !(cancelledData?.length) && !hasSoinToShow) {
     document.getElementById('cours-list').innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
       <div style="font-size:28px;margin-bottom:8px">🌿</div>
       <div>Pas de cours ce jour</div>
@@ -1750,7 +1758,7 @@ async function loadCoursesForDay(date) {
     }),
   ].sort((a, b) => a.time.localeCompare(b.time));
 
-  // Ajouter les créneaux soins le lundi et le jeudi
+  // Ajouter les créneaux soins ouverts par Aude (n'importe quel jour)
   if (isSoinDay) {
     const openSlots = (soinSlots || []).map(s => s.slot);
     const takenSlots = new Set((soinSlots || []).filter(s => s.taken).map(s => s.slot));
@@ -3181,11 +3189,17 @@ async function loadCommunaute() {
   const el = document.getElementById('communaute-content');
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const { data: posts, error: postsError } = await db.from('community_posts')
-    .select('*, profiles(full_name, avatar_url, role), community_reactions(emoji, user_id), community_comments(id), community_poll_votes(option_index, user_id)')
+    .select('*, community_reactions(emoji, user_id), community_comments(id), community_poll_votes(option_index, user_id)')
     .eq('audience', 'all')
     .order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(30);
 
   if (postsError) { el.innerHTML = `<div style="padding:20px;color:var(--text3);font-size:13px">Erreur de chargement</div>`; return; }
+  {
+    const aIds = [...new Set((posts || []).map(p => p.author_id).filter(Boolean))];
+    const { data: aRows } = aIds.length ? await db.from('public_profiles').select('id, full_name, avatar_url, role').in('id', aIds) : { data: [] };
+    const aMap = Object.fromEntries((aRows || []).map(a => [a.id, a]));
+    (posts || []).forEach(p => { p.profiles = aMap[p.author_id] || null; });
+  }
   if (!posts?.length) {
     el.innerHTML = `<div style="text-align:center;padding:48px 20px">
       <div style="font-size:40px;margin-bottom:12px">🦇</div>
@@ -3392,7 +3406,13 @@ async function openComments(postId) {
   document.getElementById('booking-modal').classList.add('open');
   document.getElementById('modal-content').innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
   const { data: comments } = await db.from('community_comments')
-    .select('*, profiles(full_name, avatar_url)').eq('post_id', postId).order('created_at');
+    .select('*').eq('post_id', postId).order('created_at');
+  {
+    const cIds = [...new Set((comments || []).map(c => c.author_id).filter(Boolean))];
+    const { data: cRows } = cIds.length ? await db.from('public_profiles').select('id, full_name, avatar_url').in('id', cIds) : { data: [] };
+    const cMap = Object.fromEntries((cRows || []).map(a => [a.id, a]));
+    (comments || []).forEach(c => { c.profiles = cMap[c.author_id] || { full_name: 'Compte supprimé', avatar_url: null }; });
+  }
   document.getElementById('modal-content').innerHTML = `
     <h3 class="serif" style="font-size:20px;margin-bottom:16px">Commentaires</h3>
     <div style="max-height:300px;overflow-y:auto;margin-bottom:12px">
@@ -4095,8 +4115,8 @@ async function openTeacherProfileModal(teacherId, teacherName) {
   document.getElementById('booking-modal').classList.add('open');
 
   const query = teacherId
-    ? db.from('profiles').select('id, full_name, avatar_url, bio, instagram_url').eq('id', teacherId).maybeSingle()
-    : db.from('profiles').select('id, full_name, avatar_url, bio, instagram_url').eq('full_name', teacherName).maybeSingle();
+    ? db.from('public_profiles').select('id, full_name, avatar_url, bio, instagram_url').eq('id', teacherId).maybeSingle()
+    : db.from('public_profiles').select('id, full_name, avatar_url, bio, instagram_url').eq('full_name', teacherName).maybeSingle();
   const { data: prof } = await query;
 
   const name = prof?.full_name || teacherName || 'Professeure';
@@ -5032,8 +5052,8 @@ async function loadUserProfile(user) {
       let refCode, codeExists;
       do {
         refCode = 'YELY-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-        const { count } = await db.from('profiles').select('id', { count: 'exact', head: true }).eq('referral_code', refCode);
-        codeExists = count > 0;
+        const { data: refTaken } = await db.rpc('referral_code_exists', { p_code: refCode });
+        codeExists = !!refTaken;
       } while (codeExists);
       const fullName = user.user_metadata?.full_name || user.email;
       await db.from('profiles').insert({ id: user.id, email: user.email, full_name: fullName, referral_code: refCode });

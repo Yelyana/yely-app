@@ -32,7 +32,11 @@ body { background: var(--bg); color: var(--text); font-family: "DM Sans", system
 .count { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; text-align: center; }
 .count b { display: block; font-family: "Cormorant Garamond", serif; font-size: 28px; font-weight: 400; line-height: 1; color: var(--violet-light); }
 .count span { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; }
-.week { font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--text3); margin: 22px 0 10px; }
+.week { font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--text3); margin: 22px 0 10px; cursor: pointer; }
+details.wk > summary { list-style: none; }
+details.wk > summary::-webkit-details-marker { display: none; }
+details.wk > summary::before { content: '▸ '; }
+details.wk[open] > summary::before { content: '▾ '; }
 .day { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: 10px; }
 .day-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
 .day-title { font-size: 15px; font-weight: 500; text-transform: capitalize; }
@@ -94,6 +98,8 @@ const T = new URLSearchParams(location.search).get('t') || '';
 const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let data = null, tab = 'slots', month = null;
+const openWeeks = new Set();
+function weekToggled(w, open) { if (!openWeeks.size) { document.querySelectorAll('details.wk[open]').forEach(d => {}); } open ? openWeeks.add(w) : openWeeks.delete(w); }
 const changes = new Map();   // "date|HH:MM" -> 'validated' | 'proposed' (état voulu)
 
 async function call(body) {
@@ -119,26 +125,33 @@ function renderSlots() {
   html += `<p class="intro">La salle Terre est libre sur ces horaires. <b>Coche ceux où tu veux accueillir des élèves</b> : seuls les créneaux que tu valides apparaissent dans l'app. Un soin dure 50 minutes.</p>`;
   html += `<div class="counts"><div class="count"><b>${on}</b><span>Validés</span></div><div class="count"><b>${off}</b><span>À valider</span></div><div class="count"><b>${booked}</b><span>Réservés</span></div></div>`;
   if (!slots.length) html += `<div class="empty">Aucun créneau proposé pour le moment.<br>Ils apparaissent automatiquement dès que la salle Terre est libre.</div>`;
-  let curWeek = '', byDay = {};
+  const byDay = {}, weeks = {};
   slots.forEach(s => { (byDay[s.date] = byDay[s.date] || []).push(s); });
-  Object.keys(byDay).sort().forEach(d => {
-    const w = mondayOf(d);
-    if (w !== curWeek) { curWeek = w; html += `<div class="week">${weekLabel(w)}</div>`; }
-    const list = byDay[d];
-    const free = list.filter(s => s.status !== 'booked');
-    const allOn = free.length && free.every(s => effective(s) === 'validated');
-    html += `<div class="day"><div class="day-head"><div class="day-title">${dayLabel(d)}</div>${free.length ? `<button class="all" onclick="toggleDay('${d}')">${allOn ? 'Tout décocher' : 'Tout cocher'}</button>` : ''}</div><div class="slots">`;
-    list.forEach(s => {
-      const k = key(s), end = String(parseInt(s.time) + 1).padStart(2, '0') + ':00';
-      if (s.status === 'booked') {
-        const b = s.booking || {};
-        html += `<div class="slot booked">🔒 ${label(s.time)}–${label(end)}<small>Réservé · ${esc((b.name || '').split(' ')[0])}</small><small>${esc(b.type || '')}${b.included ? ' · inclus abo' : ''}</small></div>`;
-      } else {
-        const v = effective(s) === 'validated';
-        html += `<button class="slot ${v ? 'on' : ''}" onclick="toggle('${k}')">${v ? '✓ ' : ''}${label(s.time)}–${label(end)}<small>${v ? 'Validé' : 'Pas encore validé'}</small></button>`;
-      }
+  Object.keys(byDay).sort().forEach(d => { (weeks[mondayOf(d)] = weeks[mondayOf(d)] || []).push(d); });
+  const weekKeys = Object.keys(weeks).sort();
+  weekKeys.forEach((w, wi) => {
+    const wSlots = weeks[w].flatMap(d => byDay[d]);
+    const wOn = wSlots.filter(s => effective(s) === 'validated').length, wOff = wSlots.filter(s => effective(s) === 'proposed').length;
+    const isOpen = openWeeks.size ? openWeeks.has(w) : wi === 0;
+    html += `<details class="wk" ${isOpen ? 'open' : ''} ontoggle="weekToggled('${w}', this.open)"><summary class="week">${weekLabel(w)} <span style="text-transform:none;letter-spacing:0;font-weight:400">· ${wOn} validé${wOn > 1 ? 's' : ''}, ${wOff} à valider</span></summary>`;
+    weeks[w].forEach(d => {
+      const list = byDay[d];
+      const free = list.filter(s => s.status !== 'booked');
+      const allOn = free.length && free.every(s => effective(s) === 'validated');
+      html += `<div class="day"><div class="day-head"><div class="day-title">${dayLabel(d)}</div>${free.length ? `<button class="all" onclick="toggleDay('${d}')">${allOn ? 'Tout décocher' : 'Tout cocher'}</button>` : ''}</div><div class="slots">`;
+      list.forEach(s => {
+        const k = key(s), end = String(parseInt(s.time) + 1).padStart(2, '0') + ':00';
+        if (s.status === 'booked') {
+          const b = s.booking || {};
+          html += `<div class="slot booked">🔒 ${label(s.time)}–${label(end)}<small>Réservé · ${esc((b.name || '').split(' ')[0])}</small><small>${esc(b.type || '')}${b.included ? ' · inclus abo' : ''}</small></div>`;
+        } else {
+          const v = effective(s) === 'validated';
+          html += `<button class="slot ${v ? 'on' : ''}" onclick="toggle('${k}')">${v ? '✓ ' : ''}${label(s.time)}–${label(end)}<small>${v ? 'Validé' : 'Pas encore validé'}</small></button>`;
+        }
+      });
+      html += `</div></div>`;
     });
-    html += `</div></div>`;
+    html += `</details>`;
   });
   document.getElementById('content').innerHTML = html;
   const n = changes.size;
