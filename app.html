@@ -2095,15 +2095,14 @@ async function loadBookingForm(ci) {
     if (!p) return false;
     // Un crédit heures creuses n'est utilisable que sur un cours éligible
     if (p.heures_creuses && !ciIsHC) return false;
-    // Un cours heures creuses n'accepte que des crédits heures creuses (ou abo illimité)
-    if (ciIsHC && !p.heures_creuses && p.type !== 'abo_illimite') return false;
+    // Un cours heures creuses accepte aussi les cartes standard (corrigé le 25 nov. 2026)
     if (isPractice) return p.for_practice || p.type === 'abo_illimite';
     return p[flag];
   });
 
   // Abonnements actifs — sur practice libre, seul l'illimité compte
   const { data: subsAll } = await db.from('subscriptions').select('*, products(*)').eq('student_id', currentUser.id).eq('status', 'active');
-  const subs = isPractice ? (subsAll || []).filter(s => s.products?.type === 'abo_illimite') : (subsAll || []).filter(s => s.products?.[flag]);
+  const subs = isPractice ? (subsAll || []).filter(s => s.products?.type === 'abo_illimite') : (subsAll || []).filter(s => s.products?.[flag] && (!s.products.heures_creuses || ciIsHC));
 
   // Produits à acheter — filtrés par le bon flag
   const [{ data: products }, { data: pastOrders }] = await Promise.all([

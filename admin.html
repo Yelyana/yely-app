@@ -937,7 +937,7 @@ async function loadPlanning() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
   const [{ data: disciplines }, { data: teachers }] = await Promise.all([
     db.from('disciplines').select('*').order('sort_order'),
-    db.from('profiles').select('id, full_name').in('role', ['teacher','assistant']),
+    db.from('profiles').select('id, full_name').in('role', ['teacher','assistant','admin']).order('full_name'),
   ]);
   window._planningDisciplines = disciplines || [];
   window._planningTeachers = teachers || [];
@@ -2534,7 +2534,7 @@ async function savePaymentModal() {
 // ── PROFESSEURS ───────────────────────────────────────────
 async function loadProfs() {
   document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div>Chargement…</div>';
-  const { data: teachers } = await db.from('profiles').select('*, teachers(*)').in('role', ['teacher','assistant']);
+  const { data: teachers } = await db.from('profiles').select('*, teachers(*)').in('role', ['teacher','assistant','admin']);
   window._teacherCache = {};
   (teachers || []).forEach(t => window._teacherCache[t.id] = t);
   const isAdmin = currentProfile?.role === 'admin';
