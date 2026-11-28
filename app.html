@@ -554,7 +554,8 @@ src="https://www.facebook.com/tr?id=1091402319884215&ev=PageView&noscript=1"
       <div style="font-size:13px;color:var(--text2)" id="week-label"></div>
       <button class="btn btn-ghost btn-sm" onclick="changeWeek(1)">Suiv. ›</button>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+    <div id="plan-filters" style="margin:2px 0 10px"></div>
+    <div id="plan-view-row" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
       <div class="week-days" id="week-days" style="margin-bottom:0;flex:1"></div>
       <div style="display:flex;gap:2px;flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:3px">
         <button id="view-btn-day" onclick="setPlanningView('day')" style="padding:4px 10px;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;background:var(--violet);color:#fff;transition:all 0.15s">Jour</button>
@@ -1540,6 +1541,7 @@ async function loadReserver() {
     }
   }
   renderWeekDays();
+  renderPlanFilters();
   await loadCoursesForDay(selectedDay);
 }
 
@@ -1597,6 +1599,124 @@ function setPlanningView(view) {
   else loadCoursesForDay(selectedDay || new Date());
 }
 
+
+// ── Filtres du planning (discipline + niveau) ──────────────────────────
+const PLAN_DISCS = [
+  { k: 'pole', label: 'Pole dance', re: /pole|équilibres|equilibres/ },
+  { k: 'cerceau', label: 'Cerceau aérien', re: /cerceau/ },
+  { k: 'pilates', label: 'Pilates', re: /pilates/ },
+  { k: 'yoga', label: 'Yoga', re: /yoga/ },
+  { k: 'souplesse', label: 'Souplesse', re: /souplesse|stretch|strech/ },
+  { k: 'danse', label: 'Floorwork', re: /floorwork|danse/ },
+  { k: 'workshop', label: 'Workshops', re: /workshop/ },
+];
+const PLAN_LEVELS = [
+  { k: 'initiation', label: 'Initiation' },
+  { k: 'débutant', label: 'Débutant' },
+  { k: 'intermédiaire', label: 'Intermédiaire' },
+];
+let _planFilter = { disc: '', lvl: '' };
+try { const f = JSON.parse(localStorage.getItem('yely_plan_filter') || 'null'); if (f) _planFilter = { disc: f.disc || '', lvl: f.lvl || '' }; } catch (e) {}
+
+function planFiltersActive() { return !!(_planFilter.disc || _planFilter.lvl); }
+
+function planMatches(ci) {
+  if (_planFilter.disc) {
+    const d = PLAN_DISCS.find(x => x.k === _planFilter.disc);
+    const name = ((ci.custom_name || ci.discipline_name || '') + '').toLowerCase();
+    if (d && !d.re.test(name)) return false;
+  }
+  if (_planFilter.lvl) {
+    const l = (ci.level || '').toLowerCase();
+    if (!l) return true;
+    if (l.includes('tous')) {
+      // Le Pole Dance « tous niveaux » n'est pas pour l'initiation
+      if (_planFilter.lvl === 'initiation' && (ci.custom_name || '').trim().toLowerCase() === 'pole dance') return false;
+      return true;
+    }
+    if (!l.includes(_planFilter.lvl)) return false;
+  }
+  return true;
+}
+
+function setPlanFilter(kind, key) {
+  _planFilter[kind] = _planFilter[kind] === key ? '' : key;
+  try { localStorage.setItem('yely_plan_filter', JSON.stringify(_planFilter)); } catch (e) {}
+  renderPlanFilters();
+  if (_planningView === 'week') loadCoursesForWeek(); else loadCoursesForDay(selectedDay || new Date());
+}
+function clearPlanFilters() {
+  _planFilter = { disc: '', lvl: '' };
+  try { localStorage.removeItem('yely_plan_filter'); } catch (e) {}
+  renderPlanFilters();
+  if (_planningView === 'week') loadCoursesForWeek(); else loadCoursesForDay(selectedDay || new Date());
+}
+
+function renderPlanFilters() {
+  const el = document.getElementById('plan-filters');
+  if (!el) return;
+  const chip = (kind, o) => {
+    const on = _planFilter[kind] === o.k;
+    return `<button onclick="setPlanFilter('${kind}','${o.k}')" style="flex-shrink:0;padding:6px 12px;border-radius:50px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid ${on ? 'var(--violet)' : 'var(--border)'};background:${on ? 'var(--violet)' : 'var(--card)'};color:${on ? '#fff' : 'var(--text2)'}">${o.label}</button>`;
+  };
+  const row = (label, kind, list) => `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+    <span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:50px;flex-shrink:0">${label}</span>
+    <div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px">${list.map(o => chip(kind, o)).join('')}</div>
+  </div>`;
+  el.innerHTML = row('Je veux', 'disc', PLAN_DISCS) + row('Niveau', 'lvl', PLAN_LEVELS)
+    + (planFiltersActive() ? `<div style="text-align:right"><button onclick="clearPlanFilters()" style="background:none;border:none;color:var(--violet-light);font-size:12px;font-weight:600;cursor:pointer;padding:2px 0">✕ Effacer les filtres</button></div>` : '');
+  const vr = document.getElementById('plan-view-row');
+  if (vr) vr.style.display = planFiltersActive() ? 'none' : '';
+}
+
+async function loadFilteredWeek() {
+  renderPlanFilters();
+  const container = document.getElementById('cours-list');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const dates = getWeekDates();
+  const dateStrs = dates.map(d => localDateStr(d));
+  const { data: act } = await db.from('course_instances_with_availability').select('*').in('date', dateStrs).eq('status', 'active').order('date').order('start_time');
+  const all = act || [];
+  const ids = all.map(d => d.id);
+  const courseIds = [...new Set(all.map(d => d.course_id).filter(Boolean))];
+  const [{ data: myBookings }, { data: myWaitlist }, { data: flags }] = await Promise.all([
+    ids.length ? db.from('bookings').select('course_instance_id,status').eq('student_id', currentUser.id).in('course_instance_id', ids) : { data: [] },
+    ids.length ? db.from('waitlist').select('course_instance_id,position').eq('student_id', currentUser.id).in('course_instance_id', ids) : { data: [] },
+    courseIds.length ? db.from('courses').select('id,is_practice,heures_creuses').in('id', courseIds) : { data: [] },
+  ]);
+  const bk = {}; (myBookings || []).forEach(b => bk[b.course_instance_id] = b.status);
+  const wl = {}; (myWaitlist || []).forEach(w => wl[w.course_instance_id] = w.position);
+  const fl = {}; (flags || []).forEach(c => fl[c.id] = c);
+  const now = Date.now();
+  const list = all.filter(ci => {
+    ci.is_practice = fl[ci.course_id]?.is_practice || false;
+    ci.heures_creuses = fl[ci.course_id]?.heures_creuses || false;
+    const [h, m] = (ci.start_time || '00:00').split(':').map(Number);
+    const end = new Date(ci.date + 'T' + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':00');
+    end.setMinutes(end.getMinutes() + (ci.duration_minutes || 60));
+    ci._isPast = end.getTime() <= now;
+    return !ci._isPast && planMatches(ci);
+  });
+  const label = document.getElementById('week-label') ? document.getElementById('week-label').textContent : '';
+  if (!list.length) {
+    container.innerHTML = `<div style="text-align:center;padding:36px 20px;color:var(--text3)">
+      <div style="font-size:28px;margin-bottom:8px">🔎</div>
+      <div style="margin-bottom:14px">Aucun cours à venir cette semaine pour cette recherche.</div>
+      <button class="btn btn-ghost btn-sm" onclick="changeWeek(1)">Voir la semaine suivante ›</button>
+    </div>`;
+    return;
+  }
+  let html = `<div style="font-size:12px;color:var(--text3);margin-bottom:6px">${list.length} cours à venir cette semaine</div>`;
+  dateStrs.forEach((ds, i) => {
+    const day = list.filter(ci => ci.date === ds);
+    if (!day.length) return;
+    const d = dates[i];
+    html += `<div class="section-label">${JOURS_FULL[(d.getDay() || 7) - 1]} ${d.getDate()} ${d.toLocaleString('fr', { month: 'long' })}</div>`
+      + day.map(ci => renderCourseCard(ci, bk[ci.id], wl[ci.id] !== undefined, wl[ci.id])).join('');
+  });
+  container.innerHTML = html;
+}
+
 function renderMiniCourseCard(ci, myStatus, isWaiting, waitlistPos) {
   const isBooked = myStatus === 'confirmed';
   const isFull = ci.spots_remaining <= 0;
@@ -1622,6 +1742,7 @@ function renderMiniCourseCard(ci, myStatus, isWaiting, waitlistPos) {
 }
 
 async function loadCoursesForWeek() {
+  if (planFiltersActive()) return loadFilteredWeek();
   const container = document.getElementById('cours-list');
   container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const dates = getWeekDates();
@@ -1682,6 +1803,7 @@ async function loadCoursesForWeek() {
 }
 
 async function loadCoursesForDay(date) {
+  if (planFiltersActive()) return loadFilteredWeek();
   document.getElementById('cours-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const dateStr = localDateStr(date);
   const isSoinDay = true;   // les soins peuvent être ouverts n'importe quel jour par Aude
